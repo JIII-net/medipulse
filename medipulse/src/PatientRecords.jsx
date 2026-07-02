@@ -175,6 +175,13 @@ const EMPTY_FORM = {
   blood_type: "", philhealth_no: "", senior_citizen_id: "", pwd_id: "",
 };
 
+const Field = ({ label, value, onChange, type = "text", placeholder }) => (
+  <div>
+    <label className={labelCls}>{label}</label>
+    <input className={inputCls} type={type} value={value} onChange={onChange} placeholder={placeholder || ""} />
+  </div>
+);
+
 function RegisterView({ onDone, onBack }) {
   const { session } = useAuth();
   const [f, setF] = useState(EMPTY_FORM);
@@ -231,13 +238,6 @@ function RegisterView({ onDone, onBack }) {
     onDone(data.id);
   };
 
-  const Field = ({ label, k, type = "text", placeholder }) => (
-    <div>
-      <label className={labelCls}>{label}</label>
-      <input className={inputCls} type={type} value={f[k]} onChange={set(k)} placeholder={placeholder || ""} />
-    </div>
-  );
-
   return (
     <div className="fade-up max-w-3xl">
       <button onClick={onBack} className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-100 font-body mb-5">
@@ -266,11 +266,11 @@ function RegisterView({ onDone, onBack }) {
         <div className={card}>
           <div className="font-display font-semibold text-slate-100 mb-4">Identity</div>
           <div className="grid sm:grid-cols-2 gap-4">
-            <Field label="FIRST NAME *" k="first_name" />
-            <Field label="MIDDLE NAME" k="middle_name" />
-            <Field label="LAST NAME *" k="last_name" />
-            <Field label="SUFFIX" k="suffix" placeholder="Jr., III…" />
-            <Field label="BIRTHDATE *" k="birthdate" type="date" />
+            <Field label="FIRST NAME *"  value={f.first_name} onChange={set("first_name")} />
+            <Field label="MIDDLE NAME"  value={f.middle_name} onChange={set("middle_name")} />
+            <Field label="LAST NAME *"  value={f.last_name} onChange={set("last_name")} />
+            <Field label="SUFFIX" placeholder="Jr., III…"  value={f.suffix} onChange={set("suffix")} />
+            <Field label="BIRTHDATE *" type="date"  value={f.birthdate} onChange={set("birthdate")} />
             <div>
               <label className={labelCls}>SEX *</label>
               <select className={inputCls} value={f.sex} onChange={set("sex")}>
@@ -284,7 +284,7 @@ function RegisterView({ onDone, onBack }) {
                 <option>single</option><option>married</option><option>widowed</option><option>separated</option><option>annulled</option>
               </select>
             </div>
-            <Field label="NATIONALITY" k="nationality" />
+            <Field label="NATIONALITY"  value={f.nationality} onChange={set("nationality")} />
           </div>
           {f.birthdate && <div className="mt-3 font-mono2 text-xs text-teal-300">Computed age: {calcAge(f.birthdate)} years</div>}
         </div>
@@ -292,12 +292,12 @@ function RegisterView({ onDone, onBack }) {
         <div className={card}>
           <div className="font-display font-semibold text-slate-100 mb-4">Contact & address</div>
           <div className="grid sm:grid-cols-2 gap-4">
-            <Field label="MOBILE PHONE" k="phone" placeholder="09xx xxx xxxx" />
-            <Field label="EMAIL" k="email" type="email" />
-            <Field label="STREET / HOUSE NO." k="line1" />
-            <Field label="BARANGAY" k="barangay" />
-            <Field label="CITY / MUNICIPALITY" k="city" />
-            <Field label="PROVINCE" k="province" />
+            <Field label="MOBILE PHONE" placeholder="09xx xxx xxxx"  value={f.phone} onChange={set("phone")} />
+            <Field label="EMAIL" type="email"  value={f.email} onChange={set("email")} />
+            <Field label="STREET / HOUSE NO." value={f.line1} onChange={set("line1")} />
+            <Field label="BARANGAY"  value={f.barangay} onChange={set("barangay")} />
+            <Field label="CITY / MUNICIPALITY" value={f.city} onChange={set("city")} />
+            <Field label="PROVINCE"  value={f.province} onChange={set("province")} />
           </div>
         </div>
 
@@ -311,9 +311,9 @@ function RegisterView({ onDone, onBack }) {
                 {["A+","A-","B+","B-","AB+","AB-","O+","O-"].map((b) => <option key={b}>{b}</option>)}
               </select>
             </div>
-            <Field label="PHILHEALTH NO." k="philhealth_no" />
-            <Field label="SENIOR CITIZEN ID (if applicable)" k="senior_citizen_id" />
-            <Field label="PWD ID (if applicable)" k="pwd_id" />
+            <Field label="PHILHEALTH NO."  value={f.philhealth_no} onChange={set("philhealth_no")} />
+            <Field label="SENIOR CITIZEN ID (if applicable)"  value={f.senior_citizen_id} onChange={set("senior_citizen_id")} />
+            <Field label="PWD ID (if applicable)"  value={f.pwd_id} onChange={set("pwd_id")} />
           </div>
           <p className="mt-3 text-xs text-slate-500 font-body">Senior citizen and PWD IDs automatically flag the patient for the 20% discount + VAT exemption at billing.</p>
         </div>
