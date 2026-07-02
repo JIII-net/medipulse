@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { AuthProvider, useAuth } from "./lib/AuthContext";
 import { supabase } from "./lib/supabaseClient";
+import PatientRecords from "./PatientRecords";
 
 /* ------------------------------------------------------------------ */
 /*  MediPulse — Patient Management SaaS prototype                      */
@@ -969,6 +970,7 @@ function AppShell() {
               ["landing", "Home"],
               ["doctor", "Doctor signup"],
               ["patient", "Patient portal"],
+              ["records", "Records"],
               ["admin", "Admin"],
             ].map(([id, label]) => (
               <button
@@ -989,6 +991,7 @@ function AppShell() {
       {view === "landing" && <Landing go={setView} />}
       {view === "doctor" && <DoctorSignup go={setView} />}
       {view === "patient" && <PatientPortal />}
+      {view === "records" && <PatientRecords />}
       {view === "admin" && <AdminPortal />}
 
       <footer className="border-t border-slate-800 mt-16">
