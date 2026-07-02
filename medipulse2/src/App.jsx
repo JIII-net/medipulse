@@ -1,10 +1,8 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo } from "react";
 import {
   Stethoscope, Calendar, Search, Star, Check, ChevronRight, ChevronLeft,
-  Shield, Activity, Users, Video, Bell, X, Clock, Zap, Building2, Lock, LogOut, AlertCircle,
+  Shield, Activity, Users, Video, Bell, X, Clock, Zap, Building2, Lock,
 } from "lucide-react";
-import { AuthProvider, useAuth } from "./lib/AuthContext";
-import { supabase } from "./lib/supabaseClient";
 
 /* ------------------------------------------------------------------ */
 /*  MediPulse — Patient Management SaaS prototype                      */
@@ -254,43 +252,15 @@ function Landing({ go }) {
 /* ---------------------- doctor onboarding ------------------------- */
 
 function DoctorSignup({ go }) {
-  const { signUp } = useAuth();
   const [step, setStep] = useState(0);
-  const [form, setForm] = useState({ name: "", email: "", password: "", specialty: "Cardiology", license: "", plan: "pro", annual: true });
+  const [form, setForm] = useState({ name: "", email: "", specialty: "Cardiology", license: "", plan: "pro", annual: true });
   const [done, setDone] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState(null);
   const steps = ["Profile", "Credentials", "Choose plan", "Review"];
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const plan = PLANS.find((p) => p.id === form.plan);
   const price = form.annual ? Math.round(plan.monthly * 0.8) : plan.monthly;
 
   const input = "w-full rounded-2xl bg-slate-900 border border-slate-700 px-4 py-3 text-slate-100 font-body placeholder-slate-500 focus:outline-none focus:border-teal-400";
-
-  const submit = async () => {
-    setSubmitting(true);
-    setError(null);
-    const { error } = await signUp({
-      email: form.email,
-      password: form.password,
-      fullName: form.name,
-      role: "doctor",
-      doctorDetails: {
-        specialty: form.specialty,
-        license: form.license,
-        fee: 0,
-        telehealth: true,
-        planId: form.plan,
-        billingCycle: form.annual ? "annual" : "monthly",
-      },
-    });
-    setSubmitting(false);
-    if (error) {
-      setError(error.message);
-      return;
-    }
-    setDone(true);
-  };
 
   if (done)
     return (
@@ -339,7 +309,6 @@ function DoctorSignup({ go }) {
           <h2 className="font-display text-2xl font-bold text-slate-50 mb-2">Tell us about yourself</h2>
           <input className={input} placeholder="Full name (e.g. Dr. Ana Reyes)" value={form.name} onChange={(e) => set("name", e.target.value)} />
           <input className={input} placeholder="Work email" type="email" value={form.email} onChange={(e) => set("email", e.target.value)} />
-          <input className={input} placeholder="Password (min. 6 characters)" type="password" value={form.password} onChange={(e) => set("password", e.target.value)} />
           <p className="text-xs text-slate-500 font-body flex items-center gap-1.5"><Lock size={12} /> Multi-factor authentication is required for all doctor accounts.</p>
         </div>
       )}
@@ -387,11 +356,6 @@ function DoctorSignup({ go }) {
             ))}
           </div>
           <p className="text-xs text-slate-500 font-body">By continuing you agree to the Terms of Service and the processing of health data under the Data Privacy Act of 2012.</p>
-          {error && (
-            <div className="flex items-start gap-2 text-sm text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-2xl px-4 py-3 font-body">
-              <AlertCircle size={16} className="mt-0.5 shrink-0" /> {error}
-            </div>
-          )}
         </div>
       )}
 
@@ -403,11 +367,10 @@ function DoctorSignup({ go }) {
           <ChevronLeft size={16} /> Back
         </button>
         <button
-          disabled={submitting}
-          onClick={() => (step === 3 ? submit() : setStep(step + 1))}
-          className="px-6 py-2.5 rounded-2xl bg-teal-400 text-slate-950 font-body font-semibold hover:bg-teal-300 transition-colors flex items-center gap-1.5 disabled:opacity-60"
+          onClick={() => (step === 3 ? setDone(true) : setStep(step + 1))}
+          className="px-6 py-2.5 rounded-2xl bg-teal-400 text-slate-950 font-body font-semibold hover:bg-teal-300 transition-colors flex items-center gap-1.5"
         >
-          {step === 3 ? (submitting ? "Creating account…" : "Start free trial") : "Continue"} <ChevronRight size={16} />
+          {step === 3 ? "Start free trial" : "Continue"} <ChevronRight size={16} />
         </button>
       </div>
     </div>
@@ -417,41 +380,9 @@ function DoctorSignup({ go }) {
 /* ------------------------- patient portal ------------------------- */
 
 function BookingModal({ doctor, onClose }) {
-  const { session } = useAuth();
   const [slot, setSlot] = useState(null);
   const [mode, setMode] = useState("clinic");
   const [booked, setBooked] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState(null);
-  const isRealDoctor = typeof doctor.id === "string" && doctor.id.includes("-");
-
-  const confirmBooking = async () => {
-    if (!isRealDoctor || !session?.user?.id) {
-      // Demo doctor (no live Supabase row) — just show the confirmation.
-      setBooked(true);
-      return;
-    }
-    setSaving(true);
-    setSaveError(null);
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const starts_at = tomorrow.toISOString(); // simplified: real app should parse `slot` into an exact time
-    const { error } = await supabase.from("appointments").insert({
-      doctor_id: doctor.id,
-      patient_id: session.user.id,
-      starts_at,
-      ends_at: starts_at,
-      mode,
-      fee_charged: doctor.fee,
-    });
-    setSaving(false);
-    if (error) {
-      setSaveError(error.message);
-      return;
-    }
-    setBooked(true);
-  };
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80" onClick={onClose}>
       <div className="w-full max-w-md rounded-3xl border border-slate-700 bg-slate-900 p-6 fade-up" onClick={(e) => e.stopPropagation()}>
@@ -498,20 +429,15 @@ function BookingModal({ doctor, onClose }) {
                 </button>
               ))}
             </div>
-            {saveError && (
-              <div className="mb-3 flex items-start gap-2 text-sm text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-2xl px-4 py-3 font-body">
-                <AlertCircle size={16} className="mt-0.5 shrink-0" /> {saveError}
-              </div>
-            )}
             <button
-              disabled={!slot || saving}
-              onClick={confirmBooking}
+              disabled={!slot}
+              onClick={() => setBooked(true)}
               className={
                 "w-full py-3 rounded-2xl font-body font-semibold transition-colors " +
-                (slot && !saving ? "bg-teal-400 text-slate-950 hover:bg-teal-300" : "bg-slate-800 text-slate-500 cursor-not-allowed")
+                (slot ? "bg-teal-400 text-slate-950 hover:bg-teal-300" : "bg-slate-800 text-slate-500 cursor-not-allowed")
               }
             >
-              {saving ? "Booking…" : slot ? `Confirm ${slot}` : "Pick a time slot"}
+              {slot ? `Confirm ${slot}` : "Pick a time slot"}
             </button>
           </>
         )}
@@ -520,145 +446,34 @@ function BookingModal({ doctor, onClose }) {
   );
 }
 
-function PatientAuthGate({ children }) {
-  const { session, profile, loading, signUp, signIn } = useAuth();
-  const [mode, setMode] = useState("signin");
-  const [form, setForm] = useState({ name: "", email: "", password: "" });
-  const [error, setError] = useState(null);
-  const [busy, setBusy] = useState(false);
-  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
-  const input = "w-full rounded-2xl bg-slate-900 border border-slate-700 px-4 py-3 text-slate-100 font-body placeholder-slate-500 focus:outline-none focus:border-teal-400";
-
-  if (loading) {
-    return <div className="max-w-md mx-auto px-6 py-24 text-center text-slate-500 font-body">Loading…</div>;
-  }
-
-  if (session && profile) return children;
-
-  const submit = async (e) => {
-    e.preventDefault();
-    setBusy(true);
-    setError(null);
-    const result =
-      mode === "signup"
-        ? await signUp({ email: form.email, password: form.password, fullName: form.name, role: "patient" })
-        : await signIn({ email: form.email, password: form.password });
-    setBusy(false);
-    if (result.error) setError(result.error.message);
-  };
-
-  return (
-    <div className="max-w-md mx-auto px-6 py-20 fade-up">
-      <h2 className="font-display text-2xl font-bold text-slate-50 mb-1">
-        {mode === "signup" ? "Create your patient account" : "Welcome back"}
-      </h2>
-      <p className="text-slate-400 font-body text-sm mb-6">
-        {mode === "signup" ? "Sign up to browse doctors and book visits." : "Log in to see available doctors."}
-      </p>
-      <form onSubmit={submit} className="space-y-4">
-        {mode === "signup" && (
-          <input className={input} placeholder="Full name" value={form.name} onChange={(e) => set("name", e.target.value)} required />
-        )}
-        <input className={input} placeholder="Email" type="email" value={form.email} onChange={(e) => set("email", e.target.value)} required />
-        <input className={input} placeholder="Password" type="password" value={form.password} onChange={(e) => set("password", e.target.value)} required minLength={6} />
-        {error && (
-          <div className="flex items-start gap-2 text-sm text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-2xl px-4 py-3 font-body">
-            <AlertCircle size={16} className="mt-0.5 shrink-0" /> {error}
-          </div>
-        )}
-        <button disabled={busy} className="w-full py-3 rounded-2xl bg-teal-400 text-slate-950 font-body font-semibold hover:bg-teal-300 transition-colors disabled:opacity-60">
-          {busy ? "Please wait…" : mode === "signup" ? "Sign up" : "Log in"}
-        </button>
-      </form>
-      <button
-        onClick={() => setMode(mode === "signup" ? "signin" : "signup")}
-        className="mt-4 text-sm text-teal-300 font-body hover:underline"
-      >
-        {mode === "signup" ? "Already have an account? Log in" : "New here? Create an account"}
-      </button>
-    </div>
-  );
-}
-
 function PatientPortal() {
-  return (
-    <PatientAuthGate>
-      <PatientDirectory />
-    </PatientAuthGate>
-  );
-}
-
-function PatientDirectory() {
-  const { profile, signOut } = useAuth();
   const [q, setQ] = useState("");
   const [spec, setSpec] = useState("All");
   const [onlineOnly, setOnlineOnly] = useState(false);
   const [booking, setBooking] = useState(null);
-  const [doctors, setDoctors] = useState(DOCTORS);
-  const [loadError, setLoadError] = useState(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const { data, error } = await supabase
-        .from("doctors")
-        .select("id, specialty, consult_fee, telehealth_enabled, is_online, hospital, years_experience, profiles(full_name)");
-      if (cancelled) return;
-      if (error || !data || data.length === 0) {
-        setLoadError(error?.message || null);
-        return; // keep demo DOCTORS as fallback
-      }
-      setDoctors(
-        data.map((d) => ({
-          id: d.id,
-          name: d.profiles?.full_name || "Unnamed doctor",
-          specialty: d.specialty,
-          rating: 4.8,
-          reviews: 0,
-          fee: d.consult_fee,
-          online: d.is_online,
-          telehealth: d.telehealth_enabled,
-          nextSlot: "Check availability",
-          hospital: d.hospital || "—",
-          exp: d.years_experience || 0,
-        }))
-      );
-    })();
-    return () => { cancelled = true; };
-  }, []);
 
   const list = useMemo(
     () =>
-      doctors.filter(
+      DOCTORS.filter(
         (d) =>
           (spec === "All" || d.specialty === spec) &&
           (!onlineOnly || d.online) &&
           (d.name + d.specialty + d.hospital).toLowerCase().includes(q.toLowerCase())
       ),
-    [doctors, q, spec, onlineOnly]
+    [q, spec, onlineOnly]
   );
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-10 fade-up">
       <div className="flex flex-wrap items-end justify-between gap-4 mb-8">
         <div>
-          <div className="font-mono2 text-xs text-teal-300 mb-1">PATIENT PORTAL · WELCOME BACK, {(profile?.full_name || "").split(" ")[0]?.toUpperCase() || "PATIENT"}</div>
+          <div className="font-mono2 text-xs text-teal-300 mb-1">PATIENT PORTAL · WELCOME BACK, JUAN</div>
           <h2 className="font-display text-3xl font-bold text-slate-50">Find your doctor</h2>
         </div>
-        <div className="flex items-center gap-4">
-          <div className="font-mono2 text-xs text-slate-500 flex items-center gap-2">
-            <Activity size={13} className="text-teal-400" /> {doctors.filter((d) => d.online).length} doctors available now
-          </div>
-          <button onClick={signOut} className="text-xs font-body text-slate-400 hover:text-slate-100 flex items-center gap-1.5">
-            <LogOut size={13} /> Log out
-          </button>
+        <div className="font-mono2 text-xs text-slate-500 flex items-center gap-2">
+          <Activity size={13} className="text-teal-400" /> {DOCTORS.filter((d) => d.online).length} doctors available now
         </div>
       </div>
-      {loadError && (
-        <div className="mb-6 text-xs font-mono2 text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-2xl px-4 py-3">
-          Couldn't load live doctors from Supabase ({loadError}) — showing demo data instead.
-        </div>
-      )}
 
       {/* search + filters */}
       <div className="flex flex-wrap gap-3 mb-4">
@@ -726,14 +541,6 @@ function PatientDirectory() {
 /* ------------------------------ app ------------------------------- */
 
 export default function App() {
-  return (
-    <AuthProvider>
-      <AppShell />
-    </AuthProvider>
-  );
-}
-
-function AppShell() {
   const [view, setView] = useState("landing");
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-body">
