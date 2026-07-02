@@ -6,6 +6,7 @@ import {
 import { AuthProvider, useAuth } from "./lib/AuthContext";
 import { supabase } from "./lib/supabaseClient";
 import PatientRecords from "./PatientRecords";
+import AppointmentsModule from "./AppointmentsModule";
 
 /* ------------------------------------------------------------------ */
 /*  MediPulse — Patient Management SaaS prototype                      */
@@ -971,6 +972,7 @@ function AppShell() {
               ["doctor", "Doctor signup"],
               ["patient", "Patient portal"],
               ["records", "Records"],
+              ["appointments", "Appointments"],
               ["admin", "Admin"],
             ].map(([id, label]) => (
               <button
@@ -992,6 +994,7 @@ function AppShell() {
       {view === "doctor" && <DoctorSignup go={setView} />}
       {view === "patient" && <PatientPortal />}
       {view === "records" && <PatientRecords />}
+      {view === "appointments" && <AppointmentsModule />}
       {view === "admin" && <AdminPortal />}
 
       <footer className="border-t border-slate-800 mt-16">
