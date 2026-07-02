@@ -723,6 +723,222 @@ function PatientDirectory() {
   );
 }
 
+/* ------------------------- admin portal --------------------------- */
+
+function AdminPortal() {
+  const { session, profile, loading, signIn, signOut } = useAuth();
+  const [form, setForm] = useState({ email: "", password: "" });
+  const [error, setError] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const input = "w-full rounded-2xl bg-slate-900 border border-slate-700 px-4 py-3 text-slate-100 font-body placeholder-slate-500 focus:outline-none focus:border-teal-400";
+
+  if (loading) return <div className="max-w-md mx-auto px-6 py-24 text-center text-slate-500 font-body">Loading…</div>;
+
+  if (!session || !profile) {
+    const submit = async (e) => {
+      e.preventDefault();
+      setBusy(true);
+      setError(null);
+      const { error } = await signIn({ email: form.email, password: form.password });
+      setBusy(false);
+      if (error) setError(error.message);
+    };
+    return (
+      <div className="max-w-md mx-auto px-6 py-20 fade-up">
+        <h2 className="font-display text-2xl font-bold text-slate-50 mb-1">Admin login</h2>
+        <p className="text-slate-400 font-body text-sm mb-6">Restricted area — platform administrators only.</p>
+        <form onSubmit={submit} className="space-y-4">
+          <input className={input} placeholder="Email" type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} required />
+          <input className={input} placeholder="Password" type="password" value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} required />
+          {error && (
+            <div className="flex items-start gap-2 text-sm text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-2xl px-4 py-3 font-body">
+              <AlertCircle size={16} className="mt-0.5 shrink-0" /> {error}
+            </div>
+          )}
+          <button disabled={busy} className="w-full py-3 rounded-2xl bg-teal-400 text-slate-950 font-body font-semibold hover:bg-teal-300 transition-colors disabled:opacity-60">
+            {busy ? "Please wait…" : "Log in"}
+          </button>
+        </form>
+      </div>
+    );
+  }
+
+  if (profile.role !== "admin") {
+    return (
+      <div className="max-w-md mx-auto px-6 py-20 text-center fade-up">
+        <div className="w-14 h-14 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center mx-auto mb-4">
+          <Lock size={22} className="text-rose-300" />
+        </div>
+        <h2 className="font-display text-2xl font-bold text-slate-50">Not authorized</h2>
+        <p className="text-slate-400 font-body text-sm mt-2">
+          This account ({profile.full_name}) has the role "{profile.role}". Only admin accounts can view this dashboard.
+          To promote an account, run the promote statement in medipulse-admin-patch.sql.
+        </p>
+        <button onClick={signOut} className="mt-6 text-sm text-teal-300 font-body hover:underline">Log out and switch accounts</button>
+      </div>
+    );
+  }
+
+  return <AdminDashboard />;
+}
+
+function AdminDashboard() {
+  const { signOut } = useAuth();
+  const [rows, setRows] = useState([]);
+  const [loadError, setLoadError] = useState(null);
+  const [loadingData, setLoadingData] = useState(true);
+  const [verifying, setVerifying] = useState(null);
+
+  const load = async () => {
+    setLoadingData(true);
+    const { data, error } = await supabase
+      .from("subscriptions")
+      .select("id, status, billing_cycle, trial_ends_at, created_at, plan_id, plans(name, monthly_price), doctors(id, specialty, prc_license, license_verified, profiles(full_name))")
+      .order("created_at", { ascending: false });
+    setLoadingData(false);
+    if (error) {
+      setLoadError(error.message);
+      return;
+    }
+    setLoadError(null);
+    setRows(data || []);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const monthlyValue = (r) => {
+    const base = Number(r.plans?.monthly_price || 0);
+    return r.billing_cycle === "annual" ? Math.round(base * 0.8) : base;
+  };
+
+  const stats = useMemo(() => {
+    const active = rows.filter((r) => r.status === "active");
+    const trialing = rows.filter((r) => r.status === "trialing");
+    return {
+      total: rows.length,
+      active: active.length,
+      trialing: trialing.length,
+      mrr: active.reduce((sum, r) => sum + monthlyValue(r), 0),
+      trialMrr: trialing.reduce((sum, r) => sum + monthlyValue(r), 0),
+      pendingLicenses: rows.filter((r) => r.doctors && !r.doctors.license_verified).length,
+    };
+  }, [rows]);
+
+  const verify = async (doctorId) => {
+    setVerifying(doctorId);
+    const { error } = await supabase.from("doctors").update({ license_verified: true }).eq("id", doctorId);
+    setVerifying(null);
+    if (error) {
+      setLoadError("Verify failed: " + error.message + " — did you run medipulse-admin-patch.sql?");
+      return;
+    }
+    load();
+  };
+
+  const statusStyle = {
+    trialing: "bg-violet-500/15 text-violet-300 border-violet-500/30",
+    active: "bg-teal-400/15 text-teal-300 border-teal-400/30",
+    past_due: "bg-amber-500/15 text-amber-300 border-amber-500/30",
+    canceled: "bg-slate-700/40 text-slate-400 border-slate-600",
+  };
+
+  const daysLeft = (d) => {
+    if (!d) return null;
+    const diff = Math.ceil((new Date(d) - new Date()) / 86400000);
+    return diff;
+  };
+
+  return (
+    <div className="max-w-6xl mx-auto px-6 py-10 fade-up">
+      <div className="flex flex-wrap items-end justify-between gap-4 mb-8">
+        <div>
+          <div className="font-mono2 text-xs text-teal-300 mb-1">ADMIN · PLATFORM OVERVIEW</div>
+          <h2 className="font-display text-3xl font-bold text-slate-50">Subscriptions</h2>
+        </div>
+        <button onClick={signOut} className="text-xs font-body text-slate-400 hover:text-slate-100 flex items-center gap-1.5">
+          <LogOut size={13} /> Log out
+        </button>
+      </div>
+
+      {loadError && (
+        <div className="mb-6 flex items-start gap-2 text-sm text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-2xl px-4 py-3 font-body">
+          <AlertCircle size={16} className="mt-0.5 shrink-0" /> {loadError}
+        </div>
+      )}
+
+      {/* stats */}
+      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        {[
+          { label: "Monthly recurring revenue", value: peso(stats.mrr), sub: `+ ${peso(stats.trialMrr)} in trials` },
+          { label: "Active subscriptions", value: stats.active, sub: `${stats.total} total signups` },
+          { label: "Trialing doctors", value: stats.trialing, sub: "14-day free trials" },
+          { label: "Licenses to verify", value: stats.pendingLicenses, sub: "pending PRC review" },
+        ].map((s) => (
+          <div key={s.label} className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
+            <div className="text-xs text-slate-500 font-body">{s.label}</div>
+            <div className="font-display text-2xl font-bold text-slate-50 mt-1">{s.value}</div>
+            <div className="font-mono2 text-xs text-slate-500 mt-1">{s.sub}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* subscriptions table */}
+      <div className="rounded-3xl border border-slate-800 bg-slate-900 overflow-hidden">
+        <div className="grid grid-cols-12 gap-2 px-5 py-3 border-b border-slate-800 text-xs font-mono2 text-slate-500">
+          <div className="col-span-3">DOCTOR</div>
+          <div className="col-span-2">SPECIALTY</div>
+          <div className="col-span-2">PLAN</div>
+          <div className="col-span-2">STATUS</div>
+          <div className="col-span-3 text-right">LICENSE</div>
+        </div>
+        {loadingData ? (
+          <div className="px-5 py-10 text-center text-slate-500 font-body text-sm">Loading subscriptions…</div>
+        ) : rows.length === 0 ? (
+          <div className="px-5 py-10 text-center text-slate-500 font-body text-sm">
+            No subscriptions yet. Doctor signups will appear here.
+          </div>
+        ) : (
+          rows.map((r) => {
+            const left = r.status === "trialing" ? daysLeft(r.trial_ends_at) : null;
+            return (
+              <div key={r.id} className="grid grid-cols-12 gap-2 items-center px-5 py-4 border-b border-slate-800/60 last:border-0 text-sm font-body">
+                <div className="col-span-3 min-w-0">
+                  <div className="text-slate-100 truncate">{r.doctors?.profiles?.full_name || "—"}</div>
+                  <div className="font-mono2 text-xs text-slate-500">{peso(monthlyValue(r))}/mo · {r.billing_cycle}</div>
+                </div>
+                <div className="col-span-2 text-slate-300 truncate">{r.doctors?.specialty || "—"}</div>
+                <div className="col-span-2 text-slate-300">{r.plans?.name || r.plan_id}</div>
+                <div className="col-span-2">
+                  <span className={"inline-block px-2.5 py-1 rounded-full border text-xs " + (statusStyle[r.status] || statusStyle.canceled)}>
+                    {r.status}{left != null ? ` · ${left}d left` : ""}
+                  </span>
+                </div>
+                <div className="col-span-3 flex justify-end">
+                  {r.doctors?.license_verified ? (
+                    <span className="flex items-center gap-1.5 text-teal-300 text-xs"><Check size={14} /> Verified · {r.doctors.prc_license}</span>
+                  ) : (
+                    <button
+                      onClick={() => verify(r.doctors?.id)}
+                      disabled={verifying === r.doctors?.id}
+                      className="px-3 py-1.5 rounded-xl border border-amber-500/40 text-amber-300 text-xs font-body hover:bg-amber-500/10 transition-colors disabled:opacity-60"
+                    >
+                      {verifying === r.doctors?.id ? "Verifying…" : `Verify ${r.doctors?.prc_license || "license"}`}
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      <p className="mt-4 text-xs text-slate-500 font-body">
+        MRR counts active subscriptions only; trialing value shown separately. Verifying a license makes the doctor visible as trusted in the patient directory.
+      </p>
+    </div>
+  );
+}
+
 /* ------------------------------ app ------------------------------- */
 
 export default function App() {
@@ -753,6 +969,7 @@ function AppShell() {
               ["landing", "Home"],
               ["doctor", "Doctor signup"],
               ["patient", "Patient portal"],
+              ["admin", "Admin"],
             ].map(([id, label]) => (
               <button
                 key={id}
@@ -772,6 +989,7 @@ function AppShell() {
       {view === "landing" && <Landing go={setView} />}
       {view === "doctor" && <DoctorSignup go={setView} />}
       {view === "patient" && <PatientPortal />}
+      {view === "admin" && <AdminPortal />}
 
       <footer className="border-t border-slate-800 mt-16">
         <div className="max-w-6xl mx-auto px-6 py-8 flex flex-wrap items-center justify-between gap-3 text-xs font-mono2 text-slate-600">
