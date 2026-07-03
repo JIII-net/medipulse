@@ -6,6 +6,7 @@ import {
 import { AuthProvider, useAuth } from "./lib/AuthContext";
 import { supabase } from "./lib/supabaseClient";
 import StaffApp from "./StaffApp";
+import { PlansTab, InvitesTab, SpecialtiesTab } from "./AdminSetup";
 
 /* ------------------------------------------------------------------ */
 /*  MediPulse — Patient Management SaaS prototype                      */
@@ -1076,6 +1077,7 @@ function AdminPortal() {
 
 function AdminDashboard() {
   const { signOut } = useAuth();
+  const [tab, setTab] = useState("subscriptions");
   const [rows, setRows] = useState([]);
   const [loadError, setLoadError] = useState(null);
   const [loadingData, setLoadingData] = useState(true);
@@ -1142,16 +1144,30 @@ function AdminDashboard() {
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-10 fade-up">
-      <div className="flex flex-wrap items-end justify-between gap-4 mb-8">
+      <div className="flex flex-wrap items-end justify-between gap-4 mb-6">
         <div>
           <div className="font-mono2 text-xs text-teal-300 mb-1">ADMIN · PLATFORM OVERVIEW</div>
-          <h2 className="font-display text-3xl font-bold text-slate-50">Subscriptions</h2>
+          <h2 className="font-display text-3xl font-bold text-slate-50">Admin</h2>
         </div>
         <button onClick={signOut} className="text-xs font-body text-slate-400 hover:text-slate-100 flex items-center gap-1.5">
           <LogOut size={13} /> Log out
         </button>
       </div>
 
+      <div className="flex gap-1.5 rounded-2xl border border-slate-800 bg-slate-900 p-1 text-sm w-fit mb-8">
+        {[["subscriptions", "Subscriptions"], ["plans", "Plans"], ["invites", "Invites"], ["specialties", "Specialties"]].map(([id, label]) => (
+          <button key={id} onClick={() => setTab(id)} className={"px-3.5 py-1.5 rounded-xl font-body transition-colors " + (tab === id ? "bg-teal-400 text-slate-950 font-medium" : "text-slate-400 hover:text-slate-100")}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "plans" && <PlansTab />}
+      {tab === "invites" && <InvitesTab />}
+      {tab === "specialties" && <SpecialtiesTab />}
+
+      {tab === "subscriptions" && (
+        <>
       {loadError && (
         <div className="mb-6 flex items-start gap-2 text-sm text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-2xl px-4 py-3 font-body">
           <AlertCircle size={16} className="mt-0.5 shrink-0" /> {loadError}
@@ -1227,6 +1243,8 @@ function AdminDashboard() {
       <p className="mt-4 text-xs text-slate-500 font-body">
         MRR counts active subscriptions only; trialing value shown separately. Verifying a license makes the doctor visible as trusted in the patient directory.
       </p>
+        </>
+      )}
     </div>
   );
 }
