@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import {
   Search, UserPlus, QrCode, ArrowLeft, Plus, Check, X, AlertCircle,
-  Phone, Droplet, Link2, ClipboardList, Shield, Lock, LogOut, AlertTriangle,
+  Phone, Droplet, Link2, ClipboardList, Shield, Lock, LogOut, AlertTriangle, Pencil,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useAuth } from "./lib/AuthContext";
@@ -105,7 +105,7 @@ function SearchView({ onOpen, onRegister }) {
                 <div className="text-slate-100 font-body text-sm truncate">{fullName(p)}</div>
                 <div className="font-mono2 text-xs text-teal-300">{p.mrn}</div>
               </div>
-              <div className="col-span-3 text-sm text-slate-400 font-body">{fmtDate(p.birthdate)}{calcAge(p.birthdate) != null ? ` · ${calcAge(p.birthdate)}y` : ""} · {p.sex}</div>
+              <div className="col-span-3 text-sm text-slate-400 font-body">{fmtDate(p.birthdate)}{calcAge(p.birthdate) != null ? ` · ${calcAge(p.birthdate)}y` : ""}{p.sex !== "unknown" ? ` · ${p.sex}` : ""}</div>
               <div className="col-span-2 text-sm text-slate-400 font-body truncate">{p.phone || "—"}</div>
               <div className="col-span-2 flex justify-end gap-1.5">
                 {p.senior_citizen_id && <span className="px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 text-xs">Senior</span>}
@@ -336,6 +336,7 @@ function DetailView({ patientId, onBack, onOpen }) {
   const [history, setHistory] = useState([]);
   const [error, setError] = useState(null);
   const [showQR, setShowQR] = useState(false);
+  const [editing, setEditing] = useState(false);
   const uid = session?.user?.id || null;
 
   const load = async () => {
@@ -391,7 +392,7 @@ function DetailView({ patientId, onBack, onOpen }) {
         </div>
         <div className="min-w-0 flex-1">
           <div className="font-display text-xl font-bold text-slate-50 truncate">{fullName(p)}</div>
-          <div className="font-mono2 text-xs text-teal-300">{p.mrn}{calcAge(p.birthdate) != null ? ` · ${calcAge(p.birthdate)}y` : " · age unknown"} {p.sex} · {fmtDate(p.birthdate)}</div>
+          <div className="font-mono2 text-xs text-teal-300">{p.mrn}{calcAge(p.birthdate) != null ? ` · ${calcAge(p.birthdate)}y` : ""}{p.sex !== "unknown" ? ` ${p.sex}` : ""}{p.birthdate ? ` · ${fmtDate(p.birthdate)}` : ""}</div>
           <div className="flex flex-wrap gap-1.5 mt-2">
             {allergies.map((a) => (
               <span key={a.id} className="px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-300 border border-rose-500/40 text-xs font-body">⚠ {a.substance}</span>
@@ -399,14 +400,25 @@ function DetailView({ patientId, onBack, onOpen }) {
             {isSenior && <span className="px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 text-xs font-body">Senior</span>}
             {p.pwd_id && <span className="px-2 py-0.5 rounded-full bg-violet-500/15 text-violet-300 border border-violet-500/30 text-xs font-body">PWD</span>}
             {p.blood_type && <span className="px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-600 text-xs font-body flex items-center gap-1"><Droplet size={10} /> {p.blood_type}</span>}
+            {!p.birthdate && <span className="px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 text-xs font-body">Provisional — details incomplete</span>}
           </div>
         </div>
-        <button onClick={() => setShowQR(true)} className={btnGhost + " flex items-center gap-1.5"}>
-          <QrCode size={15} /> ID card
-        </button>
+        <div className="flex gap-2">
+          <button onClick={() => setEditing(true)} className={btnGhost + " flex items-center gap-1.5"}>
+            <Pencil size={15} /> Edit
+          </button>
+          <button onClick={() => setShowQR(true)} className={btnGhost + " flex items-center gap-1.5"}>
+            <QrCode size={15} /> ID card
+          </button>
+        </div>
       </div>
 
-      {/* tabs */}
+      {!p.birthdate && (
+        <div className="mb-6 flex items-start gap-2 text-sm text-amber-200 bg-amber-500/10 border border-amber-500/30 rounded-2xl px-4 py-3 font-body">
+          <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+          This is a provisional record from an online booking — name only. Click <strong>Edit</strong> to confirm the patient's name and add their birthdate, sex, and other details now that they're here.
+        </div>
+      )}
       <div className="flex gap-1.5 rounded-2xl border border-slate-800 bg-slate-900 p-1 text-sm w-fit mb-6">
         {[["overview", "Overview"], ["medical", "Medical"], ["family", "Family"], ["timeline", "Timeline"]].map(([id, label]) => (
           <button key={id} onClick={() => setTab(id)} className={"px-3.5 py-1.5 rounded-xl font-body transition-colors " + (tab === id ? "bg-teal-400 text-slate-950 font-medium" : "text-slate-400 hover:text-slate-100")}>
@@ -580,6 +592,122 @@ function DetailView({ patientId, onBack, onOpen }) {
           </div>
         </div>
       )}
+
+      {editing && (
+        <EditDemographicsModal patient={p} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); load(); }} />
+      )}
+    </div>
+  );
+}
+
+function EditDemographicsModal({ patient, onClose, onSaved }) {
+  const [f, setF] = useState({
+    first_name: patient.first_name || "", middle_name: patient.middle_name || "",
+    last_name: patient.last_name || "", suffix: patient.suffix || "",
+    birthdate: patient.birthdate || "", sex: patient.sex || "unknown",
+    civil_status: patient.civil_status || "", nationality: patient.nationality || "Filipino",
+    phone: patient.phone || "", email: patient.email || "",
+    line1: patient.address?.line1 || "", barangay: patient.address?.barangay || "",
+    city: patient.address?.city || "", province: patient.address?.province || "",
+    blood_type: patient.blood_type || "", philhealth_no: patient.philhealth_no || "",
+    senior_citizen_id: patient.senior_citizen_id || "", pwd_id: patient.pwd_id || "",
+  });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const set = (k) => (e) => setF((p) => ({ ...p, [k]: e.target.value }));
+
+  const save = async () => {
+    if (!f.first_name.trim() || !f.last_name.trim()) { setError("First and last name are required."); return; }
+    setBusy(true); setError(null);
+    const { error } = await supabase.from("patients").update({
+      first_name: f.first_name.trim(), middle_name: f.middle_name.trim() || null,
+      last_name: f.last_name.trim(), suffix: f.suffix.trim() || null,
+      birthdate: f.birthdate || null, sex: f.sex,
+      civil_status: f.civil_status || null, nationality: f.nationality.trim() || null,
+      phone: f.phone.trim() || null, email: f.email.trim() || null,
+      address: { line1: f.line1, barangay: f.barangay, city: f.city, province: f.province },
+      blood_type: f.blood_type || null, philhealth_no: f.philhealth_no.trim() || null,
+      senior_citizen_id: f.senior_citizen_id.trim() || null, pwd_id: f.pwd_id.trim() || null,
+    }).eq("id", patient.id);
+    setBusy(false);
+    if (error) { setError(error.message); return; }
+    onSaved();
+  };
+
+  const Field = ({ label, value, onChange, type = "text" }) => (
+    <div>
+      <label className={labelCls}>{label}</label>
+      <input className={inputCls} type={type} value={value} onChange={onChange} />
+    </div>
+  );
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80" onClick={onClose}>
+      <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl border border-slate-700 bg-slate-900 p-6 fade-up" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-display text-lg font-bold text-slate-50">Edit patient details</h3>
+          <button onClick={onClose} className="text-slate-500 hover:text-slate-300"><X size={18} /></button>
+        </div>
+
+        <div className="space-y-4">
+          <div className="grid sm:grid-cols-2 gap-3">
+            <Field label="FIRST NAME *" value={f.first_name} onChange={set("first_name")} />
+            <Field label="MIDDLE NAME" value={f.middle_name} onChange={set("middle_name")} />
+            <Field label="LAST NAME *" value={f.last_name} onChange={set("last_name")} />
+            <Field label="SUFFIX" value={f.suffix} onChange={set("suffix")} />
+            <Field label="BIRTHDATE" value={f.birthdate} onChange={set("birthdate")} type="date" />
+            <div>
+              <label className={labelCls}>SEX</label>
+              <select className={inputCls} value={f.sex} onChange={set("sex")}>
+                <option value="unknown">Not set</option>
+                <option value="female">Female</option><option value="male">Male</option>
+                <option value="intersex">Intersex</option>
+              </select>
+            </div>
+            <div>
+              <label className={labelCls}>CIVIL STATUS</label>
+              <select className={inputCls} value={f.civil_status} onChange={set("civil_status")}>
+                <option value="">—</option>
+                <option>single</option><option>married</option><option>widowed</option><option>separated</option><option>annulled</option>
+              </select>
+            </div>
+            <Field label="NATIONALITY" value={f.nationality} onChange={set("nationality")} />
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-3">
+            <Field label="MOBILE PHONE" value={f.phone} onChange={set("phone")} />
+            <Field label="EMAIL" value={f.email} onChange={set("email")} type="email" />
+            <Field label="STREET / HOUSE NO." value={f.line1} onChange={set("line1")} />
+            <Field label="BARANGAY" value={f.barangay} onChange={set("barangay")} />
+            <Field label="CITY / MUNICIPALITY" value={f.city} onChange={set("city")} />
+            <Field label="PROVINCE" value={f.province} onChange={set("province")} />
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div>
+              <label className={labelCls}>BLOOD TYPE</label>
+              <select className={inputCls} value={f.blood_type} onChange={set("blood_type")}>
+                <option value="">Unknown</option>
+                {["A+","A-","B+","B-","AB+","AB-","O+","O-"].map((b) => <option key={b}>{b}</option>)}
+              </select>
+            </div>
+            <Field label="PHILHEALTH NO." value={f.philhealth_no} onChange={set("philhealth_no")} />
+            <Field label="SENIOR CITIZEN ID" value={f.senior_citizen_id} onChange={set("senior_citizen_id")} />
+            <Field label="PWD ID" value={f.pwd_id} onChange={set("pwd_id")} />
+          </div>
+
+          {error && (
+            <div className="flex items-start gap-2 text-sm text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-2xl px-4 py-3 font-body">
+              <AlertCircle size={16} className="mt-0.5 shrink-0" /> {error}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-3">
+            <button onClick={onClose} className={btnGhost}>Cancel</button>
+            <button onClick={save} disabled={busy} className={btnPrimary}>{busy ? "Saving…" : "Save changes"}</button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

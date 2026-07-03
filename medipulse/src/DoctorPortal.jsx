@@ -211,7 +211,9 @@ function Dashboard({ me, onOpenEncounter }) {
               <div className="min-w-0">
                 <div className="text-sm text-slate-100 font-body truncate">
                   {a.patient_rec ? `${a.patient_rec.first_name} ${a.patient_rec.last_name}` : a.portal?.full_name || "Unknown"}
-                  {a.patient_rec && <span className="text-slate-500"> · {calcAge(a.patient_rec.birthdate) != null ? `${calcAge(a.patient_rec.birthdate)}y ` : ""}{a.patient_rec.sex}</span>}
+                  {a.patient_rec && (calcAge(a.patient_rec.birthdate) != null || (a.patient_rec.sex && a.patient_rec.sex !== "unknown")) && (
+                    <span className="text-slate-500"> · {calcAge(a.patient_rec.birthdate) != null ? `${calcAge(a.patient_rec.birthdate)}y ` : ""}{a.patient_rec.sex !== "unknown" ? a.patient_rec.sex : ""}</span>
+                  )}
                 </div>
                 <div className="font-mono2 text-xs text-slate-500">{fmtT(a.starts_at)} · {a.type.replace("_", " ")} · {a.status}{a.location ? ` · ${a.location.name}` : ""}</div>
               </div>
@@ -414,7 +416,7 @@ function Consult({ encounterId, me, myName, onExit }) {
        ${i.instructions ? `<br/><em>${esc(i.instructions)}</em>` : ""}</div>`).join("");
     printDocument("e-Prescription", `
       <h1>MEDIPULSE CLINIC</h1><div class="sub">Electronic Prescription</div><div class="rule"></div>
-      <table><tr><td class="label">Patient</td><td>${esc(patient.first_name)} ${esc(patient.last_name)} (${calcAge(patient.birthdate) != null ? calcAge(patient.birthdate) + "y, " : ""}${esc(patient.sex)})</td></tr>
+      <table><tr><td class="label">Patient</td><td>${esc(patient.first_name)} ${esc(patient.last_name)}${(calcAge(patient.birthdate) != null || patient.sex !== "unknown") ? ` (${calcAge(patient.birthdate) != null ? calcAge(patient.birthdate) + "y" : ""}${calcAge(patient.birthdate) != null && patient.sex !== "unknown" ? ", " : ""}${patient.sex !== "unknown" ? esc(patient.sex) : ""})` : ""}</td></tr>
       <tr><td class="label">MRN</td><td>${esc(patient.mrn)}</td></tr>
       <tr><td class="label">Date</td><td>${esc(new Date().toLocaleDateString("en-PH", { dateStyle: "long" }))}</td></tr></table>
       <div class="rule"></div><div style="font-size:30px">℞</div>${items}
@@ -459,7 +461,7 @@ function Consult({ encounterId, me, myName, onExit }) {
         </div>
         <div className="min-w-0 flex-1">
           <div className="font-display text-lg font-bold text-slate-50">{patient.first_name} {patient.last_name}</div>
-          <div className="font-mono2 text-xs text-teal-300">{patient.mrn}{calcAge(patient.birthdate) != null ? ` · ${calcAge(patient.birthdate)}y` : ""} {patient.sex} · started {fmtT(enc.started_at)}</div>
+          <div className="font-mono2 text-xs text-teal-300">{patient.mrn}{calcAge(patient.birthdate) != null ? ` · ${calcAge(patient.birthdate)}y` : ""}{patient.sex !== "unknown" ? ` ${patient.sex}` : ""} · started {fmtT(enc.started_at)}</div>
           <div className="flex flex-wrap gap-1.5 mt-1.5">
             {allergies.map((a, i) => (
               <span key={i} className="px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-300 border border-rose-500/40 text-xs font-body">⚠ {a.substance}</span>
