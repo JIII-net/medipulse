@@ -422,10 +422,12 @@ function BookingModal({ doctor, onClose }) {
   const { session } = useAuth();
   const [slot, setSlot] = useState(null);
   const [mode, setMode] = useState("clinic");
+  const [locationId, setLocationId] = useState(doctor.locations?.length === 1 ? doctor.locations[0].id : "");
   const [booked, setBooked] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(null);
   const isRealDoctor = typeof doctor.id === "string" && doctor.id.includes("-");
+  const chosenLocation = doctor.locations?.find((l) => l.id === locationId);
 
   const confirmBooking = async () => {
     if (!isRealDoctor || !session?.user?.id) {
@@ -445,6 +447,7 @@ function BookingModal({ doctor, onClose }) {
       ends_at: starts_at,
       mode,
       fee_charged: doctor.fee,
+      location_id: locationId || null,
     });
     setSaving(false);
     if (error) {
@@ -464,7 +467,8 @@ function BookingModal({ doctor, onClose }) {
             </div>
             <h3 className="font-display text-xl font-bold text-slate-50">Appointment confirmed</h3>
             <p className="font-body text-slate-400 text-sm mt-2">
-              {doctor.name} · tomorrow at {slot} · {mode === "video" ? "video visit" : "in clinic"}.
+              {doctor.name} · tomorrow at {slot} · {mode === "video" ? "video visit" : "in clinic"}
+              {chosenLocation ? ` at ${chosenLocation.name}` : ""}.
               You'll get an SMS reminder 24h and 1h before.
             </p>
             <button onClick={onClose} className="mt-6 px-5 py-2.5 rounded-2xl bg-teal-400 text-slate-950 font-body font-semibold">Done</button>
@@ -485,6 +489,24 @@ function BookingModal({ doctor, onClose }) {
               <Pill active={mode === "clinic"} onClick={() => setMode("clinic")}>In clinic</Pill>
               {doctor.telehealth && <Pill active={mode === "video"} onClick={() => setMode("video")}>Video visit</Pill>}
             </div>
+            {mode === "clinic" && doctor.locations?.length > 1 && (
+              <div className="mb-4">
+                <div className="text-xs font-mono2 text-slate-500 mb-2">CHOOSE LOCATION</div>
+                <select
+                  className="w-full rounded-xl bg-slate-900 border border-slate-700 px-3.5 py-2.5 text-sm text-slate-100 font-body focus:outline-none focus:border-teal-400"
+                  value={locationId}
+                  onChange={(e) => setLocationId(e.target.value)}
+                >
+                  <option value="">Select a location…</option>
+                  {doctor.locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+                </select>
+              </div>
+            )}
+            {mode === "clinic" && doctor.locations?.length === 1 && (
+              <div className="mb-4 text-xs text-slate-400 font-body flex items-center gap-1.5">
+                📍 {doctor.locations[0].name}{doctor.locations[0].address ? ` — ${doctor.locations[0].address}` : ""}
+              </div>
+            )}
             <div className="text-xs font-mono2 text-slate-500 mb-2">TOMORROW · AVAILABLE SLOTS</div>
             <div className="grid grid-cols-3 gap-2 mb-6">
               {SLOTS.map((s) => (
@@ -604,7 +626,7 @@ function PatientDirectory() {
     (async () => {
       const { data, error } = await supabase
         .from("doctors")
-        .select("id, specialty, consult_fee, telehealth_enabled, is_online, hospital, years_experience, profiles(full_name)");
+        .select("id, specialty, consult_fee, telehealth_enabled, is_online, hospital, years_experience, profiles(full_name), locations:clinic_locations(id, name, address)");
       if (cancelled) return;
       if (error || !data || data.length === 0) {
         setLoadError(error?.message || null);
@@ -621,7 +643,8 @@ function PatientDirectory() {
           online: d.is_online,
           telehealth: d.telehealth_enabled,
           nextSlot: "Check availability",
-          hospital: d.hospital || "—",
+          hospital: d.locations?.[0]?.name || d.hospital || "Location not yet listed",
+          locations: d.locations || [],
           exp: d.years_experience || 0,
         }))
       );

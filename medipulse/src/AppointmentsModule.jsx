@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Calendar, Clock, Plus, X, Check, ChevronLeft, ChevronRight, Search,
-  Bell, Send, UserPlus, RotateCcw, CalendarPlus, Trash2, AlertCircle, Megaphone,
+  Bell, Send, UserPlus, RotateCcw, CalendarPlus, Trash2, AlertCircle, Megaphone, MapPin,
 } from "lucide-react";
 import { useAuth } from "./lib/AuthContext";
 import { supabase } from "./lib/supabaseClient";
@@ -274,9 +274,15 @@ function DetailModal({ appt, doctors, schedules, onClose, onChanged }) {
           <h3 className="font-display text-lg font-bold text-slate-50">{patientName(appt)}</h3>
           <button onClick={onClose} className="text-slate-500 hover:text-slate-300"><X size={18} /></button>
         </div>
-        <div className="font-mono2 text-xs text-teal-300 mb-4">
+        <div className="font-mono2 text-xs text-teal-300 mb-1">
           {fmtDay(localDate(appt.starts_at))} · {fmt12h(localTime(appt.starts_at))} · {appt.type.replace("_", " ")} · {appt.status}
         </div>
+        {appt.location && (
+          <div className="text-xs text-slate-400 font-body mb-4 flex items-center gap-1.5">
+            <MapPin size={12} className="text-teal-300 shrink-0" /> {appt.location.name}{appt.location.address ? ` — ${appt.location.address}` : ""}
+          </div>
+        )}
+        {!appt.location && <div className="mb-4" />}
         <ErrorBanner msg={error} />
         {mode === "view" ? (
           <div className="space-y-2">
@@ -342,7 +348,7 @@ function CalendarTab({ doctors, schedules, locations }) {
     const to = new Date(addDays(rangeStart, rangeDays) + "T00:00:00").toISOString();
     const { data, error } = await supabase
       .from("appointments")
-      .select("id, doctor_id, starts_at, status, type, patient_id, patient_rec:patient_record_id(id, first_name, last_name, phone, email, senior_citizen_id, pwd_id), portal:patient_id(full_name)")
+      .select("id, doctor_id, starts_at, status, type, patient_id, location_id, location:location_id(name, address), patient_rec:patient_record_id(id, first_name, last_name, phone, email, senior_citizen_id, pwd_id), portal:patient_id(full_name)")
       .gte("starts_at", from).lt("starts_at", to);
     if (error) { setError(error.message); return; }
     setAppts(data || []);
@@ -416,7 +422,7 @@ function CalendarTab({ doctors, schedules, locations }) {
                       {a ? (
                         <button onClick={() => setDetail(a)} className={"w-full text-left rounded-lg border px-2 py-1 text-xs font-body truncate " + (STATUS_STYLE[a.status] || STATUS_STYLE.booked)}>
                           {patientName(a)}
-                          <span className="block opacity-70 truncate">{a.type.replace("_", " ")}</span>
+                          <span className="block opacity-70 truncate">{a.type.replace("_", " ")}{a.location ? ` · ${a.location.name}` : ""}</span>
                         </button>
                       ) : open ? (
                         <button onClick={() => setBooking({ doctorId: c.doctorId, dateStr: c.dateStr, time })} className="w-full h-full min-h-9 rounded-lg text-slate-700 hover:bg-slate-800/60 hover:text-teal-300 text-xs transition-colors">

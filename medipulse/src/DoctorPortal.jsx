@@ -111,7 +111,7 @@ function Dashboard({ me, onOpenEncounter }) {
     const from = todayStr() + "T00:00:00";
     const [ap, qt, en] = await Promise.all([
       supabase.from("appointments")
-        .select("id, starts_at, status, type, patient_record_id, patient_rec:patient_record_id(id, first_name, last_name, birthdate, sex), portal:patient_id(full_name)")
+        .select("id, starts_at, status, type, patient_record_id, location:location_id(name), patient_rec:patient_record_id(id, first_name, last_name, birthdate, sex), portal:patient_id(full_name)")
         .eq("doctor_id", me).gte("starts_at", from).lt("starts_at", todayStr() + "T23:59:59")
         .order("starts_at"),
       supabase.from("queue_tickets")
@@ -186,7 +186,7 @@ function Dashboard({ me, onOpenEncounter }) {
                   {a.patient_rec ? `${a.patient_rec.first_name} ${a.patient_rec.last_name}` : a.portal?.full_name || "Unknown"}
                   {a.patient_rec && <span className="text-slate-500"> · {calcAge(a.patient_rec.birthdate)}y {a.patient_rec.sex}</span>}
                 </div>
-                <div className="font-mono2 text-xs text-slate-500">{fmtT(a.starts_at)} · {a.type.replace("_", " ")} · {a.status}</div>
+                <div className="font-mono2 text-xs text-slate-500">{fmtT(a.starts_at)} · {a.type.replace("_", " ")} · {a.status}{a.location ? ` · ${a.location.name}` : ""}</div>
               </div>
               {["booked", "confirmed", "checked_in"].includes(a.status) && (
                 <button onClick={() => startConsult(a.patient_record_id, a.id, null)} disabled={busy === a.id} className={btnPrimary + " py-1.5 shrink-0"}>
