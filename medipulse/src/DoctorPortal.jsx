@@ -8,8 +8,6 @@ import { supabase } from "./lib/supabaseClient";
 import { StaffGate } from "./lib/StaffGate";
 import DentalChart from "./DentalChart";
 
-const DENTAL_SPECIALTIES = ["Dentistry", "Orthodontics", "Oral Surgery"];
-
 /* ------------------------------------------------------------------ */
 /*  Doctor Portal — dashboard + consultation workspace                 */
 /* ------------------------------------------------------------------ */
@@ -322,6 +320,7 @@ function Consult({ encounterId, me, myName, onExit }) {
   const [tab, setTab] = useState("soap");
   const [consultFee, setConsultFee] = useState(0);
   const [specialty, setSpecialty] = useState(null);
+  const [isDentist, setIsDentist] = useState(false);
   const [showBilling, setShowBilling] = useState(false);
 
   const load = async () => {
@@ -352,10 +351,12 @@ function Consult({ encounterId, me, myName, onExit }) {
     setRxItems((rx.data || []).flatMap((r) => r.items.map((i) => ({ ...i, rx_id: r.id }))));
     setProcedures(pr.data || []);
     setCerts(mc.data || []);
-    const { data: doc } = await supabase.from("doctors").select("consult_fee, specialty").eq("id", e.doctor_id).maybeSingle();
+    const { data: doc } = await supabase.from("doctors").select("consult_fee, specialty, specialties, profession_type").eq("id", e.doctor_id).maybeSingle();
     setConsultFee(Number(doc?.consult_fee || 0));
-    setSpecialty(doc?.specialty || null);
-    if (DENTAL_SPECIALTIES.includes(doc?.specialty)) {
+    setSpecialty(doc?.specialties?.length ? doc.specialties.join(" / ") : doc?.specialty || null);
+    const dentist = doc?.profession_type === "dentist";
+    setIsDentist(dentist);
+    if (dentist) {
       const { data: dp } = await supabase.from("dental_procedures").select("*").eq("encounter_id", encounterId).order("performed_at");
       setDentalProcs(dp || []);
     }
@@ -489,7 +490,7 @@ function Consult({ encounterId, me, myName, onExit }) {
           <div className="flex gap-1.5 rounded-2xl border border-slate-800 bg-slate-900 p-1 text-sm w-fit">
             {[
               ["soap", "SOAP note"],
-              ...(DENTAL_SPECIALTIES.includes(specialty) ? [["dental", "Dental Chart"]] : []),
+              ...(isDentist ? [["dental", "Dental Chart"]] : []),
               ["rx", "e-Prescription"], ["proc", "Procedures"], ["cert", "Med certificate"], ["fu", "Follow-up"],
             ].map(([id, label]) => (
               <button key={id} onClick={() => setTab(id)} className={"px-3 py-1.5 rounded-xl font-body transition-colors " + (tab === id ? "bg-teal-400 text-slate-950 font-medium" : "text-slate-400 hover:text-slate-100")}>
@@ -546,7 +547,7 @@ function Consult({ encounterId, me, myName, onExit }) {
           {tab === "proc" && (
             <div className={card}>
               <div className="font-display font-semibold text-slate-100 flex items-center gap-2 mb-4"><Scissors size={15} className="text-teal-300" /> Procedures performed</div>
-              {DENTAL_SPECIALTIES.includes(specialty) ? (
+              {isDentist ? (
                 <>
                   {dentalProcs.map((p) => (
                     <div key={p.id} className="py-2.5 border-b border-slate-800/60 last:border-0 text-sm font-body">

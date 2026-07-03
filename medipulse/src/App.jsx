@@ -58,12 +58,12 @@ const SPECIALTIES = ["All", "Cardiology", "Pediatrics", "Dermatology", "Internal
 const DENTAL_SPECIALTIES = ["Dentistry", "Orthodontics", "Oral Surgery"];
 
 const DOCTORS = [
-  { id: 1, name: "Dr. Maria Santos", specialty: "Cardiology", rating: 4.9, reviews: 212, fee: 900, online: true, telehealth: true, nextSlot: "Today, 3:30 PM", hospital: "St. Luke's Medical Center", exp: 14 },
-  { id: 2, name: "Dr. Jose Ramirez", specialty: "Pediatrics", rating: 4.8, reviews: 187, fee: 700, online: true, telehealth: true, nextSlot: "Today, 4:00 PM", hospital: "Makati Medical Center", exp: 9 },
-  { id: 3, name: "Dr. Amara Villanueva", specialty: "Dermatology", rating: 4.9, reviews: 305, fee: 1200, online: false, telehealth: true, nextSlot: "Tomorrow, 10:00 AM", hospital: "The Medical City", exp: 11 },
-  { id: 4, name: "Dr. Kenji Tan", specialty: "Internal Medicine", rating: 4.7, reviews: 143, fee: 650, online: true, telehealth: false, nextSlot: "Today, 5:15 PM", hospital: "Cardinal Santos", exp: 7 },
-  { id: 5, name: "Dr. Lea Bautista", specialty: "OB-GYN", rating: 4.9, reviews: 268, fee: 1000, online: true, telehealth: true, nextSlot: "Tomorrow, 9:00 AM", hospital: "Asian Hospital", exp: 16 },
-  { id: 6, name: "Dr. Rafael Cruz", specialty: "Neurology", rating: 4.8, reviews: 99, fee: 1500, online: false, telehealth: true, nextSlot: "Fri, 1:00 PM", hospital: "St. Luke's Medical Center", exp: 12 },
+  { id: 1, name: "Dr. Maria Santos", specialty: "Cardiology", specialties: ["Cardiology"], rating: 4.9, reviews: 212, fee: 900, online: true, telehealth: true, nextSlot: "Today, 3:30 PM", hospital: "St. Luke's Medical Center", exp: 14 },
+  { id: 2, name: "Dr. Jose Ramirez", specialty: "Pediatrics", specialties: ["Pediatrics"], rating: 4.8, reviews: 187, fee: 700, online: true, telehealth: true, nextSlot: "Today, 4:00 PM", hospital: "Makati Medical Center", exp: 9 },
+  { id: 3, name: "Dr. Amara Villanueva", specialty: "Dermatology", specialties: ["Dermatology"], rating: 4.9, reviews: 305, fee: 1200, online: false, telehealth: true, nextSlot: "Tomorrow, 10:00 AM", hospital: "The Medical City", exp: 11 },
+  { id: 4, name: "Dr. Kenji Tan", specialty: "Internal Medicine", specialties: ["Internal Medicine"], rating: 4.7, reviews: 143, fee: 650, online: true, telehealth: false, nextSlot: "Today, 5:15 PM", hospital: "Cardinal Santos", exp: 7 },
+  { id: 5, name: "Dr. Lea Bautista", specialty: "OB-GYN", specialties: ["OB-GYN"], rating: 4.9, reviews: 268, fee: 1000, online: true, telehealth: true, nextSlot: "Tomorrow, 9:00 AM", hospital: "Asian Hospital", exp: 16 },
+  { id: 6, name: "Dr. Rafael Cruz", specialty: "Neurology", specialties: ["Neurology"], rating: 4.8, reviews: 99, fee: 1500, online: false, telehealth: true, nextSlot: "Fri, 1:00 PM", hospital: "St. Luke's Medical Center", exp: 12 },
 ];
 
 const SLOTS = ["9:00 AM", "9:30 AM", "10:30 AM", "1:00 PM", "3:30 PM", "4:15 PM"];
@@ -258,7 +258,7 @@ function Landing({ go }) {
 function DoctorSignup({ go }) {
   const { signUp } = useAuth();
   const [step, setStep] = useState(0);
-  const [form, setForm] = useState({ name: "", email: "", password: "", specialty: "Cardiology", license: "", plan: "pro", annual: true });
+  const [form, setForm] = useState({ name: "", email: "", password: "", professionType: "doctor", specialties: ["Cardiology"], license: "", plan: "pro", annual: true });
   const [done, setDone] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
@@ -278,7 +278,8 @@ function DoctorSignup({ go }) {
       fullName: form.name,
       role: "doctor",
       doctorDetails: {
-        specialty: form.specialty,
+        specialties: form.specialties,
+        professionType: form.professionType,
         license: form.license,
         fee: 0,
         telehealth: true,
@@ -350,9 +351,51 @@ function DoctorSignup({ go }) {
       {step === 1 && (
         <div className="space-y-4">
           <h2 className="font-display text-2xl font-bold text-slate-50 mb-2">Credentials</h2>
-          <select className={input} value={form.specialty} onChange={(e) => set("specialty", e.target.value)}>
-            {SPECIALTIES.filter((s) => s !== "All").map((s) => <option key={s}>{s}</option>)}
-          </select>
+
+          <div>
+            <label className="text-xs font-mono2 text-slate-500 mb-2 block">I AM A</label>
+            <div className="grid grid-cols-2 gap-3">
+              {[["doctor", "Doctor / Physician"], ["dentist", "Dentist"]].map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setForm((f) => ({ ...f, professionType: id, specialties: id === "dentist" ? ["Dentistry"] : ["Cardiology"] }))}
+                  className={
+                    "px-4 py-3 rounded-2xl border text-left font-body text-sm transition-colors " +
+                    (form.professionType === id
+                      ? "bg-teal-400/10 border-teal-400 text-teal-200"
+                      : "bg-slate-900 border-slate-700 text-slate-300 hover:border-slate-500")
+                  }
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-mono2 text-slate-500 mb-2 block">SPECIALTIES (select all that apply)</label>
+            <div className="flex flex-wrap gap-2">
+              {(form.professionType === "dentist" ? DENTAL_SPECIALTIES : SPECIALTIES.filter((s) => s !== "All" && !DENTAL_SPECIALTIES.includes(s))).map((s) => {
+                const active = form.specialties.includes(s);
+                return (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => set("specialties", active ? form.specialties.filter((x) => x !== s) : [...form.specialties, s])}
+                    className={
+                      "px-3.5 py-1.5 rounded-full text-sm font-body border transition-colors " +
+                      (active ? "bg-teal-400 text-slate-950 border-teal-400 font-medium" : "bg-slate-900 text-slate-300 border-slate-700 hover:border-teal-500/60")
+                    }
+                  >
+                    {s}
+                  </button>
+                );
+              })}
+            </div>
+            {form.specialties.length === 0 && <p className="text-xs text-amber-300 font-body mt-2">Pick at least one specialty.</p>}
+          </div>
+
           <input className={input} placeholder="PRC license number" value={form.license} onChange={(e) => set("license", e.target.value)} />
           <p className="text-xs text-slate-500 font-body">Licenses are verified against the PRC registry before your profile goes live to patients.</p>
         </div>
@@ -378,7 +421,7 @@ function DoctorSignup({ go }) {
             {[
               ["Name", form.name || "—"],
               ["Email", form.email || "—"],
-              ["Specialty", form.specialty],
+              ["Specialties", form.specialties.join(", ")],
               ["PRC license", form.license || "—"],
               ["Plan", `${plan.name} · ${peso(price)}/mo (${form.annual ? "annual" : "monthly"})`],
               ["Trial", "14 days free · no charge until trial ends"],
@@ -406,7 +449,7 @@ function DoctorSignup({ go }) {
           <ChevronLeft size={16} /> Back
         </button>
         <button
-          disabled={submitting}
+          disabled={submitting || (step === 1 && form.specialties.length === 0)}
           onClick={() => (step === 3 ? submit() : setStep(step + 1))}
           className="px-6 py-2.5 rounded-2xl bg-teal-400 text-slate-950 font-body font-semibold hover:bg-teal-300 transition-colors flex items-center gap-1.5 disabled:opacity-60"
         >
@@ -849,7 +892,7 @@ function PatientDirectory() {
     (async () => {
       const { data, error } = await supabase
         .from("doctors")
-        .select("id, specialty, consult_fee, telehealth_enabled, is_online, hospital, years_experience, profiles(full_name), locations:clinic_locations(id, name, address)");
+        .select("id, specialty, specialties, consult_fee, telehealth_enabled, is_online, hospital, years_experience, profiles(full_name), locations:clinic_locations(id, name, address)");
       if (cancelled) return;
       if (error || !data || data.length === 0) {
         setLoadError(error?.message || null);
@@ -860,6 +903,7 @@ function PatientDirectory() {
           id: d.id,
           name: d.profiles?.full_name || "Unnamed doctor",
           specialty: d.specialty,
+          specialties: d.specialties?.length ? d.specialties : (d.specialty ? [d.specialty] : []),
           rating: 4.8,
           reviews: 0,
           fee: d.consult_fee,
@@ -879,9 +923,9 @@ function PatientDirectory() {
     () =>
       doctors.filter(
         (d) =>
-          (spec === "All" || d.specialty === spec) &&
+          (spec === "All" || d.specialties.includes(spec)) &&
           (!onlineOnly || d.online) &&
-          (d.name + d.specialty + d.hospital).toLowerCase().includes(q.toLowerCase())
+          (d.name + d.specialties.join(" ") + d.hospital).toLowerCase().includes(q.toLowerCase())
       ),
     [doctors, q, spec, onlineOnly]
   );
@@ -940,7 +984,7 @@ function PatientDirectory() {
                 <Avatar name={d.name} online={d.online} />
                 <div className="min-w-0">
                   <div className="font-display font-semibold text-slate-100 truncate">{d.name}</div>
-                  <div className="text-sm text-teal-300 font-body">{d.specialty}</div>
+                  <div className="text-sm text-teal-300 font-body">{d.specialties.join(" · ")}</div>
                   <div className="text-xs text-slate-500 font-body truncate">{d.hospital}</div>
                 </div>
               </div>

@@ -52,7 +52,9 @@ export function AuthProvider({ children }) {
     if (role === "doctor" && doctorDetails) {
       const { error: doctorError } = await supabase.from("doctors").insert({
         id: userId,
-        specialty: doctorDetails.specialty,
+        specialty: doctorDetails.specialties?.[0] || doctorDetails.specialty,
+        specialties: doctorDetails.specialties || (doctorDetails.specialty ? [doctorDetails.specialty] : []),
+        profession_type: doctorDetails.professionType || "doctor",
         prc_license: doctorDetails.license,
         consult_fee: doctorDetails.fee ?? 0,
         telehealth_enabled: doctorDetails.telehealth ?? false,
