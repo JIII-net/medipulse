@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
-  LayoutDashboard, Users, Calendar, Stethoscope, Shield, Search, LogOut,
+  LayoutDashboard, Users, Calendar, Stethoscope, Shield, Search, LogOut, Settings,
   Activity, Clock, ClipboardList, ChevronRight, X,
 } from "lucide-react";
 import { useAuth } from "./lib/AuthContext";
@@ -9,6 +9,7 @@ import { StaffGate } from "./lib/StaffGate";
 import PatientRecords from "./PatientRecords";
 import AppointmentsModule from "./AppointmentsModule";
 import DoctorPortal from "./DoctorPortal";
+import PracticeSettings from "./PracticeSettings";
 
 /* ------------------------------------------------------------------ */
 /*  StaffApp — the unified clinic application shell                    */
@@ -169,7 +170,8 @@ function StaffAppInner({ AdminPortal, onExitToSite }) {
     { id: "home", label: "Dashboard", icon: LayoutDashboard },
     { id: "patients", label: "Patients", icon: Users },
     { id: "appointments", label: "Appointments", icon: Calendar },
-    { id: "doctor", label: "Doctor Portal", icon: Stethoscope },
+    ...(profile?.role !== "secretary" ? [{ id: "doctor", label: "Doctor Portal", icon: Stethoscope }] : []),
+    ...(profile?.role === "doctor" ? [{ id: "practice", label: "Practice", icon: Settings }] : []),
     ...(profile?.role === "admin" ? [{ id: "admin", label: "Admin", icon: Shield }] : []),
   ];
 
@@ -218,6 +220,7 @@ function StaffAppInner({ AdminPortal, onExitToSite }) {
           {mod === "patients" && <PatientRecords openPatientId={openPatientId} />}
           {mod === "appointments" && <AppointmentsModule />}
           {mod === "doctor" && <DoctorPortal />}
+          {mod === "practice" && <PracticeSettings />}
           {mod === "admin" && AdminPortal && <AdminPortal />}
         </main>
       </div>

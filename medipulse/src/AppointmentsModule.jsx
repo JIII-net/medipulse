@@ -144,15 +144,17 @@ function PatientPicker({ onPick }) {
 
 /* --------------------------- book modal --------------------------- */
 
-function BookModal({ slot, doctors, schedules, onClose, onBooked, presetPatient }) {
+function BookModal({ slot, doctors, schedules, locations = [], onClose, onBooked, presetPatient }) {
   const [patient, setPatient] = useState(presetPatient || null);
   const [doctorId, setDoctorId] = useState(slot?.doctorId || doctors[0]?.id || "");
   const [dateStr, setDateStr] = useState(slot?.dateStr || todayStr());
   const [time, setTime] = useState(slot?.time || "09:00");
   const [type, setType] = useState("consultation");
+  const [locationId, setLocationId] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const slots = slotsFor(doctorId, dateStr, schedules);
+  const doctorLocations = locations.filter((l) => l.doctor_id === doctorId);
 
   const save = async () => {
     if (!patient) { setError("Pick a patient first."); return; }
@@ -161,7 +163,7 @@ function BookModal({ slot, doctors, schedules, onClose, onBooked, presetPatient 
     const ends_at = new Date(new Date(starts_at).getTime() + 30 * 60000).toISOString();
     const { data, error } = await supabase
       .from("appointments")
-      .insert({ doctor_id: doctorId, patient_record_id: patient.id, starts_at, ends_at, type, source: "staff", mode: type === "teleconsult" ? "video" : "clinic" })
+      .insert({ doctor_id: doctorId, patient_record_id: patient.id, starts_at, ends_at, type, source: "staff", mode: type === "teleconsult" ? "video" : "clinic", location_id: locationId || null })
       .select("id, starts_at, type")
       .single();
     setBusy(false);
@@ -197,6 +199,12 @@ function BookModal({ slot, doctors, schedules, onClose, onBooked, presetPatient 
             <select className={inputCls} value={type} onChange={(e) => setType(e.target.value)}>
               {APPT_TYPES.map((t) => <option key={t} value={t}>{t.replace("_", " ")}</option>)}
             </select>
+            {doctorLocations.length > 0 && (
+              <select className={inputCls} value={locationId} onChange={(e) => setLocationId(e.target.value)}>
+                <option value="">Location: unspecified</option>
+                {doctorLocations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+              </select>
+            )}
             <ErrorBanner msg={error} />
             <button onClick={save} disabled={busy} className={btnPrimary + " w-full py-3"}>
               {busy ? "Booking…" : "Book & send confirmation"}
@@ -315,7 +323,7 @@ function DetailModal({ appt, doctors, schedules, onClose, onChanged }) {
 
 /* ---------------------------- calendar ---------------------------- */
 
-function CalendarTab({ doctors, schedules }) {
+function CalendarTab({ doctors, schedules, locations }) {
   const [view, setView] = useState("day");             // day | week
   const [dateStr, setDateStr] = useState(todayStr());
   const [weekDoctor, setWeekDoctor] = useState("");
@@ -426,7 +434,7 @@ function CalendarTab({ doctors, schedules }) {
         </div>
       )}
 
-      {booking && <BookModal slot={booking} doctors={doctors} schedules={schedules} onClose={() => setBooking(null)} onBooked={() => { setBooking(null); load(); }} />}
+      {booking && <BookModal slot={booking} doctors={doctors} schedules={schedules} locations={locations} onClose={() => setBooking(null)} onBooked={() => { setBooking(null); load(); }} />}
       {detail && <DetailModal appt={detail} doctors={doctors} schedules={schedules} onClose={() => setDetail(null)} onChanged={load} />}
     </div>
   );
@@ -434,9 +442,9 @@ function CalendarTab({ doctors, schedules }) {
 
 /* --------------------------- schedules tab ------------------------ */
 
-function SchedulesTab({ doctors, schedules, reload }) {
+function SchedulesTab({ doctors, schedules, locations = [], reload }) {
   const [doctorId, setDoctorId] = useState("");
-  const [f, setF] = useState({ weekday: "1", start_time: "08:00", end_time: "17:00", slot_minutes: "30" });
+  const [f, setF] = useState({ weekday: "1", start_time: "08:00", end_time: "17:00", slot_minutes: "30", location_id: "" });
   const [busy, setBusy] = useState(false);
   useEffect(() => { if (!doctorId && doctors.length) setDoctorId(doctors[0].id); }, [doctors, doctorId]);
 
@@ -447,6 +455,7 @@ function SchedulesTab({ doctors, schedules, reload }) {
     await supabase.from("schedules").insert({
       resource_type: "doctor", resource_id: doctorId,
       weekday: Number(f.weekday), start_time: f.start_time, end_time: f.end_time, slot_minutes: Number(f.slot_minutes),
+      location_id: f.location_id || null,
     });
     setBusy(false);
     reload();
@@ -464,7 +473,10 @@ function SchedulesTab({ doctors, schedules, reload }) {
         {rules.length === 0 && <div className="text-sm text-slate-500 font-body mb-3">No custom rules — using the default schedule every day.</div>}
         {rules.map((r) => (
           <div key={r.id} className="flex items-center justify-between py-2.5 border-b border-slate-800/60 last:border-0 text-sm font-body">
-            <span className="text-slate-200">{WEEKDAYS[r.weekday]} · {fmt12h(r.start_time.slice(0, 5))} – {fmt12h(r.end_time.slice(0, 5))} · {r.slot_minutes} min slots</span>
+            <span className="text-slate-200">
+              {WEEKDAYS[r.weekday]} · {fmt12h(r.start_time.slice(0, 5))} – {fmt12h(r.end_time.slice(0, 5))} · {r.slot_minutes} min slots
+              {r.location_id && <span className="text-teal-300 text-xs"> · {locations.find((l) => l.id === r.location_id)?.name || "location"}</span>}
+            </span>
             <button onClick={() => remove(r.id)} className="text-slate-500 hover:text-rose-300"><Trash2 size={15} /></button>
           </div>
         ))}
@@ -478,6 +490,12 @@ function SchedulesTab({ doctors, schedules, reload }) {
             {[15, 20, 30, 45, 60].map((m) => <option key={m} value={m}>{m} min</option>)}
           </select>
         </div>
+        {locations.filter((l) => l.doctor_id === doctorId).length > 0 && (
+          <select className={inputCls + " mt-2"} value={f.location_id} onChange={(e) => setF((p) => ({ ...p, location_id: e.target.value }))}>
+            <option value="">Location: any / unspecified</option>
+            {locations.filter((l) => l.doctor_id === doctorId).map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+          </select>
+        )}
         <button onClick={add} disabled={busy || !doctorId} className={btnPrimary + " mt-3 flex items-center gap-1.5"}><Plus size={15} /> Add rule</button>
       </div>
     </div>
@@ -647,14 +665,17 @@ export default function AppointmentsModule() {
   const [tab, setTab] = useState("calendar");
   const [doctors, setDoctors] = useState([]);
   const [schedules, setSchedules] = useState([]);
+  const [locations, setLocations] = useState([]);
 
   const loadBase = async () => {
-    const [dr, sc] = await Promise.all([
+    const [dr, sc, lc] = await Promise.all([
       supabase.from("doctors").select("id, specialty, profiles(full_name)"),
       supabase.from("schedules").select("*"),
+      supabase.from("clinic_locations").select("id, doctor_id, name"),
     ]);
     setDoctors((dr.data || []).map((d) => ({ id: d.id, specialty: d.specialty, name: d.profiles?.full_name || "Unnamed doctor" })));
     setSchedules(sc.data || []);
+    setLocations(lc.data || []);
   };
   useEffect(() => { loadBase(); }, []);
 
@@ -672,8 +693,8 @@ export default function AppointmentsModule() {
             </button>
           ))}
         </div>
-        {tab === "calendar" && <CalendarTab doctors={doctors} schedules={schedules} />}
-        {tab === "schedules" && <SchedulesTab doctors={doctors} schedules={schedules} reload={loadBase} />}
+        {tab === "calendar" && <CalendarTab doctors={doctors} schedules={schedules} locations={locations} />}
+        {tab === "schedules" && <SchedulesTab doctors={doctors} schedules={schedules} locations={locations} reload={loadBase} />}
         {tab === "queue" && <QueueTab />}
         {tab === "outbox" && <OutboxTab />}
       </div>

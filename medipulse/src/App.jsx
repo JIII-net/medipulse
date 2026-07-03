@@ -342,6 +342,7 @@ function DoctorSignup({ go }) {
           <input className={input} placeholder="Work email" type="email" value={form.email} onChange={(e) => set("email", e.target.value)} />
           <input className={input} placeholder="Password (min. 6 characters)" type="password" value={form.password} onChange={(e) => set("password", e.target.value)} />
           <p className="text-xs text-slate-500 font-body flex items-center gap-1.5"><Lock size={12} /> Multi-factor authentication is required for all doctor accounts.</p>
+          <p className="text-xs text-slate-500 font-body">Clinic secretary? <button type="button" onClick={() => go("staffjoin")} className="text-teal-300 hover:underline">Join your doctor's practice with an invite code →</button></p>
         </div>
       )}
 
@@ -940,6 +941,67 @@ function AdminDashboard() {
   );
 }
 
+
+/* ------------------------ secretary join ------------------------- */
+
+function StaffJoin({ go }) {
+  const { signUp } = useAuth();
+  const [f, setF] = useState({ code: "", name: "", email: "", password: "" });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const [done, setDone] = useState(false);
+  const input = "w-full rounded-2xl bg-slate-900 border border-slate-700 px-4 py-3 text-slate-100 font-body placeholder-slate-500 focus:outline-none focus:border-teal-400";
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setBusy(true); setError(null);
+    const { error } = await signUp({ email: f.email, password: f.password, fullName: f.name, role: "secretary" });
+    if (error) { setError(error.message); setBusy(false); return; }
+    const { error: rpcErr } = await supabase.rpc("redeem_invite", { invite_code: f.code.trim().toUpperCase() });
+    setBusy(false);
+    if (rpcErr) {
+      setError(rpcErr.message.includes("Invalid") ? "That invite code is invalid or expired — ask your doctor for a new one. Your account was created; once you have a valid code, log in to the Clinic App and contact support to link it." : rpcErr.message);
+      return;
+    }
+    setDone(true);
+  };
+
+  if (done)
+    return (
+      <div className="max-w-md mx-auto px-6 py-20 text-center fade-up">
+        <div className="w-14 h-14 rounded-2xl bg-teal-400/15 border border-teal-400/40 flex items-center justify-center mx-auto mb-4">
+          <Check size={24} className="text-teal-300" />
+        </div>
+        <h2 className="font-display text-2xl font-bold text-slate-50">You're on the team!</h2>
+        <p className="text-slate-400 font-body text-sm mt-2">Your secretary account is linked to the practice. You can manage patients, appointments, and the queue.</p>
+        <button onClick={() => go("app")} className="mt-6 px-6 py-3 rounded-2xl bg-teal-400 text-slate-950 font-body font-semibold hover:bg-teal-300 transition-colors">
+          Open the Clinic App →
+        </button>
+      </div>
+    );
+
+  return (
+    <div className="max-w-md mx-auto px-6 py-16 fade-up">
+      <h2 className="font-display text-2xl font-bold text-slate-50 mb-1">Join a practice</h2>
+      <p className="text-slate-400 font-body text-sm mb-6">For clinic secretaries and staff. Enter the invite code your doctor generated in their Practice settings.</p>
+      <form onSubmit={submit} className="space-y-4">
+        <input className={input + " font-mono2 tracking-widest uppercase"} placeholder="INVITE CODE" value={f.code} onChange={(e) => setF((p) => ({ ...p, code: e.target.value }))} required />
+        <input className={input} placeholder="Full name" value={f.name} onChange={(e) => setF((p) => ({ ...p, name: e.target.value }))} required />
+        <input className={input} placeholder="Email" type="email" value={f.email} onChange={(e) => setF((p) => ({ ...p, email: e.target.value }))} required />
+        <input className={input} placeholder="Password (min. 6 characters)" type="password" value={f.password} onChange={(e) => setF((p) => ({ ...p, password: e.target.value }))} required minLength={6} />
+        {error && (
+          <div className="flex items-start gap-2 text-sm text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-2xl px-4 py-3 font-body">
+            <AlertCircle size={16} className="mt-0.5 shrink-0" /> {error}
+          </div>
+        )}
+        <button disabled={busy} className="w-full py-3 rounded-2xl bg-teal-400 text-slate-950 font-body font-semibold hover:bg-teal-300 transition-colors disabled:opacity-60">
+          {busy ? "Joining…" : "Create account & join"}
+        </button>
+      </form>
+    </div>
+  );
+}
+
 /* ------------------------------ app ------------------------------- */
 
 export default function App() {
@@ -999,6 +1061,7 @@ function AppShell() {
 
       {view === "landing" && <Landing go={setView} />}
       {view === "doctor" && <DoctorSignup go={setView} />}
+      {view === "staffjoin" && <StaffJoin go={setView} />}
       {view === "patient" && <PatientPortal />}
 
 

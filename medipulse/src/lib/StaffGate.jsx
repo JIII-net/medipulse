@@ -40,7 +40,7 @@ export function StaffGate({ children }) {
     );
   }
 
-  if (!["doctor", "admin"].includes(profile.role)) {
+  if (!["doctor", "admin", "secretary"].includes(profile.role)) {
     return (
       <div className="max-w-md mx-auto px-6 py-20 text-center fade-up">
         <div className="w-14 h-14 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center mx-auto mb-4">
@@ -48,7 +48,7 @@ export function StaffGate({ children }) {
         </div>
         <h2 className="font-display text-2xl font-bold text-slate-50">Staff only</h2>
         <p className="text-slate-400 font-body text-sm mt-2">
-          This area can only be accessed by doctors and administrators. This account has the role "{profile.role}".
+          This area can only be accessed by clinic staff (doctors, secretaries, administrators). This account has the role "{profile.role}".
         </p>
         <button onClick={signOut} className="mt-6 text-sm text-teal-300 font-body hover:underline">Log out and switch accounts</button>
       </div>
