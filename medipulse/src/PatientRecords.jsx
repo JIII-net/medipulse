@@ -20,10 +20,14 @@ const btnGhost = "px-4 py-2 rounded-xl border border-slate-700 text-slate-300 te
 const card = "rounded-3xl border border-slate-800 bg-slate-900 p-5";
 
 const calcAge = (birthdate) => {
-  const b = new Date(birthdate);
+  // Parse the y-m-d string directly rather than via `new Date(str)`,
+  // which is interpreted as UTC and can misreport the age by one day
+  // in negative-UTC-offset timezones (harmless for PH/+8, but this
+  // keeps the calculation correct regardless of the browser's locale).
+  const [by, bm, bd] = String(birthdate).split("-").map(Number);
   const now = new Date();
-  let age = now.getFullYear() - b.getFullYear();
-  if (now.getMonth() < b.getMonth() || (now.getMonth() === b.getMonth() && now.getDate() < b.getDate())) age--;
+  let age = now.getFullYear() - by;
+  if (now.getMonth() + 1 < bm || (now.getMonth() + 1 === bm && now.getDate() < bd)) age--;
   return age;
 };
 

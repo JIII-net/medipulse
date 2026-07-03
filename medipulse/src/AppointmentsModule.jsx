@@ -250,11 +250,9 @@ function DetailModal({ appt, doctors, schedules, onClose, onChanged }) {
   });
 
   const checkIn = () => act(async () => {
-    const today = todayStr();
-    const { count } = await supabase.from("queue_tickets").select("id", { count: "exact", head: true })
-      .eq("station", "Triage").gte("created_at", today + "T00:00:00");
+    const { data: number, error: numErr } = await supabase.rpc("issue_queue_number", { p_station: "Triage", p_prefix: "T" });
+    if (numErr) return numErr.message;
     const priority = patient?.senior_citizen_id || patient?.pwd_id ? "senior_pwd" : "regular";
-    const number = "T-" + String((count || 0) + 1).padStart(3, "0");
     const { error } = await supabase.from("queue_tickets").insert({
       appointment_id: appt.id, patient_record_id: patient?.id || null, station: "Triage", number, priority,
     });
@@ -555,12 +553,11 @@ function QueueTab() {
 
   const createWalkIn = async (patient) => {
     const st = STATIONS.find((s) => s.name === station);
-    const { count } = await supabase.from("queue_tickets").select("id", { count: "exact", head: true })
-      .eq("station", station).gte("created_at", todayStr() + "T00:00:00");
+    const { data: number, error: numErr } = await supabase.rpc("issue_queue_number", { p_station: station, p_prefix: st.prefix });
+    if (numErr) { setError(numErr.message); return; }
     const priority = patient.senior_citizen_id || patient.pwd_id ? "senior_pwd" : "regular";
     const { error } = await supabase.from("queue_tickets").insert({
-      patient_record_id: patient.id, station,
-      number: `${st.prefix}-${String((count || 0) + 1).padStart(3, "0")}`, priority,
+      patient_record_id: patient.id, station, number, priority,
     });
     if (error) { setError(error.message); return; }
     setWalkIn(false);

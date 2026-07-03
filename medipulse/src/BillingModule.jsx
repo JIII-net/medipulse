@@ -17,9 +17,14 @@ const peso = (n) => "₱" + Number(n || 0).toLocaleString("en-PH", { minimumFrac
 const r2 = (n) => Math.round(n * 100) / 100;
 const fmtDT = (iso) => new Date(iso).toLocaleString("en-PH", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 const calcAge = (b) => {
-  const d = new Date(b), n = new Date();
-  let a = n.getFullYear() - d.getFullYear();
-  if (n.getMonth() < d.getMonth() || (n.getMonth() === d.getMonth() && n.getDate() < d.getDate())) a--;
+  // Parse the y-m-d string directly rather than via `new Date(str)`,
+  // which is interpreted as UTC and can misreport the age by one day
+  // in negative-UTC-offset timezones (harmless for PH/+8, but this
+  // keeps the calculation correct regardless of the browser's locale).
+  const [by, bm, bd] = String(b).split("-").map(Number);
+  const n = new Date();
+  let a = n.getFullYear() - by;
+  if (n.getMonth() + 1 < bm || (n.getMonth() + 1 === bm && n.getDate() < bd)) a--;
   return a;
 };
 
@@ -53,6 +58,12 @@ function printDoc(title, bodyHtml) {
     </style></head><body>${bodyHtml}<scr` + `ipt>window.onload = () => window.print();</scr` + `ipt></body></html>`
   );
   w.document.close();
+}
+
+// Escapes user-supplied text before it's interpolated into a raw HTML
+// print template — see the matching note in DoctorPortal.jsx.
+function esc(s) {
+  return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
 function ErrorBanner({ msg }) {
@@ -293,12 +304,12 @@ function InvoiceDetail({ invoiceId, onBack, reloadList }) {
   };
 
   const printSOA = () => {
-    const rows = items.map((i) => `<tr><td>${i.description}</td><td class="r">${i.quantity}</td><td class="r">${peso(i.unit_price)}</td><td class="r">${peso(i.amount)}</td></tr>`).join("");
+    const rows = items.map((i) => `<tr><td>${esc(i.description)}</td><td class="r">${esc(i.quantity)}</td><td class="r">${peso(i.unit_price)}</td><td class="r">${peso(i.amount)}</td></tr>`).join("");
     printDoc("Statement of Account", `
-      <h1>MEDIPULSE CLINIC</h1><div class="sub">Statement of Account · ${inv.invoice_no}</div><div class="rule"></div>
-      <table><tr><td style="color:#555;width:120px">Patient</td><td>${inv.patient.first_name} ${inv.patient.last_name} (${inv.patient.mrn})</td></tr>
-      <tr><td style="color:#555">Doctor</td><td>${doctorName}</td></tr>
-      <tr><td style="color:#555">Date</td><td>${new Date(inv.created_at).toLocaleDateString("en-PH", { dateStyle: "long" })}</td></tr></table>
+      <h1>MEDIPULSE CLINIC</h1><div class="sub">Statement of Account · ${esc(inv.invoice_no)}</div><div class="rule"></div>
+      <table><tr><td style="color:#555;width:120px">Patient</td><td>${esc(inv.patient.first_name)} ${esc(inv.patient.last_name)} (${esc(inv.patient.mrn)})</td></tr>
+      <tr><td style="color:#555">Doctor</td><td>${esc(doctorName)}</td></tr>
+      <tr><td style="color:#555">Date</td><td>${esc(new Date(inv.created_at).toLocaleDateString("en-PH", { dateStyle: "long" }))}</td></tr></table>
       <div class="rule"></div>
       <table><tr><th>Description</th><th class="r">Qty</th><th class="r">Price</th><th class="r">Amount</th></tr>${rows}</table>
       <table class="totals" style="margin-top:14px">
@@ -314,12 +325,12 @@ function InvoiceDetail({ invoiceId, onBack, reloadList }) {
 
   const printOR = (p) => {
     printDoc("Official Receipt", `
-      <h1>MEDIPULSE CLINIC</h1><div class="sub">OFFICIAL RECEIPT · ${p.or_number}</div><div class="rule"></div>
+      <h1>MEDIPULSE CLINIC</h1><div class="sub">OFFICIAL RECEIPT · ${esc(p.or_number)}</div><div class="rule"></div>
       <table>
-        <tr><td style="color:#555;width:140px">Received from</td><td>${inv.patient.first_name} ${inv.patient.last_name}</td></tr>
-        <tr><td style="color:#555">Date</td><td>${new Date(p.paid_at).toLocaleString("en-PH", { dateStyle: "long", timeStyle: "short" })}</td></tr>
-        <tr><td style="color:#555">For invoice</td><td>${inv.invoice_no}</td></tr>
-        <tr><td style="color:#555">Payment method</td><td style="text-transform:uppercase">${p.method}${p.reference_no ? ` (ref: ${p.reference_no})` : ""}</td></tr>
+        <tr><td style="color:#555;width:140px">Received from</td><td>${esc(inv.patient.first_name)} ${esc(inv.patient.last_name)}</td></tr>
+        <tr><td style="color:#555">Date</td><td>${esc(new Date(p.paid_at).toLocaleString("en-PH", { dateStyle: "long", timeStyle: "short" }))}</td></tr>
+        <tr><td style="color:#555">For invoice</td><td>${esc(inv.invoice_no)}</td></tr>
+        <tr><td style="color:#555">Payment method</td><td style="text-transform:uppercase">${esc(p.method)}${p.reference_no ? ` (ref: ${esc(p.reference_no)})` : ""}</td></tr>
         <tr><td style="color:#555">Amount</td><td style="font-size:20px;font-weight:bold">${peso(p.amount)}</td></tr>
       </table>
       <div class="muted">This serves as your official receipt. Generated via MediPulse.</div>`);

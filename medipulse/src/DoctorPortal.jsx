@@ -21,9 +21,14 @@ const fmtDT = (iso) => new Date(iso).toLocaleString("en-PH", { month: "short", d
 const fmtT = (iso) => new Date(iso).toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" });
 const todayStr = () => new Date().toISOString().slice(0, 10);
 const calcAge = (b) => {
-  const d = new Date(b), n = new Date();
-  let a = n.getFullYear() - d.getFullYear();
-  if (n.getMonth() < d.getMonth() || (n.getMonth() === d.getMonth() && n.getDate() < d.getDate())) a--;
+  // Parse the y-m-d string directly rather than via `new Date(str)`,
+  // which is interpreted as UTC and can misreport the age by one day
+  // in negative-UTC-offset timezones (harmless for PH/+8, but this
+  // keeps the calculation correct regardless of the browser's locale).
+  const [by, bm, bd] = String(b).split("-").map(Number);
+  const n = new Date();
+  let a = n.getFullYear() - by;
+  if (n.getMonth() + 1 < bm || (n.getMonth() + 1 === bm && n.getDate() < bd)) a--;
   return a;
 };
 
@@ -96,6 +101,14 @@ function printDocument(title, bodyHtml) {
     </style></head><body>${bodyHtml}<scr` + `ipt>window.onload = () => window.print();</scr` + `ipt></body></html>`
   );
   w.document.close();
+}
+
+// Escapes user-supplied text before it's interpolated into a raw HTML
+// print template (document.write). Without this, a diagnosis, remark,
+// drug name, or patient name containing HTML/script would execute in
+// the print window. Always wrap interpolated dynamic values with this.
+function esc(s) {
+  return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
 /* ---------------------------- dashboard --------------------------- */
@@ -324,30 +337,30 @@ function Consult({ encounterId, me, myName, onExit }) {
   const printRx = () => {
     if (rxItems.length === 0) return;
     const items = rxItems.map((i) =>
-      `<div class="rx-item"><strong>${i.drug_name}</strong> ${i.dose || ""}<br/>
-       ${[i.route, i.frequency, i.duration].filter(Boolean).join(" · ")}${i.quantity ? ` · #${i.quantity}` : ""}
-       ${i.instructions ? `<br/><em>${i.instructions}</em>` : ""}</div>`).join("");
+      `<div class="rx-item"><strong>${esc(i.drug_name)}</strong> ${esc(i.dose || "")}<br/>
+       ${esc([i.route, i.frequency, i.duration].filter(Boolean).join(" · "))}${i.quantity ? ` · #${esc(i.quantity)}` : ""}
+       ${i.instructions ? `<br/><em>${esc(i.instructions)}</em>` : ""}</div>`).join("");
     printDocument("e-Prescription", `
       <h1>MEDIPULSE CLINIC</h1><div class="sub">Electronic Prescription</div><div class="rule"></div>
-      <table><tr><td class="label">Patient</td><td>${patient.first_name} ${patient.last_name} (${calcAge(patient.birthdate)}y, ${patient.sex})</td></tr>
-      <tr><td class="label">MRN</td><td>${patient.mrn}</td></tr>
-      <tr><td class="label">Date</td><td>${new Date().toLocaleDateString("en-PH", { dateStyle: "long" })}</td></tr></table>
+      <table><tr><td class="label">Patient</td><td>${esc(patient.first_name)} ${esc(patient.last_name)} (${calcAge(patient.birthdate)}y, ${esc(patient.sex)})</td></tr>
+      <tr><td class="label">MRN</td><td>${esc(patient.mrn)}</td></tr>
+      <tr><td class="label">Date</td><td>${esc(new Date().toLocaleDateString("en-PH", { dateStyle: "long" }))}</td></tr></table>
       <div class="rule"></div><div style="font-size:30px">℞</div>${items}
-      <div class="sig"><div class="line">${myName}<br/>Lic. No. _______________</div></div>
+      <div class="sig"><div class="line">${esc(myName)}<br/>Lic. No. _______________</div></div>
       <div class="muted">Electronically generated via MediPulse. Valid with prescriber's signature.</div>`);
   };
 
   const printCert = (c) => {
     printDocument("Medical Certificate", `
       <h1>MEDIPULSE CLINIC</h1><div class="sub">Medical Certificate</div><div class="rule"></div>
-      <p>This is to certify that <strong>${patient.first_name} ${patient.last_name}</strong>,
+      <p>This is to certify that <strong>${esc(patient.first_name)} ${esc(patient.last_name)}</strong>,
       ${calcAge(patient.birthdate)} years old, was seen and examined on
-      ${new Date(c.issued_at).toLocaleDateString("en-PH", { dateStyle: "long" })} with the following findings:</p>
-      <p><strong>Diagnosis:</strong> ${c.diagnosis}</p>
-      ${c.remarks ? `<p><strong>Remarks:</strong> ${c.remarks}</p>` : ""}
-      ${c.rest_days > 0 ? `<p>The patient is advised to rest for <strong>${c.rest_days} day(s)</strong>.</p>` : ""}
+      ${esc(new Date(c.issued_at).toLocaleDateString("en-PH", { dateStyle: "long" }))} with the following findings:</p>
+      <p><strong>Diagnosis:</strong> ${esc(c.diagnosis)}</p>
+      ${c.remarks ? `<p><strong>Remarks:</strong> ${esc(c.remarks)}</p>` : ""}
+      ${c.rest_days > 0 ? `<p>The patient is advised to rest for <strong>${esc(c.rest_days)} day(s)</strong>.</p>` : ""}
       <p>This certificate is issued upon the patient's request for whatever legal purpose it may serve.</p>
-      <div class="sig"><div class="line">${myName}<br/>Lic. No. _______________</div></div>
+      <div class="sig"><div class="line">${esc(myName)}<br/>Lic. No. _______________</div></div>
       <div class="muted">Electronically generated via MediPulse.</div>`);
   };
 
