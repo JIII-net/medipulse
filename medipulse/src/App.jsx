@@ -5,9 +5,7 @@ import {
 } from "lucide-react";
 import { AuthProvider, useAuth } from "./lib/AuthContext";
 import { supabase } from "./lib/supabaseClient";
-import PatientRecords from "./PatientRecords";
-import AppointmentsModule from "./AppointmentsModule";
-import DoctorPortal from "./DoctorPortal";
+import StaffApp from "./StaffApp";
 
 /* ------------------------------------------------------------------ */
 /*  MediPulse — Patient Management SaaS prototype                      */
@@ -954,6 +952,16 @@ export default function App() {
 
 function AppShell() {
   const [view, setView] = useState("landing");
+
+  if (view === "app") {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100 font-body">
+        <style>{FONTS}</style>
+        <StaffApp AdminPortal={AdminPortal} onExitToSite={() => setView("landing")} />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-body">
       <style>{FONTS}</style>
@@ -972,10 +980,7 @@ function AppShell() {
               ["landing", "Home"],
               ["doctor", "Doctor signup"],
               ["patient", "Patient portal"],
-              ["records", "Records"],
-              ["appointments", "Appointments"],
-              ["doctorportal", "Doctor Portal"],
-              ["admin", "Admin"],
+              ["app", "Clinic App"],
             ].map(([id, label]) => (
               <button
                 key={id}
@@ -995,10 +1000,7 @@ function AppShell() {
       {view === "landing" && <Landing go={setView} />}
       {view === "doctor" && <DoctorSignup go={setView} />}
       {view === "patient" && <PatientPortal />}
-      {view === "records" && <PatientRecords />}
-      {view === "appointments" && <AppointmentsModule />}
-      {view === "doctorportal" && <DoctorPortal />}
-      {view === "admin" && <AdminPortal />}
+
 
       <footer className="border-t border-slate-800 mt-16">
         <div className="max-w-6xl mx-auto px-6 py-8 flex flex-wrap items-center justify-between gap-3 text-xs font-mono2 text-slate-600">

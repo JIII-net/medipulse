@@ -647,8 +647,12 @@ function FamilyLinker({ patientId, onLinked }) {
 
 /* ----------------------------- module root ------------------------ */
 
-export default function PatientRecords() {
-  const [view, setView] = useState({ name: "search" });
+export default function PatientRecords({ openPatientId = null }) {
+  const [view, setView] = useState(openPatientId ? { name: "detail", id: openPatientId } : { name: "search" });
+
+  useEffect(() => {
+    if (openPatientId) setView({ name: "detail", id: openPatientId });
+  }, [openPatientId]);
 
   return (
     <StaffGate>
