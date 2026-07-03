@@ -683,22 +683,39 @@ function OutboxTab() {
 /* ----------------------------- module root ------------------------ */
 
 export default function AppointmentsModule() {
+  const { profile } = useAuth();
   const [tab, setTab] = useState("calendar");
   const [doctors, setDoctors] = useState([]);
   const [schedules, setSchedules] = useState([]);
   const [locations, setLocations] = useState([]);
 
   const loadBase = async () => {
+    // The calendar's doctor columns must respect the same multi-tenant
+    // boundary as the appointment data itself — a doctor should only
+    // ever see their own column, a secretary only their assigned
+    // doctor(s), and admin sees everyone (platform oversight).
+    let doctorsQuery;
+    if (profile.role === "doctor") {
+      doctorsQuery = supabase.from("doctors").select("id, specialty, profiles(full_name)").eq("id", profile.id);
+    } else if (profile.role === "secretary") {
+      doctorsQuery = supabase.from("staff_assignments")
+        .select("doctor:doctor_id(id, specialty, profiles(full_name))")
+        .eq("secretary_id", profile.id);
+    } else {
+      doctorsQuery = supabase.from("doctors").select("id, specialty, profiles(full_name)"); // admin: all
+    }
+
     const [dr, sc, lc] = await Promise.all([
-      supabase.from("doctors").select("id, specialty, profiles(full_name)"),
+      doctorsQuery,
       supabase.from("schedules").select("*"),
       supabase.from("clinic_locations").select("id, doctor_id, name"),
     ]);
-    setDoctors((dr.data || []).map((d) => ({ id: d.id, specialty: d.specialty, name: d.profiles?.full_name || "Unnamed doctor" })));
+    const rawDoctors = profile.role === "secretary" ? (dr.data || []).map((r) => r.doctor).filter(Boolean) : (dr.data || []);
+    setDoctors(rawDoctors.map((d) => ({ id: d.id, specialty: d.specialty, name: d.profiles?.full_name || "Unnamed doctor" })));
     setSchedules(sc.data || []);
     setLocations(lc.data || []);
   };
-  useEffect(() => { loadBase(); }, []);
+  useEffect(() => { if (profile) loadBase(); /* eslint-disable-next-line */ }, [profile]);
 
   return (
     <StaffGate>
