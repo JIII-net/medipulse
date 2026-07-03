@@ -28,20 +28,57 @@ const STATUS_META = {
   fractured: { label: "Fractured", color: "#701a75", border: "#e879f9", text: "#f5d0fe" },
 };
 
+// Tooth type by FDI position digit: 1-2 incisor, 3 canine, 4-5 premolar, 6-8 molar
+function toothType(n) {
+  const pos = n % 10;
+  if (pos <= 2) return "incisor";
+  if (pos === 3) return "canine";
+  if (pos <= 5) return "premolar";
+  return "molar";
+}
+const isUpper = (n) => n <= 28;
+
+// Each path is drawn crown-down (as if it's an upper tooth hanging from
+// the gumline at the top of a 24×34 box); lower teeth reuse the same
+// path flipped vertically, so the biting edges meet in the middle like
+// a real mouth diagram.
+const TOOTH_PATHS = {
+  incisor: "M7 2 H17 Q18 2 18 4 L16.5 24 Q16 27 12 27 Q8 27 7.5 24 L6 4 Q6 2 7 2 Z",
+  canine: "M8 2 H16 Q17 2 17 4 L15.5 20 Q15 24 12 29 Q9 24 8.5 20 L7 4 Q7 2 8 2 Z",
+  premolar: "M6 2 H18 Q19 2 19 4 L18 20 Q17.5 23 15 24 Q13.5 22.5 12 22.5 Q10.5 22.5 9 24 Q6.5 23 6 20 L5 4 Q5 2 6 2 Z",
+  molar: "M4 2 H20 Q21.5 2 21.5 4 L20.5 19 Q20 22.5 17 23.5 Q15 22 13 22.5 Q12 23.5 12 23.5 Q12 23.5 11 22.5 Q9 22 7 23.5 Q4 22.5 3.5 19 L2.5 4 Q2.5 2 4 2 Z",
+};
+
+function ToothIcon({ number, status, selected }) {
+  const meta = STATUS_META[status] || STATUS_META.healthy;
+  const path = TOOTH_PATHS[toothType(number)];
+  const flip = !isUpper(number);
+  return (
+    <svg width="24" height="34" viewBox="0 0 24 34" className="overflow-visible">
+      <g transform={flip ? "translate(0,34) scale(1,-1)" : undefined}>
+        <path
+          d={path}
+          fill={meta.color}
+          stroke={selected ? "#2dd4bf" : meta.border}
+          strokeWidth={selected ? 2 : 1.3}
+        />
+      </g>
+    </svg>
+  );
+}
+
 function Tooth({ number, status, onClick, selected }) {
   const meta = STATUS_META[status] || STATUS_META.healthy;
   return (
     <button
       onClick={() => onClick(number)}
-      className={"flex flex-col items-center gap-1 group " + (selected ? "" : "")}
+      className="flex flex-col items-center gap-0.5 group"
       title={`Tooth ${number} — ${meta.label}`}
     >
-      <div
-        className={"w-8 h-9 sm:w-9 sm:h-10 rounded-md border-2 flex items-center justify-center transition-transform group-hover:scale-110 " + (selected ? "ring-2 ring-teal-400 ring-offset-2 ring-offset-slate-950" : "")}
-        style={{ backgroundColor: meta.color, borderColor: meta.border }}
-      >
-        <span className="font-mono2 text-[10px] sm:text-xs" style={{ color: meta.text }}>{number}</span>
+      <div className={"transition-transform group-hover:scale-110 " + (selected ? "drop-shadow-[0_0_6px_rgba(45,212,191,0.6)]" : "")}>
+        <ToothIcon number={number} status={status} selected={selected} />
       </div>
+      <span className="font-mono2 text-[9px] text-slate-500 group-hover:text-teal-300">{number}</span>
     </button>
   );
 }
@@ -49,7 +86,7 @@ function Tooth({ number, status, onClick, selected }) {
 function QuadrantRow({ teeth, chart, onToothClick, selected, reverse }) {
   const ordered = reverse ? [...teeth].reverse() : teeth;
   return (
-    <div className="flex gap-1">
+    <div className="flex gap-0.5">
       {ordered.map((n) => (
         <Tooth key={n} number={n} status={chart[n]?.status || "healthy"} onClick={onToothClick} selected={selected === n} />
       ))}
