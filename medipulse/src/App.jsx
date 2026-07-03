@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import {
   Stethoscope, Calendar, Search, Star, Check, ChevronRight, ChevronLeft,
-  Shield, Activity, Users, Video, Bell, X, Clock, Zap, Building2, Lock, LogOut, AlertCircle,
+  Shield, Activity, Users, Video, Bell, X, Clock, Zap, Building2, Lock, LogOut, AlertCircle, Menu,
 } from "lucide-react";
 import { AuthProvider, useAuth } from "./lib/AuthContext";
 import { supabase } from "./lib/supabaseClient";
@@ -1225,6 +1225,7 @@ export default function App() {
 
 function AppShell() {
   const [view, setView] = useState("landing");
+  const [navOpen, setNavOpen] = useState(false);
 
   if (view === "app") {
     return (
@@ -1241,14 +1242,16 @@ function AppShell() {
 
       {/* nav */}
       <nav className="sticky top-0 z-40 backdrop-blur bg-slate-950/80 border-b border-slate-800">
-        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <button onClick={() => setView("landing")} className="flex items-center gap-2.5">
+        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between relative">
+          <button onClick={() => { setView("landing"); setNavOpen(false); }} className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-teal-400 flex items-center justify-center">
               <Activity size={17} className="text-slate-950" />
             </div>
             <span className="font-display font-bold text-lg tracking-tight">MediPulse</span>
           </button>
-          <div className="flex items-center gap-1.5 rounded-2xl border border-slate-800 bg-slate-900 p-1 text-sm">
+
+          {/* desktop nav */}
+          <div className="hidden sm:flex items-center gap-1.5 rounded-2xl border border-slate-800 bg-slate-900 p-1 text-sm">
             {[
               ["landing", "Home"],
               ["doctor", "Doctor signup"],
@@ -1267,7 +1270,39 @@ function AppShell() {
               </button>
             ))}
           </div>
+
+          {/* mobile hamburger */}
+          <button
+            onClick={() => setNavOpen((o) => !o)}
+            className="sm:hidden w-10 h-10 rounded-xl border border-slate-800 bg-slate-900 flex items-center justify-center text-slate-300"
+            aria-label="Menu"
+          >
+            {navOpen ? <X size={18} /> : <Menu size={18} />}
+          </button>
+
+          {navOpen && (
+            <div className="sm:hidden absolute top-full left-0 right-0 mx-4 mt-2 rounded-2xl border border-slate-800 bg-slate-900 shadow-xl shadow-slate-950/60 overflow-hidden fade-up">
+              {[
+                ["landing", "Home"],
+                ["doctor", "Doctor signup"],
+                ["patient", "Patient portal"],
+                ["app", "Clinic App"],
+              ].map(([id, label]) => (
+                <button
+                  key={id}
+                  onClick={() => { setView(id); setNavOpen(false); }}
+                  className={
+                    "w-full text-left px-4 py-3 font-body text-sm border-b border-slate-800/60 last:border-0 transition-colors " +
+                    (view === id ? "bg-teal-400/10 text-teal-300" : "text-slate-300 hover:bg-slate-800/60")
+                  }
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
+
       </nav>
 
       {view === "landing" && <Landing go={setView} />}

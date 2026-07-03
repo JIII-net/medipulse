@@ -342,6 +342,7 @@ function CalendarTab({ doctors, schedules, locations }) {
   const [booking, setBooking] = useState(null);        // {doctorId, dateStr, time} | {}
   const [detail, setDetail] = useState(null);
   const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => { if (!weekDoctor && doctors.length) setWeekDoctor(doctors[0].id); }, [doctors, weekDoctor]);
 
@@ -349,12 +350,14 @@ function CalendarTab({ doctors, schedules, locations }) {
   const rangeDays = view === "day" ? 1 : 7;
 
   const load = useCallback(async () => {
+    setLoading(true);
     const from = new Date(rangeStart + "T00:00:00").toISOString();
     const to = new Date(addDays(rangeStart, rangeDays) + "T00:00:00").toISOString();
     const { data, error } = await supabase
       .from("appointments")
       .select("id, doctor_id, starts_at, status, type, patient_id, location_id, location:location_id(name, address), patient_rec:patient_record_id(id, first_name, last_name, phone, email, senior_citizen_id, pwd_id), portal:patient_id(full_name)")
       .gte("starts_at", from).lt("starts_at", to);
+    setLoading(false);
     if (error) { setError(error.message); return; }
     setAppts(data || []);
   }, [rangeStart, rangeDays]);
@@ -406,7 +409,15 @@ function CalendarTab({ doctors, schedules, locations }) {
 
       {doctors.length === 0 ? (
         <div className={card + " text-center py-14 text-slate-500 font-body text-sm"}>No doctors registered yet — doctors appear here once they sign up.</div>
+      ) : loading ? (
+        <div className="rounded-3xl border border-slate-800 bg-slate-900 p-5 space-y-3 animate-pulse">
+          <div className="h-6 bg-slate-800 rounded-lg w-1/3" />
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="h-9 bg-slate-800/60 rounded-lg" />
+          ))}
+        </div>
       ) : (
+        <>
         <div className="rounded-3xl border border-slate-800 bg-slate-900 overflow-x-auto">
           <div style={{ display: "grid", gridTemplateColumns: `72px repeat(${dayColumns.length}, minmax(140px, 1fr))`, minWidth: dayColumns.length * 150 + 72 }}>
             <div className="border-b border-slate-800 px-3 py-3" />
@@ -443,6 +454,8 @@ function CalendarTab({ doctors, schedules, locations }) {
             ))}
           </div>
         </div>
+        <div className="sm:hidden text-center text-xs text-slate-600 font-body mt-2">← scroll to see all doctors →</div>
+        </>
       )}
 
       {booking && <BookModal slot={booking} doctors={doctors} schedules={schedules} locations={locations} onClose={() => setBooking(null)} onBooked={() => { setBooking(null); load(); }} />}

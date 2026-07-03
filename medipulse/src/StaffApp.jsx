@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   LayoutDashboard, Users, Calendar, Stethoscope, Shield, Search, LogOut, Settings, Receipt,
-  Activity, Clock, ClipboardList, ChevronRight, X,
+  Activity, Clock, ClipboardList, ChevronRight, X, Menu as MenuIcon,
 } from "lucide-react";
 import { useAuth } from "./lib/AuthContext";
 import { supabase } from "./lib/supabaseClient";
@@ -161,10 +161,12 @@ function StaffAppInner({ AdminPortal, onExitToSite }) {
   const { profile, signOut } = useAuth();
   const [mod, setMod] = useState("home");
   const [openPatientId, setOpenPatientId] = useState(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const openPatient = (id) => {
     setOpenPatientId(id);
     setMod("patients");
+    setDrawerOpen(false);
   };
 
   const items = [
@@ -177,44 +179,73 @@ function StaffAppInner({ AdminPortal, onExitToSite }) {
     ...(profile?.role === "admin" ? [{ id: "admin", label: "Admin", icon: Shield }] : []),
   ];
 
+  const goMod = (id) => {
+    setMod(id);
+    if (id !== "patients") setOpenPatientId(null);
+    setDrawerOpen(false);
+  };
+
+  const SidebarContent = () => (
+    <>
+      <button onClick={onExitToSite} className="flex items-center gap-2.5 px-5 h-16 border-b border-slate-800 shrink-0">
+        <div className="w-8 h-8 rounded-xl bg-teal-400 flex items-center justify-center">
+          <Activity size={17} className="text-slate-950" />
+        </div>
+        <span className="font-display font-bold text-lg tracking-tight text-slate-50">MediPulse</span>
+      </button>
+      <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+        {items.map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            onClick={() => goMod(id)}
+            className={
+              "w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-body transition-colors " +
+              (mod === id ? "bg-teal-400/10 text-teal-300 border border-teal-400/30" : "text-slate-400 hover:text-slate-100 hover:bg-slate-900 border border-transparent")
+            }
+          >
+            <Icon size={16} /> {label}
+          </button>
+        ))}
+      </nav>
+      <div className="p-3 border-t border-slate-800 shrink-0">
+        <div className="px-3.5 py-2 mb-1">
+          <div className="text-sm text-slate-100 font-body truncate">{profile?.full_name}</div>
+          <div className="font-mono2 text-xs text-slate-500 capitalize">{profile?.role}</div>
+        </div>
+        <button onClick={signOut} className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-body text-slate-400 hover:text-slate-100 hover:bg-slate-900 transition-colors">
+          <LogOut size={16} /> Log out
+        </button>
+      </div>
+    </>
+  );
+
   return (
     <div className="flex min-h-screen bg-slate-950">
-      {/* sidebar */}
-      <aside className="w-56 shrink-0 border-r border-slate-800 bg-slate-950 flex flex-col sticky top-0 h-screen">
-        <button onClick={onExitToSite} className="flex items-center gap-2.5 px-5 h-16 border-b border-slate-800">
-          <div className="w-8 h-8 rounded-xl bg-teal-400 flex items-center justify-center">
-            <Activity size={17} className="text-slate-950" />
-          </div>
-          <span className="font-display font-bold text-lg tracking-tight text-slate-50">MediPulse</span>
-        </button>
-        <nav className="flex-1 p-3 space-y-1">
-          {items.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              onClick={() => { setMod(id); if (id !== "patients") setOpenPatientId(null); }}
-              className={
-                "w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-body transition-colors " +
-                (mod === id ? "bg-teal-400/10 text-teal-300 border border-teal-400/30" : "text-slate-400 hover:text-slate-100 hover:bg-slate-900 border border-transparent")
-              }
-            >
-              <Icon size={16} /> {label}
-            </button>
-          ))}
-        </nav>
-        <div className="p-3 border-t border-slate-800">
-          <div className="px-3.5 py-2 mb-1">
-            <div className="text-sm text-slate-100 font-body truncate">{profile?.full_name}</div>
-            <div className="font-mono2 text-xs text-slate-500 capitalize">{profile?.role}</div>
-          </div>
-          <button onClick={signOut} className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-body text-slate-400 hover:text-slate-100 hover:bg-slate-900 transition-colors">
-            <LogOut size={16} /> Log out
-          </button>
-        </div>
+      {/* desktop sidebar — always visible from md up */}
+      <aside className="hidden md:flex w-56 shrink-0 border-r border-slate-800 bg-slate-950 flex-col sticky top-0 h-screen">
+        <SidebarContent />
       </aside>
+
+      {/* mobile drawer — off-canvas, toggled by header hamburger */}
+      {drawerOpen && (
+        <div className="md:hidden fixed inset-0 z-50 flex">
+          <div className="absolute inset-0 bg-slate-950/80" onClick={() => setDrawerOpen(false)} />
+          <aside className="relative w-64 h-full bg-slate-950 border-r border-slate-800 flex flex-col fade-up">
+            <SidebarContent />
+          </aside>
+        </div>
+      )}
 
       {/* main */}
       <div className="flex-1 min-w-0 flex flex-col">
-        <header className="h-16 border-b border-slate-800 bg-slate-950/90 backdrop-blur sticky top-0 z-40 flex items-center gap-4 px-6">
+        <header className="h-16 border-b border-slate-800 bg-slate-950/90 backdrop-blur sticky top-0 z-40 flex items-center gap-3 px-4 sm:px-6">
+          <button
+            onClick={() => setDrawerOpen(true)}
+            className="md:hidden w-10 h-10 shrink-0 rounded-xl border border-slate-800 bg-slate-900 flex items-center justify-center text-slate-300"
+            aria-label="Open menu"
+          >
+            <MenuIcon size={18} />
+          </button>
           <GlobalSearch onOpenPatient={openPatient} />
         </header>
         <main className="flex-1">
