@@ -680,10 +680,122 @@ function PatientAuthGate({ children }) {
   );
 }
 
+function MyAppointments() {
+  const { session } = useAuth();
+  const [rows, setRows] = useState([]);
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState(null);
+
+  const load = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("appointments")
+      .select("id, starts_at, status, type, mode, fee_charged, location:location_id(name, address), doctors:doctor_id(specialty, profiles(full_name))")
+      .eq("patient_id", session.user.id)
+      .order("starts_at", { ascending: false });
+    setLoading(false);
+    if (error) { setError(error.message); return; }
+    setRows(data || []);
+  };
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, []);
+
+  const cancel = async (id) => {
+    setBusyId(id);
+    const { error } = await supabase.from("appointments").update({ status: "canceled" }).eq("id", id);
+    setBusyId(null);
+    if (error) { setError(error.message); return; }
+    load();
+  };
+
+  const now = new Date();
+  const upcoming = rows.filter((a) => new Date(a.starts_at) >= now && a.status !== "canceled");
+  const past = rows.filter((a) => new Date(a.starts_at) < now || a.status === "canceled");
+
+  const statusStyle = {
+    booked: "text-teal-300 border-teal-400/40 bg-teal-400/10",
+    confirmed: "text-teal-300 border-teal-400/40 bg-teal-400/10",
+    checked_in: "text-violet-300 border-violet-500/40 bg-violet-500/10",
+    in_progress: "text-amber-300 border-amber-500/40 bg-amber-500/10",
+    completed: "text-slate-400 border-slate-600 bg-slate-800/40",
+    canceled: "text-rose-300 border-rose-500/30 bg-rose-500/10",
+    no_show: "text-rose-300 border-rose-500/30 bg-rose-500/10",
+  };
+
+  const Row = ({ a, isPast }) => (
+    <div className="flex items-center justify-between gap-4 py-3.5 border-b border-slate-800/60 last:border-0">
+      <div className="min-w-0">
+        <div className="text-sm text-slate-100 font-body truncate">
+          {a.doctors?.profiles?.full_name || "Doctor"} <span className="text-slate-500">· {a.doctors?.specialty}</span>
+        </div>
+        <div className="font-mono2 text-xs text-slate-500 mt-0.5">
+          {new Date(a.starts_at).toLocaleString("en-PH", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+          {" · "}{a.type?.replace("_", " ")}{a.mode === "video" ? " · video" : ""}
+          {a.location ? ` · ${a.location.name}` : ""}
+        </div>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        <span className={"px-2.5 py-0.5 rounded-full border text-xs font-body " + (statusStyle[a.status] || statusStyle.booked)}>{a.status.replace("_", " ")}</span>
+        {!isPast && ["booked", "confirmed"].includes(a.status) && (
+          <button onClick={() => cancel(a.id)} disabled={busyId === a.id} className="text-xs text-rose-300 hover:underline disabled:opacity-50">
+            {busyId === a.id ? "…" : "Cancel"}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="fade-up">
+      {error && (
+        <div className="mb-6 flex items-start gap-2 text-sm text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-2xl px-4 py-3 font-body">
+          <AlertCircle size={16} className="mt-0.5 shrink-0" /> {error}
+        </div>
+      )}
+      {loading ? (
+        <div className="text-center py-16 text-slate-500 font-body text-sm">Loading your appointments…</div>
+      ) : rows.length === 0 ? (
+        <div className="rounded-3xl border border-slate-800 bg-slate-900 p-10 text-center font-body text-sm text-slate-400">
+          No appointments yet. Book one from "Find a doctor".
+        </div>
+      ) : (
+        <div className="space-y-6">
+          <div>
+            <div className="font-mono2 text-xs text-teal-300 mb-2">UPCOMING ({upcoming.length})</div>
+            <div className="rounded-3xl border border-slate-800 bg-slate-900 px-5">
+              {upcoming.length === 0 ? (
+                <div className="py-6 text-sm text-slate-500 font-body">Nothing booked yet.</div>
+              ) : upcoming.map((a) => <Row key={a.id} a={a} isPast={false} />)}
+            </div>
+          </div>
+          <div>
+            <div className="font-mono2 text-xs text-slate-500 mb-2">PAST ({past.length})</div>
+            <div className="rounded-3xl border border-slate-800 bg-slate-900 px-5">
+              {past.length === 0 ? (
+                <div className="py-6 text-sm text-slate-500 font-body">No past visits yet.</div>
+              ) : past.map((a) => <Row key={a.id} a={a} isPast={true} />)}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PatientPortal() {
+  const [tab, setTab] = useState("find");
   return (
     <PatientAuthGate>
-      <PatientDirectory />
+      <div className="max-w-6xl mx-auto px-6 pt-10">
+        <div className="flex gap-1.5 rounded-2xl border border-slate-800 bg-slate-900 p-1 text-sm w-fit mb-6">
+          {[["find", "Find a doctor"], ["mine", "My appointments"]].map(([id, label]) => (
+            <button key={id} onClick={() => setTab(id)} className={"px-3.5 py-1.5 rounded-xl font-body transition-colors " + (tab === id ? "bg-teal-400 text-slate-950 font-medium" : "text-slate-400 hover:text-slate-100")}>
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+      {tab === "find" ? <PatientDirectory /> : <div className="max-w-6xl mx-auto px-6 pb-10"><MyAppointments /></div>}
     </PatientAuthGate>
   );
 }
