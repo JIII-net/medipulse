@@ -54,7 +54,8 @@ const PLANS = [
   },
 ];
 
-const SPECIALTIES = ["All", "Cardiology", "Pediatrics", "Dermatology", "Internal Medicine", "OB-GYN", "Neurology"];
+const SPECIALTIES = ["All", "Cardiology", "Pediatrics", "Dermatology", "Internal Medicine", "OB-GYN", "Neurology", "Dentistry", "Orthodontics", "Oral Surgery"];
+const DENTAL_SPECIALTIES = ["Dentistry", "Orthodontics", "Oral Surgery"];
 
 const DOCTORS = [
   { id: 1, name: "Dr. Maria Santos", specialty: "Cardiology", rating: 4.9, reviews: 212, fee: 900, online: true, telehealth: true, nextSlot: "Today, 3:30 PM", hospital: "St. Luke's Medical Center", exp: 14 },

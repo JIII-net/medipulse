@@ -6,6 +6,9 @@ import {
 import { useAuth } from "./lib/AuthContext";
 import { supabase } from "./lib/supabaseClient";
 import { StaffGate } from "./lib/StaffGate";
+import DentalChart from "./DentalChart";
+
+const DENTAL_SPECIALTIES = ["Dentistry", "Orthodontics", "Oral Surgery"];
 
 /* ------------------------------------------------------------------ */
 /*  Doctor Portal — dashboard + consultation workspace                 */
@@ -253,6 +256,7 @@ function Consult({ encounterId, me, myName, onExit }) {
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState("soap");
   const [consultFee, setConsultFee] = useState(0);
+  const [specialty, setSpecialty] = useState(null);
   const [showBilling, setShowBilling] = useState(false);
 
   const load = async () => {
@@ -283,8 +287,9 @@ function Consult({ encounterId, me, myName, onExit }) {
     setRxItems((rx.data || []).flatMap((r) => r.items.map((i) => ({ ...i, rx_id: r.id }))));
     setProcedures(pr.data || []);
     setCerts(mc.data || []);
-    const { data: doc } = await supabase.from("doctors").select("consult_fee").eq("id", e.doctor_id).maybeSingle();
+    const { data: doc } = await supabase.from("doctors").select("consult_fee, specialty").eq("id", e.doctor_id).maybeSingle();
     setConsultFee(Number(doc?.consult_fee || 0));
+    setSpecialty(doc?.specialty || null);
   };
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [encounterId]);
 
@@ -414,7 +419,11 @@ function Consult({ encounterId, me, myName, onExit }) {
           <input className={inputCls} placeholder="Chief complaint" value={chief} onChange={(e) => setChief(e.target.value)} disabled={signed} />
 
           <div className="flex gap-1.5 rounded-2xl border border-slate-800 bg-slate-900 p-1 text-sm w-fit">
-            {[["soap", "SOAP note"], ["rx", "e-Prescription"], ["proc", "Procedures"], ["cert", "Med certificate"], ["fu", "Follow-up"]].map(([id, label]) => (
+            {[
+              ["soap", "SOAP note"],
+              ...(DENTAL_SPECIALTIES.includes(specialty) ? [["dental", "Dental Chart"]] : []),
+              ["rx", "e-Prescription"], ["proc", "Procedures"], ["cert", "Med certificate"], ["fu", "Follow-up"],
+            ].map(([id, label]) => (
               <button key={id} onClick={() => setTab(id)} className={"px-3 py-1.5 rounded-xl font-body transition-colors " + (tab === id ? "bg-teal-400 text-slate-950 font-medium" : "text-slate-400 hover:text-slate-100")}>
                 {label}
               </button>
@@ -443,6 +452,10 @@ function Consult({ encounterId, me, myName, onExit }) {
               ))}
               {!signed && <p className="text-xs text-slate-500 font-body">Tip: the mic buttons use your browser's speech recognition — dictate straight into any field. Signing locks this note permanently (amendments become new notes).</p>}
             </div>
+          )}
+
+          {tab === "dental" && (
+            <DentalChart patient={patient} encounterId={encounterId} me={me} signed={signed} />
           )}
 
           {tab === "rx" && (
