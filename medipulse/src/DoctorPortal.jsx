@@ -122,12 +122,13 @@ function Dashboard({ me, onOpenEncounter }) {
   const [openEncounters, setOpenEncounters] = useState([]);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(null);
+  const [linking, setLinking] = useState(null); // the appointment row needing a patient link
 
   const load = async () => {
     const from = todayStr() + "T00:00:00";
     const [ap, qt, en] = await Promise.all([
       supabase.from("appointments")
-        .select("id, starts_at, status, type, patient_record_id, location:location_id(name), patient_rec:patient_record_id(id, first_name, last_name, birthdate, sex), portal:patient_id(full_name)")
+        .select("id, starts_at, status, type, patient_id, patient_record_id, location:location_id(name), patient_rec:patient_record_id(id, first_name, last_name, birthdate, sex), portal:patient_id(full_name)")
         .eq("doctor_id", me).gte("starts_at", from).lt("starts_at", todayStr() + "T23:59:59")
         .order("starts_at"),
       supabase.from("queue_tickets")
@@ -146,7 +147,16 @@ function Dashboard({ me, onOpenEncounter }) {
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [me]);
 
   const startConsult = async (patientRecId, appointmentId, ticketId) => {
-    if (!patientRecId) { setError("This booking has no linked patient record — open Records and register/link the patient first."); return; }
+    if (!patientRecId) {
+      // No clinical master record linked yet — if this booking came
+      // through the patient portal we can repair it right here instead
+      // of just blocking; otherwise (a fully unlinked/anonymous
+      // booking) point staff to Records.
+      const appt = appts.find((a) => a.id === appointmentId);
+      if (appt?.patient_id) { setLinking(appt); return; }
+      setError("This booking has no linked patient record — open Records and register/link the patient first.");
+      return;
+    }
     setBusy(appointmentId || ticketId);
     const { data, error } = await supabase.from("encounters")
       .insert({ patient_record_id: patientRecId, appointment_id: appointmentId || null, doctor_id: me })
@@ -232,6 +242,82 @@ function Dashboard({ me, onOpenEncounter }) {
           ))}
         </div>
       </div>
+
+      {linking && (
+        <LinkPatientModal
+          appt={linking}
+          me={me}
+          onClose={() => setLinking(null)}
+          onLinked={() => { setLinking(null); setError(null); load(); }}
+        />
+      )}
+    </div>
+  );
+}
+
+/* -------------------- link portal booking to record ---------------- */
+
+function LinkPatientModal({ appt, me, onClose, onLinked }) {
+  const [birthdate, setBirthdate] = useState("");
+  const [sex, setSex] = useState("female");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const portalName = appt.portal?.full_name || "Patient";
+
+  const link = async () => {
+    if (!birthdate) { setError("Birthdate is required for the medical record."); return; }
+    setBusy(true); setError(null);
+    // Reuse an existing record linked to this portal account if the
+    // patient already has one (e.g. created by a later booking).
+    let recordId = null;
+    const { data: existing } = await supabase.from("patients").select("id").eq("profile_id", appt.patient_id).maybeSingle();
+    if (existing) {
+      recordId = existing.id;
+    } else {
+      const parts = portalName.trim().split(/\s+/);
+      const last_name = parts.length > 1 ? parts.pop() : parts[0];
+      const first_name = parts.join(" ") || last_name;
+      const { data: created, error: e1 } = await supabase.from("patients")
+        .insert({ profile_id: appt.patient_id, first_name, last_name, birthdate, sex, created_by: me })
+        .select("id").single();
+      if (e1) { setError(e1.message); setBusy(false); return; }
+      recordId = created.id;
+    }
+    const { error: e2 } = await supabase.from("appointments").update({ patient_record_id: recordId }).eq("id", appt.id);
+    setBusy(false);
+    if (e2) { setError(e2.message); return; }
+    onLinked();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80" onClick={onClose}>
+      <div className="w-full max-w-md rounded-3xl border border-slate-700 bg-slate-900 p-6 fade-up" onClick={(e) => e.stopPropagation()}>
+        <h3 className="font-display text-lg font-bold text-slate-50 mb-1">Create patient record for {portalName}</h3>
+        <p className="text-xs text-slate-500 font-body mb-4">
+          This booking came from the online portal before a medical record existed.
+          Confirm the basics below to create their record and link this appointment — takes 10 seconds.
+        </p>
+        <div className="grid grid-cols-2 gap-2 mb-3">
+          <input
+            type="date" value={birthdate} onChange={(e) => setBirthdate(e.target.value)}
+            max={new Date().toISOString().slice(0, 10)}
+            className={inputCls}
+          />
+          <select className={inputCls} value={sex} onChange={(e) => setSex(e.target.value)}>
+            <option value="female">Female</option><option value="male">Male</option>
+            <option value="intersex">Intersex</option><option value="unknown">Unknown</option>
+          </select>
+        </div>
+        {error && (
+          <div className="mb-3 flex items-start gap-2 text-sm text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-2xl px-4 py-3 font-body">
+            <AlertCircle size={16} className="mt-0.5 shrink-0" /> {error}
+          </div>
+        )}
+        <div className="flex gap-2">
+          <button onClick={onClose} className={btnGhost + " flex-1"}>Cancel</button>
+          <button onClick={link} disabled={busy} className={btnPrimary + " flex-1"}>{busy ? "Linking…" : "Create & link record"}</button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -249,6 +335,7 @@ function Consult({ encounterId, me, myName, onExit }) {
   const [history, setHistory] = useState([]);
   const [rxItems, setRxItems] = useState([]);
   const [procedures, setProcedures] = useState([]);
+  const [dentalProcs, setDentalProcs] = useState([]);
   const [certs, setCerts] = useState([]);
   const [chief, setChief] = useState("");
   const [followUp, setFollowUp] = useState("");
@@ -290,6 +377,10 @@ function Consult({ encounterId, me, myName, onExit }) {
     const { data: doc } = await supabase.from("doctors").select("consult_fee, specialty").eq("id", e.doctor_id).maybeSingle();
     setConsultFee(Number(doc?.consult_fee || 0));
     setSpecialty(doc?.specialty || null);
+    if (DENTAL_SPECIALTIES.includes(doc?.specialty)) {
+      const { data: dp } = await supabase.from("dental_procedures").select("*").eq("encounter_id", encounterId).order("performed_at");
+      setDentalProcs(dp || []);
+    }
   };
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [encounterId]);
 
@@ -478,14 +569,31 @@ function Consult({ encounterId, me, myName, onExit }) {
           {tab === "proc" && (
             <div className={card}>
               <div className="font-display font-semibold text-slate-100 flex items-center gap-2 mb-4"><Scissors size={15} className="text-teal-300" /> Procedures performed</div>
-              {procedures.map((p) => (
-                <div key={p.id} className="py-2.5 border-b border-slate-800/60 last:border-0 text-sm font-body">
-                  <span className="text-slate-100">{p.name}</span> <span className="font-mono2 text-xs text-slate-500">· {fmtDT(p.performed_at)}</span>
-                  {p.notes && <div className="text-xs text-slate-400">{p.notes}</div>}
-                </div>
-              ))}
-              {procedures.length === 0 && <div className="text-sm text-slate-500 font-body mb-2">No procedures recorded this visit.</div>}
-              {!signed && <ProcForm encounterId={encounterId} me={me} onSaved={load} />}
+              {DENTAL_SPECIALTIES.includes(specialty) ? (
+                <>
+                  {dentalProcs.map((p) => (
+                    <div key={p.id} className="py-2.5 border-b border-slate-800/60 last:border-0 text-sm font-body">
+                      <span className="text-slate-100">{p.procedure_name}</span>
+                      {p.tooth_number && <span className="ml-2 font-mono2 text-xs text-teal-300">tooth {p.tooth_number}</span>}
+                      <span className="font-mono2 text-xs text-slate-500"> · {fmtDT(p.performed_at)}</span>
+                      {p.notes && <div className="text-xs text-slate-400">{p.notes}</div>}
+                    </div>
+                  ))}
+                  {dentalProcs.length === 0 && <div className="text-sm text-slate-500 font-body mb-2">No dental procedures recorded this visit.</div>}
+                  {!signed && <DentalProcForm encounterId={encounterId} me={me} onSaved={load} />}
+                </>
+              ) : (
+                <>
+                  {procedures.map((p) => (
+                    <div key={p.id} className="py-2.5 border-b border-slate-800/60 last:border-0 text-sm font-body">
+                      <span className="text-slate-100">{p.name}</span> <span className="font-mono2 text-xs text-slate-500">· {fmtDT(p.performed_at)}</span>
+                      {p.notes && <div className="text-xs text-slate-400">{p.notes}</div>}
+                    </div>
+                  ))}
+                  {procedures.length === 0 && <div className="text-sm text-slate-500 font-body mb-2">No procedures recorded this visit.</div>}
+                  {!signed && <ProcForm encounterId={encounterId} me={me} onSaved={load} />}
+                </>
+              )}
             </div>
           )}
 
@@ -537,6 +645,7 @@ function Consult({ encounterId, me, myName, onExit }) {
           encounterId={encounterId}
           consultFee={consultFee}
           procedures={procedures}
+          dentalProcedures={dentalProcs}
           onDone={onExit}
         />
       )}
@@ -557,11 +666,15 @@ function psTotals(subtotal, isSeniorPwd, vatRegistered) {
   return { vatExempt, discount, total: psR2(subtotal - vatExempt - discount) };
 }
 
-function PostSignBilling({ patient, me, encounterId, consultFee, procedures, onDone }) {
+function PostSignBilling({ patient, me, encounterId, consultFee, procedures, dentalProcedures = [], onDone }) {
   const { session } = useAuth();
   const [items, setItems] = useState(() => [
     { description: "Consultation", source: "consultation", quantity: 1, unit_price: consultFee || 0 },
     ...procedures.map((p) => ({ description: p.name, source: "procedure", quantity: 1, unit_price: 0 })),
+    ...dentalProcedures.map((p) => ({
+      description: p.tooth_number ? `${p.procedure_name} (tooth ${p.tooth_number})` : p.procedure_name,
+      source: "procedure", quantity: 1, unit_price: 0,
+    })),
   ]);
   const [vatRegistered, setVatRegistered] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -712,6 +825,58 @@ function RxForm({ encounterId, me, allergies, onSaved }) {
       </div>
       <input className={inputCls} placeholder="Instructions (e.g. take after meals)" value={f.instructions} onChange={set("instructions")} />
       <button onClick={add} disabled={busy} className={btnPrimary + " flex items-center gap-1.5"}><Plus size={14} /> Add to prescription</button>
+    </div>
+  );
+}
+
+const FDI_TEETH = [
+  18,17,16,15,14,13,12,11, 21,22,23,24,25,26,27,28,
+  48,47,46,45,44,43,42,41, 31,32,33,34,35,36,37,38,
+];
+const COMMON_DENTAL_PROCEDURES = [
+  "Oral prophylaxis (cleaning)", "Composite filling", "Temporary filling",
+  "Tooth extraction", "Surgical extraction (impacted)", "Root canal therapy",
+  "Dental crown", "Fluoride treatment", "Dental sealant",
+  "Orthodontic adjustment", "Denture fitting", "Teeth whitening",
+];
+
+function DentalProcForm({ encounterId, me, onSaved }) {
+  const [name, setName] = useState("");
+  const [tooth, setTooth] = useState("");
+  const [notes, setNotes] = useState("");
+  const [busy, setBusy] = useState(false);
+  const add = async () => {
+    if (!name.trim()) return;
+    setBusy(true);
+    await supabase.from("dental_procedures").insert({
+      encounter_id: encounterId,
+      procedure_name: name.trim(),
+      tooth_number: tooth ? Number(tooth) : null,
+      notes: notes || null,
+      performed_by: me,
+    });
+    setBusy(false); setName(""); setTooth(""); setNotes(""); onSaved();
+  };
+  return (
+    <div className="mt-3 rounded-2xl border border-slate-700 p-3 space-y-2">
+      <div className="grid sm:grid-cols-2 gap-2">
+        <div>
+          <input
+            className={inputCls} list="dental-procedures"
+            placeholder="Procedure (pick or type your own)"
+            value={name} onChange={(e) => setName(e.target.value)}
+          />
+          <datalist id="dental-procedures">
+            {COMMON_DENTAL_PROCEDURES.map((p) => <option key={p} value={p} />)}
+          </datalist>
+        </div>
+        <select className={inputCls} value={tooth} onChange={(e) => setTooth(e.target.value)}>
+          <option value="">Tooth (optional / whole mouth)</option>
+          {FDI_TEETH.map((n) => <option key={n} value={n}>Tooth {n}</option>)}
+        </select>
+      </div>
+      <input className={inputCls} placeholder="Notes (anesthesia, materials, outcome)" value={notes} onChange={(e) => setNotes(e.target.value)} />
+      <button onClick={add} disabled={busy} className={btnPrimary + " flex items-center gap-1.5"}><Plus size={14} /> Record dental procedure</button>
     </div>
   );
 }

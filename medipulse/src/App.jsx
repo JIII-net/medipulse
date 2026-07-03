@@ -452,7 +452,7 @@ const bmLocalHM = (iso) => {
 };
 
 function BookingModal({ doctor, onClose }) {
-  const { session } = useAuth();
+  const { session, profile } = useAuth();
   const tomorrow = (() => { const d = new Date(); d.setDate(d.getDate() + 1); return d.toISOString().slice(0, 10); })();
   const [dateStr, setDateStr] = useState(tomorrow);
   const [schedules, setSchedules] = useState([]);
@@ -464,8 +464,25 @@ function BookingModal({ doctor, onClose }) {
   const [saving, setSaving] = useState(false);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [saveError, setSaveError] = useState(null);
+  const [patientRecordId, setPatientRecordId] = useState(null);
+  const [needsProfile, setNeedsProfile] = useState(false);
+  const [birthdate, setBirthdate] = useState("");
+  const [sex, setSex] = useState("female");
   const isRealDoctor = typeof doctor.id === "string" && doctor.id.includes("-");
   const chosenLocation = doctor.locations?.find((l) => l.id === locationId);
+
+  // Every booking must link to the patient's clinical master record
+  // (the `patients` table), not just their login account — that's what
+  // Doctor Portal, encounters, and billing actually key off. Resolve
+  // (or flag as missing) the linked record once, up front.
+  useEffect(() => {
+    if (!isRealDoctor || !session?.user?.id) return;
+    supabase.from("patients").select("id").eq("profile_id", session.user.id).maybeSingle()
+      .then(({ data }) => {
+        if (data) setPatientRecordId(data.id);
+        else setNeedsProfile(true);
+      });
+  }, [isRealDoctor, session?.user?.id]);
 
   useEffect(() => {
     if (!isRealDoctor) return;
@@ -502,13 +519,30 @@ function BookingModal({ doctor, onClose }) {
   const confirmBooking = async () => {
     if (!slot) return;
     if (!isRealDoctor || !session?.user?.id) { setBooked(true); return; }
+    if (needsProfile && !birthdate) { setSaveError("Please enter your birthdate to finish booking — it's needed for your medical record."); return; }
     setSaving(true);
     setSaveError(null);
+
+    let recordId = patientRecordId;
+    if (!recordId) {
+      const parts = (profile?.full_name || "Patient").trim().split(/\s+/);
+      const last_name = parts.length > 1 ? parts.pop() : parts[0];
+      const first_name = parts.join(" ") || last_name;
+      const { data: newPatient, error: patErr } = await supabase
+        .from("patients")
+        .insert({ profile_id: session.user.id, first_name, last_name, birthdate, sex })
+        .select("id").single();
+      if (patErr) { setSaveError("Couldn't set up your patient record: " + patErr.message); setSaving(false); return; }
+      recordId = newPatient.id;
+      setPatientRecordId(recordId);
+    }
+
     const starts = new Date(`${dateStr}T${slot}:00`);
     const ends = new Date(starts.getTime() + 30 * 60000);
     const { error } = await supabase.from("appointments").insert({
       doctor_id: doctor.id,
       patient_id: session.user.id,
+      patient_record_id: recordId,
       starts_at: starts.toISOString(),
       ends_at: ends.toISOString(),
       mode,
@@ -606,6 +640,26 @@ function BookingModal({ doctor, onClose }) {
                     {bm12h(s)}
                   </button>
                 ))}
+              </div>
+            )}
+            {needsProfile && slot && (
+              <div className="mb-4 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4">
+                <div className="text-sm text-amber-200 font-body font-semibold mb-2">One-time: complete your patient details</div>
+                <p className="text-xs text-slate-400 font-body mb-3">Needed for your medical record — we only ask once.</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="date" value={birthdate} onChange={(e) => setBirthdate(e.target.value)}
+                    max={new Date().toISOString().slice(0, 10)}
+                    className="rounded-xl bg-slate-900 border border-slate-700 px-3 py-2 text-sm text-slate-100 font-body focus:outline-none focus:border-teal-400"
+                  />
+                  <select
+                    value={sex} onChange={(e) => setSex(e.target.value)}
+                    className="rounded-xl bg-slate-900 border border-slate-700 px-3 py-2 text-sm text-slate-100 font-body focus:outline-none focus:border-teal-400"
+                  >
+                    <option value="female">Female</option><option value="male">Male</option>
+                    <option value="intersex">Intersex</option><option value="unknown">Prefer not to say</option>
+                  </select>
+                </div>
               </div>
             )}
             {saveError && (
