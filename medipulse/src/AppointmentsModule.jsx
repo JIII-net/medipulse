@@ -65,8 +65,12 @@ const fmt12h = (time) => {
 const patientName = (a) =>
   a.patient_rec ? `${a.patient_rec.first_name} ${a.patient_rec.last_name}` : a.portal?.full_name || "Unknown patient";
 
-function slotsFor(doctorId, dateStr, schedules) {
-  const rule = schedules.find((s) => s.resource_type === "doctor" && s.resource_id === doctorId && s.weekday === weekdayOf(dateStr));
+function slotsFor(doctorId, dateStr, schedules, locationId) {
+  const all = schedules.filter((s) => s.resource_type === "doctor" && s.resource_id === doctorId);
+  const scoped = locationId ? all.filter((s) => s.location_id === locationId) : [];
+  const pool = scoped.length > 0 ? scoped : all.filter((s) => !s.location_id);
+  const searchPool = pool.length > 0 ? pool : all;
+  const rule = searchPool.find((s) => s.weekday === weekdayOf(dateStr));
   const start = rule?.start_time?.slice(0, 5) || "08:00";
   const end = rule?.end_time?.slice(0, 5) || "17:00";
   const step = rule?.slot_minutes || 30;
@@ -153,8 +157,9 @@ function BookModal({ slot, doctors, schedules, locations = [], onClose, onBooked
   const [locationId, setLocationId] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
-  const slots = slotsFor(doctorId, dateStr, schedules);
+  const slots = slotsFor(doctorId, dateStr, schedules, locationId);
   const doctorLocations = locations.filter((l) => l.doctor_id === doctorId);
+  useEffect(() => { setTime((t) => (slotsFor(doctorId, dateStr, schedules, locationId).includes(t) ? t : slotsFor(doctorId, dateStr, schedules, locationId)[0] || t)); }, [locationId]); // eslint-disable-line
 
   const save = async () => {
     if (!patient) { setError("Pick a patient first."); return; }

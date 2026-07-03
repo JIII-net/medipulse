@@ -418,11 +418,16 @@ function DoctorSignup({ go }) {
 
 /* ------------------------- patient portal ------------------------- */
 
-function bmSlots(schedules, doctorId, dateStr) {
+function bmSlots(schedules, doctorId, dateStr, locationId) {
   const wd = new Date(dateStr + "T12:00:00").getDay();
-  const doctorRules = schedules.filter((s) => s.resource_type === "doctor" && s.resource_id === doctorId);
-  const rule = doctorRules.find((s) => s.weekday === wd);
-  if (doctorRules.length > 0 && !rule) return { slots: [], closed: true };
+  const allDoctorRules = schedules.filter((s) => s.resource_type === "doctor" && s.resource_id === doctorId);
+  // Prefer rules scoped to the chosen location; fall back to the doctor's
+  // location-agnostic rules (location_id null) if none exist for it.
+  const scoped = locationId ? allDoctorRules.filter((s) => s.location_id === locationId) : [];
+  const doctorRules = scoped.length > 0 ? scoped : allDoctorRules.filter((s) => !s.location_id);
+  const fallbackRules = doctorRules.length > 0 ? doctorRules : allDoctorRules; // last resort: any rule at all
+  const rule = fallbackRules.find((s) => s.weekday === wd);
+  if (fallbackRules.length > 0 && !rule) return { slots: [], closed: true };
   const start = rule?.start_time?.slice(0, 5) || "08:00";
   const end = rule?.end_time?.slice(0, 5) || "17:00";
   const step = rule?.slot_minutes || 30;
@@ -478,8 +483,10 @@ function BookingModal({ doctor, onClose }) {
       });
   }, [dateStr, doctor.id, isRealDoctor]);
 
+  useEffect(() => { setSlot(null); }, [locationId]);
+
   const { slots, closed } = isRealDoctor
-    ? bmSlots(schedules, doctor.id, dateStr)
+    ? bmSlots(schedules, doctor.id, dateStr, locationId)
     : { slots: ["09:00", "09:30", "10:30", "13:00", "15:30", "16:15"], closed: false };
   const now = new Date();
   const available = slots.filter((s) => {
