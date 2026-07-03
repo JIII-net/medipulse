@@ -418,48 +418,103 @@ function DoctorSignup({ go }) {
 
 /* ------------------------- patient portal ------------------------- */
 
+function bmSlots(schedules, doctorId, dateStr) {
+  const wd = new Date(dateStr + "T12:00:00").getDay();
+  const doctorRules = schedules.filter((s) => s.resource_type === "doctor" && s.resource_id === doctorId);
+  const rule = doctorRules.find((s) => s.weekday === wd);
+  if (doctorRules.length > 0 && !rule) return { slots: [], closed: true };
+  const start = rule?.start_time?.slice(0, 5) || "08:00";
+  const end = rule?.end_time?.slice(0, 5) || "17:00";
+  const step = rule?.slot_minutes || 30;
+  const out = [];
+  let [h, m] = start.split(":").map(Number);
+  const [eh, em] = end.split(":").map(Number);
+  while (h < eh || (h === eh && m < em)) {
+    out.push(String(h).padStart(2, "0") + ":" + String(m).padStart(2, "0"));
+    m += step;
+    if (m >= 60) { h += Math.floor(m / 60); m = m % 60; }
+  }
+  return { slots: out, closed: false };
+}
+const bm12h = (t) => {
+  const [h, m] = t.split(":").map(Number);
+  return `${((h + 11) % 12) + 1}:${String(m).padStart(2, "0")} ${h >= 12 ? "PM" : "AM"}`;
+};
+const bmLocalHM = (iso) => {
+  const d = new Date(iso);
+  return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+};
+
 function BookingModal({ doctor, onClose }) {
   const { session } = useAuth();
+  const tomorrow = (() => { const d = new Date(); d.setDate(d.getDate() + 1); return d.toISOString().slice(0, 10); })();
+  const [dateStr, setDateStr] = useState(tomorrow);
+  const [schedules, setSchedules] = useState([]);
+  const [taken, setTaken] = useState([]);
   const [slot, setSlot] = useState(null);
   const [mode, setMode] = useState("clinic");
   const [locationId, setLocationId] = useState(doctor.locations?.length === 1 ? doctor.locations[0].id : "");
   const [booked, setBooked] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [loadingSlots, setLoadingSlots] = useState(false);
   const [saveError, setSaveError] = useState(null);
   const isRealDoctor = typeof doctor.id === "string" && doctor.id.includes("-");
   const chosenLocation = doctor.locations?.find((l) => l.id === locationId);
 
+  useEffect(() => {
+    if (!isRealDoctor) return;
+    supabase.from("schedules").select("*").eq("resource_type", "doctor").eq("resource_id", doctor.id)
+      .then(({ data }) => setSchedules(data || []));
+  }, [doctor.id, isRealDoctor]);
+
+  useEffect(() => {
+    setSlot(null);
+    if (!isRealDoctor) { setTaken([]); return; }
+    setLoadingSlots(true);
+    supabase.rpc("taken_slots", { d: doctor.id, day: dateStr })
+      .then(({ data }) => {
+        setTaken((data || []).map((row) => bmLocalHM(typeof row === "string" ? row : row.taken_slots || row)));
+        setLoadingSlots(false);
+      });
+  }, [dateStr, doctor.id, isRealDoctor]);
+
+  const { slots, closed } = isRealDoctor
+    ? bmSlots(schedules, doctor.id, dateStr)
+    : { slots: ["09:00", "09:30", "10:30", "13:00", "15:30", "16:15"], closed: false };
+  const now = new Date();
+  const available = slots.filter((s) => {
+    if (taken.includes(s)) return false;
+    const dt = new Date(`${dateStr}T${s}:00`);
+    return dt > now;
+  });
+
   const confirmBooking = async () => {
-    if (!isRealDoctor || !session?.user?.id) {
-      // Demo doctor (no live Supabase row) — just show the confirmation.
-      setBooked(true);
-      return;
-    }
+    if (!slot) return;
+    if (!isRealDoctor || !session?.user?.id) { setBooked(true); return; }
     setSaving(true);
     setSaveError(null);
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const starts_at = tomorrow.toISOString(); // simplified: real app should parse `slot` into an exact time
+    const starts = new Date(`${dateStr}T${slot}:00`);
+    const ends = new Date(starts.getTime() + 30 * 60000);
     const { error } = await supabase.from("appointments").insert({
       doctor_id: doctor.id,
       patient_id: session.user.id,
-      starts_at,
-      ends_at: starts_at,
+      starts_at: starts.toISOString(),
+      ends_at: ends.toISOString(),
       mode,
       fee_charged: doctor.fee,
       location_id: locationId || null,
+      source: "online",
     });
     setSaving(false);
-    if (error) {
-      setSaveError(error.message);
-      return;
-    }
+    if (error) { setSaveError(error.message); return; }
     setBooked(true);
   };
 
+  const prettyDate = new Date(dateStr + "T12:00:00").toLocaleDateString("en-PH", { weekday: "long", month: "long", day: "numeric" });
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80" onClick={onClose}>
-      <div className="w-full max-w-md rounded-3xl border border-slate-700 bg-slate-900 p-6 fade-up" onClick={(e) => e.stopPropagation()}>
+      <div className="w-full max-w-md rounded-3xl border border-slate-700 bg-slate-900 p-6 fade-up max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         {booked ? (
           <div className="text-center py-6">
             <div className="w-14 h-14 rounded-2xl bg-teal-400/15 border border-teal-400/40 flex items-center justify-center mx-auto mb-4">
@@ -467,9 +522,9 @@ function BookingModal({ doctor, onClose }) {
             </div>
             <h3 className="font-display text-xl font-bold text-slate-50">Appointment confirmed</h3>
             <p className="font-body text-slate-400 text-sm mt-2">
-              {doctor.name} · tomorrow at {slot} · {mode === "video" ? "video visit" : "in clinic"}
+              {doctor.name} · {prettyDate} at {bm12h(slot)} · {mode === "video" ? "video visit" : "in clinic"}
               {chosenLocation ? ` at ${chosenLocation.name}` : ""}.
-              You'll get an SMS reminder 24h and 1h before.
+              You'll get a reminder 24h before.
             </p>
             <button onClick={onClose} className="mt-6 px-5 py-2.5 rounded-2xl bg-teal-400 text-slate-950 font-body font-semibold">Done</button>
           </div>
@@ -503,25 +558,39 @@ function BookingModal({ doctor, onClose }) {
               </div>
             )}
             {mode === "clinic" && doctor.locations?.length === 1 && (
-              <div className="mb-4 text-xs text-slate-400 font-body flex items-center gap-1.5">
-                📍 {doctor.locations[0].name}{doctor.locations[0].address ? ` — ${doctor.locations[0].address}` : ""}
+              <div className="mb-4 text-xs text-slate-400 font-body">📍 {doctor.locations[0].name}{doctor.locations[0].address ? ` — ${doctor.locations[0].address}` : ""}</div>
+            )}
+            <div className="text-xs font-mono2 text-slate-500 mb-2">PICK A DATE</div>
+            <input
+              type="date"
+              min={new Date().toISOString().slice(0, 10)}
+              value={dateStr}
+              onChange={(e) => setDateStr(e.target.value)}
+              className="w-full rounded-xl bg-slate-900 border border-slate-700 px-3.5 py-2.5 text-sm text-slate-100 font-body focus:outline-none focus:border-teal-400 mb-4"
+            />
+            <div className="text-xs font-mono2 text-slate-500 mb-2">{prettyDate.toUpperCase()} · AVAILABLE SLOTS</div>
+            {loadingSlots ? (
+              <div className="text-sm text-slate-500 font-body py-4 text-center">Checking availability…</div>
+            ) : closed ? (
+              <div className="text-sm text-slate-400 font-body py-4 text-center">The doctor has no clinic hours on this day — try another date.</div>
+            ) : available.length === 0 ? (
+              <div className="text-sm text-slate-400 font-body py-4 text-center">Fully booked on this date — try another day.</div>
+            ) : (
+              <div className="grid grid-cols-3 gap-2 mb-6">
+                {available.map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => setSlot(s)}
+                    className={
+                      "py-2 rounded-xl text-sm font-body border transition-colors " +
+                      (slot === s ? "bg-teal-400 text-slate-950 border-teal-400 font-medium" : "border-slate-700 text-slate-300 hover:border-teal-500/60")
+                    }
+                  >
+                    {bm12h(s)}
+                  </button>
+                ))}
               </div>
             )}
-            <div className="text-xs font-mono2 text-slate-500 mb-2">TOMORROW · AVAILABLE SLOTS</div>
-            <div className="grid grid-cols-3 gap-2 mb-6">
-              {SLOTS.map((s) => (
-                <button
-                  key={s}
-                  onClick={() => setSlot(s)}
-                  className={
-                    "py-2 rounded-xl text-sm font-body border transition-colors " +
-                    (slot === s ? "bg-teal-400 text-slate-950 border-teal-400 font-medium" : "border-slate-700 text-slate-300 hover:border-teal-500/60")
-                  }
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
             {saveError && (
               <div className="mb-3 flex items-start gap-2 text-sm text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-2xl px-4 py-3 font-body">
                 <AlertCircle size={16} className="mt-0.5 shrink-0" /> {saveError}
@@ -535,7 +604,7 @@ function BookingModal({ doctor, onClose }) {
                 (slot && !saving ? "bg-teal-400 text-slate-950 hover:bg-teal-300" : "bg-slate-800 text-slate-500 cursor-not-allowed")
               }
             >
-              {saving ? "Booking…" : slot ? `Confirm ${slot}` : "Pick a time slot"}
+              {saving ? "Booking…" : slot ? `Confirm ${bm12h(slot)}` : "Pick a time slot"}
             </button>
           </>
         )}

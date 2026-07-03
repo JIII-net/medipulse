@@ -239,6 +239,8 @@ function Consult({ encounterId, me, myName, onExit }) {
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState("soap");
+  const [consultFee, setConsultFee] = useState(0);
+  const [showBilling, setShowBilling] = useState(false);
 
   const load = async () => {
     const { data: e, error: err } = await supabase.from("encounters")
@@ -268,6 +270,8 @@ function Consult({ encounterId, me, myName, onExit }) {
     setRxItems((rx.data || []).flatMap((r) => r.items.map((i) => ({ ...i, rx_id: r.id }))));
     setProcedures(pr.data || []);
     setCerts(mc.data || []);
+    const { data: doc } = await supabase.from("doctors").select("consult_fee").eq("id", e.doctor_id).maybeSingle();
+    setConsultFee(Number(doc?.consult_fee || 0));
   };
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [encounterId]);
 
@@ -313,7 +317,8 @@ function Consult({ encounterId, me, myName, onExit }) {
     await supabase.from("encounters").update({ ended_at: new Date().toISOString() }).eq("id", encounterId);
     if (enc.appointment_id) await supabase.from("appointments").update({ status: "completed" }).eq("id", enc.appointment_id);
     setBusy(false);
-    onExit();
+    setSigned(true);
+    setShowBilling(true);
   };
 
   const printRx = () => {
@@ -496,6 +501,135 @@ function Consult({ encounterId, me, myName, onExit }) {
               ))}
             </div>
           ))}
+        </div>
+      </div>
+
+      {showBilling && (
+        <PostSignBilling
+          patient={patient}
+          me={me}
+          encounterId={encounterId}
+          consultFee={consultFee}
+          procedures={procedures}
+          onDone={onExit}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ----------------------- post-sign billing ------------------------- */
+
+const psPeso = (n) => "₱" + Number(n || 0).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const psR2 = (n) => Math.round(n * 100) / 100;
+
+function psTotals(subtotal, isSeniorPwd, vatRegistered) {
+  if (!isSeniorPwd) return { vatExempt: 0, discount: 0, total: psR2(subtotal) };
+  const vatExempt = vatRegistered ? psR2((subtotal * 12) / 112) : 0;
+  const base = subtotal - vatExempt;
+  const discount = psR2(base * 0.2);
+  return { vatExempt, discount, total: psR2(subtotal - vatExempt - discount) };
+}
+
+function PostSignBilling({ patient, me, encounterId, consultFee, procedures, onDone }) {
+  const { session } = useAuth();
+  const [items, setItems] = useState(() => [
+    { description: "Consultation", source: "consultation", quantity: 1, unit_price: consultFee || 0 },
+    ...procedures.map((p) => ({ description: p.name, source: "procedure", quantity: 1, unit_price: 0 })),
+  ]);
+  const [vatRegistered, setVatRegistered] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+
+  const isSeniorPwd = !!(patient.senior_citizen_id || patient.pwd_id || calcAge(patient.birthdate) >= 60);
+  const subtotal = psR2(items.reduce((s, i) => s + (Number(i.unit_price) || 0) * (Number(i.quantity) || 1), 0));
+  const { vatExempt, discount, total } = psTotals(subtotal, isSeniorPwd, vatRegistered);
+
+  const setItem = (idx, key, val) =>
+    setItems((prev) => prev.map((it, j) => (j === idx ? { ...it, [key]: val } : it)));
+
+  const createInvoice = async () => {
+    const clean = items
+      .filter((i) => i.description.trim() && Number(i.unit_price) > 0)
+      .map((i) => ({
+        description: i.description.trim(), source: i.source,
+        quantity: Number(i.quantity) || 1,
+        unit_price: psR2(Number(i.unit_price)),
+        amount: psR2((Number(i.quantity) || 1) * Number(i.unit_price)),
+      }));
+    if (clean.length === 0) { setError("Enter an amount for at least one charge, or skip billing."); return; }
+    const sub = psR2(clean.reduce((s, i) => s + i.amount, 0));
+    const t = psTotals(sub, isSeniorPwd, vatRegistered);
+    setBusy(true); setError(null);
+    const { data: inv, error: e1 } = await supabase.from("invoices").insert({
+      doctor_id: me, patient_record_id: patient.id, encounter_id: encounterId,
+      status: "final", finalized_at: new Date().toISOString(),
+      is_senior_pwd: isSeniorPwd, vat_registered: vatRegistered,
+      subtotal: sub, vat_exempt: t.vatExempt, senior_pwd_discount: t.discount, total_due: t.total,
+      created_by: session?.user?.id || null,
+    }).select("id").single();
+    if (e1) { setError(e1.message); setBusy(false); return; }
+    const { error: e2 } = await supabase.from("invoice_items").insert(clean.map((i) => ({ ...i, invoice_id: inv.id })));
+    setBusy(false);
+    if (e2) { setError(e2.message); return; }
+    onDone();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80">
+      <div className="w-full max-w-lg rounded-3xl border border-slate-700 bg-slate-900 p-6 fade-up max-h-[90vh] overflow-y-auto">
+        <h3 className="font-display text-lg font-bold text-slate-50 mb-1">Consultation signed — bill the visit</h3>
+        <p className="text-xs text-slate-500 font-body mb-4">
+          Set the amounts below. The invoice goes to Billing, where you or your secretary can receive the payment and print the official receipt.
+          {isSeniorPwd && <span className="text-amber-300"> Senior/PWD benefits will be applied automatically.</span>}
+        </p>
+
+        {items.map((i, idx) => (
+          <div key={idx} className="grid grid-cols-12 gap-2 mb-2">
+            <input
+              className="col-span-7 rounded-xl bg-slate-950 border border-slate-700 px-3 py-2 text-sm text-slate-100 font-body focus:outline-none focus:border-teal-400"
+              value={i.description}
+              onChange={(e) => setItem(idx, "description", e.target.value)}
+            />
+            <input
+              className="col-span-5 rounded-xl bg-slate-950 border border-slate-700 px-3 py-2 text-sm text-slate-100 font-mono2 focus:outline-none focus:border-teal-400"
+              type="number" min="0" placeholder="Amount (₱)"
+              value={i.unit_price || ""}
+              onChange={(e) => setItem(idx, "unit_price", e.target.value)}
+            />
+          </div>
+        ))}
+        <button
+          onClick={() => setItems((prev) => [...prev, { description: "", source: "other", quantity: 1, unit_price: 0 }])}
+          className="text-xs text-teal-300 font-body hover:underline mb-4"
+        >
+          + Add another charge
+        </button>
+
+        <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4 space-y-1.5 text-sm font-body mb-4">
+          <div className="flex justify-between text-slate-400"><span>Subtotal</span><span className="font-mono2">{psPeso(subtotal)}</span></div>
+          {isSeniorPwd && vatRegistered && <div className="flex justify-between text-slate-400"><span>VAT exemption</span><span className="font-mono2">−{psPeso(vatExempt)}</span></div>}
+          {isSeniorPwd && <div className="flex justify-between text-slate-400"><span>Senior/PWD 20%</span><span className="font-mono2">−{psPeso(discount)}</span></div>}
+          <div className="flex justify-between text-slate-50 font-semibold pt-1.5 border-t border-slate-800"><span>Total due</span><span className="font-mono2 text-teal-300">{psPeso(total)}</span></div>
+          <label className="flex items-center gap-2 text-xs text-slate-500 cursor-pointer pt-1">
+            <input type="checkbox" checked={vatRegistered} onChange={(e) => setVatRegistered(e.target.checked)} className="accent-teal-400" />
+            Clinic is VAT-registered
+          </label>
+        </div>
+
+        {error && (
+          <div className="flex items-start gap-2 text-sm text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-2xl px-4 py-3 font-body mb-3">
+            <AlertCircle size={16} className="mt-0.5 shrink-0" /> {error}
+          </div>
+        )}
+
+        <div className="flex gap-3">
+          <button onClick={onDone} disabled={busy} className="flex-1 px-4 py-2.5 rounded-xl border border-slate-700 text-slate-300 text-sm font-body hover:border-slate-500 transition-colors">
+            Skip billing
+          </button>
+          <button onClick={createInvoice} disabled={busy} className="flex-1 px-4 py-2.5 rounded-xl bg-teal-400 text-slate-950 text-sm font-body font-semibold hover:bg-teal-300 transition-colors disabled:opacity-60">
+            {busy ? "Creating…" : "Create invoice"}
+          </button>
         </div>
       </div>
     </div>
