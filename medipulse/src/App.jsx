@@ -55,6 +55,23 @@ const PLANS = [
   },
 ];
 
+// Normalizes a live `plans` row from the database (managed by admin in
+// Admin → Plans) into the shape PricingCards expects. Falls back to the
+// hardcoded PLANS above if the fetch fails or returns nothing, so the
+// site never shows a blank pricing section.
+const PLAN_ICONS = { starter: Stethoscope, pro: Zap, clinic: Building2 };
+function normalizePlan(row, index) {
+  return {
+    id: row.id,
+    name: row.name,
+    icon: PLAN_ICONS[row.id] || [Stethoscope, Zap, Building2][index % 3],
+    monthly: Number(row.monthly_price),
+    tagline: row.max_doctor_seats > 1 ? `Up to ${row.max_doctor_seats} doctor seats` : "For a single doctor",
+    popular: index === 1,
+    features: row.features || [],
+  };
+}
+
 const SPECIALTIES = ["All", "Cardiology", "Pediatrics", "Dermatology", "Internal Medicine", "OB-GYN", "Neurology", "Dentistry", "Orthodontics", "Oral Surgery"];
 const DENTAL_SPECIALTIES = ["Dentistry", "Orthodontics", "Oral Surgery"];
 
@@ -118,10 +135,11 @@ function Pill({ children, active, onClick }) {
 
 /* --------------------------- pricing ------------------------------ */
 
-function PricingCards({ annual, selected, onSelect, compact }) {
+function PricingCards({ annual, selected, onSelect, compact, plans }) {
+  const list = plans && plans.length > 0 ? plans : PLANS;
   return (
     <div className="grid md:grid-cols-3 gap-5">
-      {PLANS.map((p) => {
+      {list.map((p) => {
         const Icon = p.icon;
         const price = annual ? Math.round(p.monthly * 0.8) : p.monthly;
         const isSel = selected === p.id;
@@ -181,6 +199,11 @@ function PricingCards({ annual, selected, onSelect, compact }) {
 
 function Landing({ go }) {
   const [annual, setAnnual] = useState(true);
+  const [livePlans, setLivePlans] = useState([]);
+  useEffect(() => {
+    supabase.from("plans").select("*").order("monthly_price")
+      .then(({ data }) => { if (data && data.length > 0) setLivePlans(data.map(normalizePlan)); });
+  }, []);
   return (
     <div className="fade-up">
       {/* hero */}
@@ -248,7 +271,7 @@ function Landing({ go }) {
             </span>
           </div>
         </div>
-        <PricingCards annual={annual} compact />
+        <PricingCards annual={annual} compact plans={livePlans} />
       </section>
     </div>
   );
@@ -263,10 +286,20 @@ function DoctorSignup({ go }) {
   const [done, setDone] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
+  const [livePlans, setLivePlans] = useState([]);
+  const [liveSpecialties, setLiveSpecialties] = useState([]);
   const steps = ["Profile", "Credentials", "Choose plan", "Review"];
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
-  const plan = PLANS.find((p) => p.id === form.plan);
+  const planList = livePlans.length > 0 ? livePlans : PLANS;
+  const plan = planList.find((p) => p.id === form.plan) || planList[0];
   const price = form.annual ? Math.round(plan.monthly * 0.8) : plan.monthly;
+
+  useEffect(() => {
+    supabase.from("plans").select("*").order("monthly_price")
+      .then(({ data }) => { if (data && data.length > 0) setLivePlans(data.map(normalizePlan)); });
+    supabase.from("specialties").select("name, profession_type").eq("active", true).order("sort_order")
+      .then(({ data }) => setLiveSpecialties(data || []));
+  }, []);
 
   const input = "w-full rounded-2xl bg-slate-900 border border-slate-700 px-4 py-3 text-slate-100 font-body placeholder-slate-500 focus:outline-none focus:border-teal-400";
 
@@ -377,7 +410,10 @@ function DoctorSignup({ go }) {
           <div>
             <label className="text-xs font-mono2 text-slate-500 mb-2 block">SPECIALTIES (select all that apply)</label>
             <div className="flex flex-wrap gap-2">
-              {(form.professionType === "dentist" ? DENTAL_SPECIALTIES : SPECIALTIES.filter((s) => s !== "All" && !DENTAL_SPECIALTIES.includes(s))).map((s) => {
+              {(liveSpecialties.length > 0
+                ? liveSpecialties.filter((s) => s.profession_type === form.professionType).map((s) => s.name)
+                : (form.professionType === "dentist" ? DENTAL_SPECIALTIES : SPECIALTIES.filter((s) => s !== "All" && !DENTAL_SPECIALTIES.includes(s)))
+              ).map((s) => {
                 const active = form.specialties.includes(s);
                 return (
                   <button
@@ -411,7 +447,7 @@ function DoctorSignup({ go }) {
               Annual billing <span className="text-teal-300">(−20%)</span>
             </label>
           </div>
-          <PricingCards annual={form.annual} selected={form.plan} onSelect={(id) => set("plan", id)} />
+          <PricingCards annual={form.annual} selected={form.plan} onSelect={(id) => set("plan", id)} plans={livePlans} />
         </div>
       )}
 
@@ -887,6 +923,12 @@ function PatientDirectory() {
   const [booking, setBooking] = useState(null);
   const [doctors, setDoctors] = useState(DOCTORS);
   const [loadError, setLoadError] = useState(null);
+  const [liveSpecialties, setLiveSpecialties] = useState([]);
+
+  useEffect(() => {
+    supabase.from("specialties").select("name").eq("active", true).order("profession_type").order("sort_order")
+      .then(({ data }) => { if (data && data.length > 0) setLiveSpecialties(["All", ...data.map((d) => d.name)]); });
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -967,7 +1009,7 @@ function PatientDirectory() {
         <Pill active={onlineOnly} onClick={() => setOnlineOnly(!onlineOnly)}>Available now</Pill>
       </div>
       <div className="flex flex-wrap gap-2 mb-8">
-        {SPECIALTIES.map((s) => (
+        {(liveSpecialties.length > 0 ? liveSpecialties : SPECIALTIES).map((s) => (
           <Pill key={s} active={spec === s} onClick={() => setSpec(s)}>{s}</Pill>
         ))}
       </div>
