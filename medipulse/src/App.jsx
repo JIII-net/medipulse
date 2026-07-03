@@ -490,11 +490,14 @@ function BookingModal({ doctor, onClose }) {
     ? bmSlots(schedules, doctor.id, dateStr, locationId)
     : { slots: ["09:00", "09:30", "10:30", "13:00", "15:30", "16:15"], closed: false };
   const now = new Date();
-  const available = slots.filter((s) => {
-    if (taken.includes(s)) return false;
-    const dt = new Date(`${dateStr}T${s}:00`);
-    return dt > now;
-  });
+  const isPast = (s) => new Date(`${dateStr}T${s}:00`) <= now;
+  const available = slots.filter((s) => !taken.includes(s) && !isPast(s));
+  // Distinguish *why* nothing's available, so "no slots configured" (a
+  // schedule where end time <= start time, or a very narrow window
+  // that's already elapsed today) never gets mislabeled "fully booked".
+  const noSlotsConfigured = !closed && slots.length === 0;
+  const allRemainingTaken = !closed && slots.length > 0 && slots.every((s) => isPast(s) || taken.includes(s)) && slots.some((s) => !isPast(s));
+  const allRemainingPast = !closed && slots.length > 0 && slots.every(isPast);
 
   const confirmBooking = async () => {
     if (!slot) return;
@@ -581,8 +584,14 @@ function BookingModal({ doctor, onClose }) {
               <div className="text-sm text-slate-500 font-body py-4 text-center">Checking availability…</div>
             ) : closed ? (
               <div className="text-sm text-slate-400 font-body py-4 text-center">The doctor has no clinic hours on this day — try another date.</div>
-            ) : available.length === 0 ? (
+            ) : noSlotsConfigured ? (
+              <div className="text-sm text-amber-300 font-body py-4 text-center">This day's schedule isn't set up correctly (end time isn't after start time) — please contact the clinic.</div>
+            ) : allRemainingPast ? (
+              <div className="text-sm text-slate-400 font-body py-4 text-center">Today's clinic hours have already passed — try another date.</div>
+            ) : allRemainingTaken ? (
               <div className="text-sm text-slate-400 font-body py-4 text-center">Fully booked on this date — try another day.</div>
+            ) : available.length === 0 ? (
+              <div className="text-sm text-slate-400 font-body py-4 text-center">No slots available on this date — try another day.</div>
             ) : (
               <div className="grid grid-cols-3 gap-2 mb-6">
                 {available.map((s) => (
