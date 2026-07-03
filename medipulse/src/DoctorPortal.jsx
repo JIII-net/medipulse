@@ -24,6 +24,7 @@ const fmtDT = (iso) => new Date(iso).toLocaleString("en-PH", { month: "short", d
 const fmtT = (iso) => new Date(iso).toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" });
 const todayStr = () => new Date().toISOString().slice(0, 10);
 const calcAge = (b) => {
+  if (!b) return null; // provisional records may not have one yet
   // Parse the y-m-d string directly rather than via `new Date(str)`,
   // which is interpreted as UTC and can misreport the age by one day
   // in negative-UTC-offset timezones (harmless for PH/+8, but this
@@ -210,7 +211,7 @@ function Dashboard({ me, onOpenEncounter }) {
               <div className="min-w-0">
                 <div className="text-sm text-slate-100 font-body truncate">
                   {a.patient_rec ? `${a.patient_rec.first_name} ${a.patient_rec.last_name}` : a.portal?.full_name || "Unknown"}
-                  {a.patient_rec && <span className="text-slate-500"> · {calcAge(a.patient_rec.birthdate)}y {a.patient_rec.sex}</span>}
+                  {a.patient_rec && <span className="text-slate-500"> · {calcAge(a.patient_rec.birthdate) != null ? `${calcAge(a.patient_rec.birthdate)}y ` : ""}{a.patient_rec.sex}</span>}
                 </div>
                 <div className="font-mono2 text-xs text-slate-500">{fmtT(a.starts_at)} · {a.type.replace("_", " ")} · {a.status}{a.location ? ` · ${a.location.name}` : ""}</div>
               </div>
@@ -258,31 +259,16 @@ function Dashboard({ me, onOpenEncounter }) {
 /* -------------------- link portal booking to record ---------------- */
 
 function LinkPatientModal({ appt, me, onClose, onLinked }) {
-  const [birthdate, setBirthdate] = useState("");
-  const [sex, setSex] = useState("female");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
-  const portalName = appt.portal?.full_name || "Patient";
+  const portalName = appt.portal?.full_name || "this patient";
 
   const link = async () => {
-    if (!birthdate) { setError("Birthdate is required for the medical record."); return; }
     setBusy(true); setError(null);
-    // Reuse an existing record linked to this portal account if the
-    // patient already has one (e.g. created by a later booking).
-    let recordId = null;
-    const { data: existing } = await supabase.from("patients").select("id").eq("profile_id", appt.patient_id).maybeSingle();
-    if (existing) {
-      recordId = existing.id;
-    } else {
-      const parts = portalName.trim().split(/\s+/);
-      const last_name = parts.length > 1 ? parts.pop() : parts[0];
-      const first_name = parts.join(" ") || last_name;
-      const { data: created, error: e1 } = await supabase.from("patients")
-        .insert({ profile_id: appt.patient_id, first_name, last_name, birthdate, sex, created_by: me })
-        .select("id").single();
-      if (e1) { setError(e1.message); setBusy(false); return; }
-      recordId = created.id;
-    }
+    const { data: recordId, error: e1 } = await supabase.rpc("get_or_create_patient_record", {
+      p_profile_id: appt.patient_id, p_full_name: appt.portal?.full_name || "Patient",
+    });
+    if (e1) { setError(e1.message); setBusy(false); return; }
     const { error: e2 } = await supabase.from("appointments").update({ patient_record_id: recordId }).eq("id", appt.id);
     setBusy(false);
     if (e2) { setError(e2.message); return; }
@@ -295,19 +281,9 @@ function LinkPatientModal({ appt, me, onClose, onLinked }) {
         <h3 className="font-display text-lg font-bold text-slate-50 mb-1">Create patient record for {portalName}</h3>
         <p className="text-xs text-slate-500 font-body mb-4">
           This booking came from the online portal before a medical record existed.
-          Confirm the basics below to create their record and link this appointment — takes 10 seconds.
+          We'll create a record from their name now — birthdate, sex, and the rest
+          get filled in at the front desk when they check in, same as any walk-in.
         </p>
-        <div className="grid grid-cols-2 gap-2 mb-3">
-          <input
-            type="date" value={birthdate} onChange={(e) => setBirthdate(e.target.value)}
-            max={new Date().toISOString().slice(0, 10)}
-            className={inputCls}
-          />
-          <select className={inputCls} value={sex} onChange={(e) => setSex(e.target.value)}>
-            <option value="female">Female</option><option value="male">Male</option>
-            <option value="intersex">Intersex</option><option value="unknown">Unknown</option>
-          </select>
-        </div>
         {error && (
           <div className="mb-3 flex items-start gap-2 text-sm text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-2xl px-4 py-3 font-body">
             <AlertCircle size={16} className="mt-0.5 shrink-0" /> {error}
@@ -438,7 +414,7 @@ function Consult({ encounterId, me, myName, onExit }) {
        ${i.instructions ? `<br/><em>${esc(i.instructions)}</em>` : ""}</div>`).join("");
     printDocument("e-Prescription", `
       <h1>MEDIPULSE CLINIC</h1><div class="sub">Electronic Prescription</div><div class="rule"></div>
-      <table><tr><td class="label">Patient</td><td>${esc(patient.first_name)} ${esc(patient.last_name)} (${calcAge(patient.birthdate)}y, ${esc(patient.sex)})</td></tr>
+      <table><tr><td class="label">Patient</td><td>${esc(patient.first_name)} ${esc(patient.last_name)} (${calcAge(patient.birthdate) != null ? calcAge(patient.birthdate) + "y, " : ""}${esc(patient.sex)})</td></tr>
       <tr><td class="label">MRN</td><td>${esc(patient.mrn)}</td></tr>
       <tr><td class="label">Date</td><td>${esc(new Date().toLocaleDateString("en-PH", { dateStyle: "long" }))}</td></tr></table>
       <div class="rule"></div><div style="font-size:30px">℞</div>${items}
@@ -449,8 +425,7 @@ function Consult({ encounterId, me, myName, onExit }) {
   const printCert = (c) => {
     printDocument("Medical Certificate", `
       <h1>MEDIPULSE CLINIC</h1><div class="sub">Medical Certificate</div><div class="rule"></div>
-      <p>This is to certify that <strong>${esc(patient.first_name)} ${esc(patient.last_name)}</strong>,
-      ${calcAge(patient.birthdate)} years old, was seen and examined on
+      <p>This is to certify that <strong>${esc(patient.first_name)} ${esc(patient.last_name)}</strong>${calcAge(patient.birthdate) != null ? `, ${calcAge(patient.birthdate)} years old,` : ","} was seen and examined on
       ${esc(new Date(c.issued_at).toLocaleDateString("en-PH", { dateStyle: "long" }))} with the following findings:</p>
       <p><strong>Diagnosis:</strong> ${esc(c.diagnosis)}</p>
       ${c.remarks ? `<p><strong>Remarks:</strong> ${esc(c.remarks)}</p>` : ""}
@@ -484,7 +459,7 @@ function Consult({ encounterId, me, myName, onExit }) {
         </div>
         <div className="min-w-0 flex-1">
           <div className="font-display text-lg font-bold text-slate-50">{patient.first_name} {patient.last_name}</div>
-          <div className="font-mono2 text-xs text-teal-300">{patient.mrn} · {calcAge(patient.birthdate)}y {patient.sex} · started {fmtT(enc.started_at)}</div>
+          <div className="font-mono2 text-xs text-teal-300">{patient.mrn}{calcAge(patient.birthdate) != null ? ` · ${calcAge(patient.birthdate)}y` : ""} {patient.sex} · started {fmtT(enc.started_at)}</div>
           <div className="flex flex-wrap gap-1.5 mt-1.5">
             {allergies.map((a, i) => (
               <span key={i} className="px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-300 border border-rose-500/40 text-xs font-body">⚠ {a.substance}</span>

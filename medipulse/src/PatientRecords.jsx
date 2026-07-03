@@ -20,6 +20,7 @@ const btnGhost = "px-4 py-2 rounded-xl border border-slate-700 text-slate-300 te
 const card = "rounded-3xl border border-slate-800 bg-slate-900 p-5";
 
 const calcAge = (birthdate) => {
+  if (!birthdate) return null; // provisional records may not have one yet
   // Parse the y-m-d string directly rather than via `new Date(str)`,
   // which is interpreted as UTC and can misreport the age by one day
   // in negative-UTC-offset timezones (harmless for PH/+8, but this
@@ -104,7 +105,7 @@ function SearchView({ onOpen, onRegister }) {
                 <div className="text-slate-100 font-body text-sm truncate">{fullName(p)}</div>
                 <div className="font-mono2 text-xs text-teal-300">{p.mrn}</div>
               </div>
-              <div className="col-span-3 text-sm text-slate-400 font-body">{fmtDate(p.birthdate)} · {calcAge(p.birthdate)}y · {p.sex}</div>
+              <div className="col-span-3 text-sm text-slate-400 font-body">{fmtDate(p.birthdate)}{calcAge(p.birthdate) != null ? ` · ${calcAge(p.birthdate)}y` : ""} · {p.sex}</div>
               <div className="col-span-2 text-sm text-slate-400 font-body truncate">{p.phone || "—"}</div>
               <div className="col-span-2 flex justify-end gap-1.5">
                 {p.senior_citizen_id && <span className="px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 text-xs">Senior</span>}
@@ -390,7 +391,7 @@ function DetailView({ patientId, onBack, onOpen }) {
         </div>
         <div className="min-w-0 flex-1">
           <div className="font-display text-xl font-bold text-slate-50 truncate">{fullName(p)}</div>
-          <div className="font-mono2 text-xs text-teal-300">{p.mrn} · {calcAge(p.birthdate)}y {p.sex} · {fmtDate(p.birthdate)}</div>
+          <div className="font-mono2 text-xs text-teal-300">{p.mrn}{calcAge(p.birthdate) != null ? ` · ${calcAge(p.birthdate)}y` : " · age unknown"} {p.sex} · {fmtDate(p.birthdate)}</div>
           <div className="flex flex-wrap gap-1.5 mt-2">
             {allergies.map((a) => (
               <span key={a.id} className="px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-300 border border-rose-500/40 text-xs font-body">⚠ {a.substance}</span>

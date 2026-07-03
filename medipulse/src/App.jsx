@@ -465,23 +465,19 @@ function BookingModal({ doctor, onClose }) {
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [saveError, setSaveError] = useState(null);
   const [patientRecordId, setPatientRecordId] = useState(null);
-  const [needsProfile, setNeedsProfile] = useState(false);
-  const [birthdate, setBirthdate] = useState("");
-  const [sex, setSex] = useState("female");
   const isRealDoctor = typeof doctor.id === "string" && doctor.id.includes("-");
   const chosenLocation = doctor.locations?.find((l) => l.id === locationId);
 
   // Every booking must link to the patient's clinical master record
   // (the `patients` table), not just their login account — that's what
-  // Doctor Portal, encounters, and billing actually key off. Resolve
-  // (or flag as missing) the linked record once, up front.
+  // Doctor Portal, encounters, and billing actually key off. A record
+  // is created automatically from their name on first booking (via a
+  // security-definer function, so no client-side RLS friction); the
+  // front desk fills in birthdate/sex when they actually check in.
   useEffect(() => {
     if (!isRealDoctor || !session?.user?.id) return;
     supabase.from("patients").select("id").eq("profile_id", session.user.id).maybeSingle()
-      .then(({ data }) => {
-        if (data) setPatientRecordId(data.id);
-        else setNeedsProfile(true);
-      });
+      .then(({ data }) => { if (data) setPatientRecordId(data.id); });
   }, [isRealDoctor, session?.user?.id]);
 
   useEffect(() => {
@@ -519,21 +515,16 @@ function BookingModal({ doctor, onClose }) {
   const confirmBooking = async () => {
     if (!slot) return;
     if (!isRealDoctor || !session?.user?.id) { setBooked(true); return; }
-    if (needsProfile && !birthdate) { setSaveError("Please enter your birthdate to finish booking — it's needed for your medical record."); return; }
     setSaving(true);
     setSaveError(null);
 
     let recordId = patientRecordId;
     if (!recordId) {
-      const parts = (profile?.full_name || "Patient").trim().split(/\s+/);
-      const last_name = parts.length > 1 ? parts.pop() : parts[0];
-      const first_name = parts.join(" ") || last_name;
-      const { data: newPatient, error: patErr } = await supabase
-        .from("patients")
-        .insert({ profile_id: session.user.id, first_name, last_name, birthdate, sex })
-        .select("id").single();
+      const { data: newRecordId, error: patErr } = await supabase.rpc("get_or_create_patient_record", {
+        p_profile_id: session.user.id, p_full_name: profile?.full_name || "Patient",
+      });
       if (patErr) { setSaveError("Couldn't set up your patient record: " + patErr.message); setSaving(false); return; }
-      recordId = newPatient.id;
+      recordId = newRecordId;
       setPatientRecordId(recordId);
     }
 
@@ -640,26 +631,6 @@ function BookingModal({ doctor, onClose }) {
                     {bm12h(s)}
                   </button>
                 ))}
-              </div>
-            )}
-            {needsProfile && slot && (
-              <div className="mb-4 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4">
-                <div className="text-sm text-amber-200 font-body font-semibold mb-2">One-time: complete your patient details</div>
-                <p className="text-xs text-slate-400 font-body mb-3">Needed for your medical record — we only ask once.</p>
-                <div className="grid grid-cols-2 gap-2">
-                  <input
-                    type="date" value={birthdate} onChange={(e) => setBirthdate(e.target.value)}
-                    max={new Date().toISOString().slice(0, 10)}
-                    className="rounded-xl bg-slate-900 border border-slate-700 px-3 py-2 text-sm text-slate-100 font-body focus:outline-none focus:border-teal-400"
-                  />
-                  <select
-                    value={sex} onChange={(e) => setSex(e.target.value)}
-                    className="rounded-xl bg-slate-900 border border-slate-700 px-3 py-2 text-sm text-slate-100 font-body focus:outline-none focus:border-teal-400"
-                  >
-                    <option value="female">Female</option><option value="male">Male</option>
-                    <option value="intersex">Intersex</option><option value="unknown">Prefer not to say</option>
-                  </select>
-                </div>
               </div>
             )}
             {saveError && (

@@ -17,6 +17,7 @@ const peso = (n) => "₱" + Number(n || 0).toLocaleString("en-PH", { minimumFrac
 const r2 = (n) => Math.round(n * 100) / 100;
 const fmtDT = (iso) => new Date(iso).toLocaleString("en-PH", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 const calcAge = (b) => {
+  if (!b) return null; // provisional records may not have one yet
   // Parse the y-m-d string directly rather than via `new Date(str)`,
   // which is interpreted as UTC and can misreport the age by one day
   // in negative-UTC-offset timezones (harmless for PH/+8, but this
