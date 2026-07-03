@@ -288,6 +288,9 @@ function DoctorSignup({ go }) {
   const [error, setError] = useState(null);
   const [livePlans, setLivePlans] = useState([]);
   const [liveSpecialties, setLiveSpecialties] = useState([]);
+  const [inviteCode, setInviteCode] = useState("");
+  const [inviteStatus, setInviteStatus] = useState(null); // null | "checking" | "valid" | "invalid"
+  const [invitePreassignedPlan, setInvitePreassignedPlan] = useState(null);
   const steps = ["Profile", "Credentials", "Choose plan", "Review"];
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const planList = livePlans.length > 0 ? livePlans : PLANS;
@@ -296,12 +299,38 @@ function DoctorSignup({ go }) {
 
   useEffect(() => {
     supabase.from("plans").select("*").order("monthly_price")
-      .then(({ data }) => { if (data && data.length > 0) setLivePlans(data.map(normalizePlan)); });
+      .then(({ data }) => {
+        if (data && data.length > 0) {
+          const normalized = data.map(normalizePlan);
+          setLivePlans(normalized);
+          // If the currently-selected plan id no longer exists (e.g. an
+          // admin renamed/removed it), fall back to the first available
+          // plan instead of submitting a dead reference at signup.
+          setForm((f) => (normalized.some((p) => p.id === f.plan) ? f : { ...f, plan: normalized[0].id }));
+        }
+      });
     supabase.from("specialties").select("name, profession_type").eq("active", true).order("sort_order")
       .then(({ data }) => setLiveSpecialties(data || []));
   }, []);
 
   const input = "w-full rounded-2xl bg-slate-900 border border-slate-700 px-4 py-3 text-slate-100 font-body placeholder-slate-500 focus:outline-none focus:border-teal-400";
+
+  const checkInvite = (code) => {
+    setInviteCode(code);
+    setInviteStatus(null);
+    setInvitePreassignedPlan(null);
+    if (!code.trim()) return;
+    setInviteStatus("checking");
+    supabase.rpc("check_admin_invite", { p_code: code.trim() }).then(({ data, error }) => {
+      const row = Array.isArray(data) ? data[0] : data;
+      if (error || !row?.valid) { setInviteStatus("invalid"); return; }
+      setInviteStatus("valid");
+      if (row.preassigned_plan_id) {
+        setInvitePreassignedPlan(row.preassigned_plan_id);
+        setForm((f) => ({ ...f, plan: row.preassigned_plan_id }));
+      }
+    });
+  };
 
   const submit = async () => {
     setSubmitting(true);
@@ -325,6 +354,9 @@ function DoctorSignup({ go }) {
     if (error) {
       setError(error.message);
       return;
+    }
+    if (inviteStatus === "valid" && inviteCode.trim()) {
+      await supabase.rpc("redeem_admin_invite", { p_code: inviteCode.trim() }); // best-effort; account already created either way
     }
     setDone(true);
   };
@@ -378,6 +410,19 @@ function DoctorSignup({ go }) {
           <input className={input} placeholder="Work email" type="email" value={form.email} onChange={(e) => set("email", e.target.value)} />
           <input className={input} placeholder="Password (min. 6 characters)" type="password" value={form.password} onChange={(e) => set("password", e.target.value)} />
           <p className="text-xs text-slate-500 font-body flex items-center gap-1.5"><Lock size={12} /> Multi-factor authentication is required for all doctor accounts.</p>
+          <div>
+            <input
+              className={input}
+              placeholder="Invite code (optional)"
+              value={inviteCode}
+              onChange={(e) => checkInvite(e.target.value)}
+            />
+            {inviteStatus === "checking" && <p className="text-xs text-slate-500 font-body mt-1">Checking…</p>}
+            {inviteStatus === "valid" && (
+              <p className="text-xs text-teal-300 font-body mt-1 flex items-center gap-1"><Check size={12} /> Valid invite{invitePreassignedPlan ? ` — plan pre-selected` : ""}</p>
+            )}
+            {inviteStatus === "invalid" && <p className="text-xs text-rose-300 font-body mt-1">Invite code not found or expired.</p>}
+          </div>
           <p className="text-xs text-slate-500 font-body">Clinic secretary? <button type="button" onClick={() => go("staffjoin")} className="text-teal-300 hover:underline">Join your doctor's practice with an invite code →</button></p>
         </div>
       )}
