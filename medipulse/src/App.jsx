@@ -198,19 +198,27 @@ function PricingCards({ annual, selected, onSelect, compact, plans }) {
 /* --------------------------- landing ------------------------------ */
 
 function Landing({ go }) {
+  const { session, profile } = useAuth();
   const [annual, setAnnual] = useState(true);
   const [livePlans, setLivePlans] = useState([]);
   useEffect(() => {
     supabase.from("plans").select("*").order("monthly_price")
       .then(({ data }) => { if (data && data.length > 0) setLivePlans(data.map(normalizePlan)); });
   }, []);
+  const isDoctorSignedIn = session && profile?.role === "doctor";
   return (
     <div className="fade-up">
       {/* hero */}
       <section className="max-w-6xl mx-auto px-6 pt-16 pb-12 text-center">
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-slate-700 bg-slate-900 text-xs font-mono2 text-teal-300 mb-8">
-          <Shield size={13} /> DPA 2012 &amp; HIPAA-ready · Encrypted end to end
-        </div>
+        {isDoctorSignedIn ? (
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-teal-400/40 bg-teal-400/10 text-xs font-mono2 text-teal-300 mb-8">
+            <Check size={13} /> Signed in as Dr. {profile.full_name}
+          </div>
+        ) : (
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-slate-700 bg-slate-900 text-xs font-mono2 text-teal-300 mb-8">
+            <Shield size={13} /> DPA 2012 &amp; HIPAA-ready · Encrypted end to end
+          </div>
+        )}
         <h1 className="font-display text-4xl md:text-6xl font-bold text-slate-50 leading-tight tracking-tight">
           Your practice,
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-300 to-cyan-400"> on autopilot.</span>
@@ -221,12 +229,21 @@ function Landing({ go }) {
         </p>
         <EcgPulse className="w-64 mx-auto mt-8 text-teal-400" />
         <div className="flex flex-wrap justify-center gap-4 mt-8">
-          <button
-            onClick={() => go("doctor")}
-            className="px-6 py-3 rounded-2xl bg-teal-400 text-slate-950 font-body font-semibold hover:bg-teal-300 transition-colors flex items-center gap-2"
-          >
-            <Stethoscope size={18} /> Register as a doctor
-          </button>
+          {isDoctorSignedIn ? (
+            <button
+              onClick={() => go("app")}
+              className="px-6 py-3 rounded-2xl bg-teal-400 text-slate-950 font-body font-semibold hover:bg-teal-300 transition-colors flex items-center gap-2"
+            >
+              <Stethoscope size={18} /> Continue to your Clinic App
+            </button>
+          ) : (
+            <button
+              onClick={() => go("doctor")}
+              className="px-6 py-3 rounded-2xl bg-teal-400 text-slate-950 font-body font-semibold hover:bg-teal-300 transition-colors flex items-center gap-2"
+            >
+              <Stethoscope size={18} /> Register as a doctor
+            </button>
+          )}
           <button
             onClick={() => go("patient")}
             className="px-6 py-3 rounded-2xl border border-slate-600 text-slate-200 font-body font-semibold hover:border-teal-400 hover:text-teal-300 transition-colors flex items-center gap-2"
@@ -294,6 +311,10 @@ function DoctorSignup({ go }) {
   const steps = ["Profile", "Credentials", "Choose plan", "Review"];
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const planList = livePlans.length > 0 ? livePlans : PLANS;
+  const stepValid =
+    step === 0 ? (form.name.trim() !== "" && form.email.trim() !== "" && form.password.length >= 6) :
+    step === 1 ? (form.specialties.length > 0 && form.license.trim() !== "") :
+    true; // steps 2 (plan) and 3 (review) always have a valid default
   const plan = planList.find((p) => p.id === form.plan) || planList[0];
   const price = form.annual ? Math.round(plan.monthly * 0.8) : plan.monthly;
 
@@ -531,13 +552,15 @@ function DoctorSignup({ go }) {
           <ChevronLeft size={16} /> Back
         </button>
         <button
-          disabled={submitting || (step === 1 && form.specialties.length === 0)}
+          disabled={submitting || !stepValid}
           onClick={() => (step === 3 ? submit() : setStep(step + 1))}
           className="px-6 py-2.5 rounded-2xl bg-teal-400 text-slate-950 font-body font-semibold hover:bg-teal-300 transition-colors flex items-center gap-1.5 disabled:opacity-60"
         >
           {step === 3 ? (submitting ? "Creating account…" : "Start free trial") : "Continue"} <ChevronRight size={16} />
         </button>
       </div>
+      {!stepValid && step === 0 && <p className="text-right text-xs text-amber-300 font-body mt-2">Fill in your name, email, and a password (6+ characters) to continue.</p>}
+      {!stepValid && step === 1 && <p className="text-right text-xs text-amber-300 font-body mt-2">Pick at least one specialty and enter your PRC license number to continue.</p>}
     </div>
   );
 }
