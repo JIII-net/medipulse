@@ -205,14 +205,17 @@ function Landing({ go }) {
     supabase.from("plans").select("*").order("monthly_price")
       .then(({ data }) => { if (data && data.length > 0) setLivePlans(data.map(normalizePlan)); });
   }, []);
-  const isDoctorSignedIn = session && profile?.role === "doctor";
+  const isSignedIn = !!(session && profile);
+  const roleLabel = { doctor: "Dr. ", secretary: "", admin: "", patient: "" }[profile?.role] || "";
+  const homeDestination = profile?.role === "patient" ? "patient" : "app";
+  const homeLabel = profile?.role === "patient" ? "Continue to Patient Portal" : "Continue to your Clinic App";
   return (
     <div className="fade-up">
       {/* hero */}
       <section className="max-w-6xl mx-auto px-6 pt-16 pb-12 text-center">
-        {isDoctorSignedIn ? (
+        {isSignedIn ? (
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-teal-400/40 bg-teal-400/10 text-xs font-mono2 text-teal-300 mb-8">
-            <Check size={13} /> Signed in as Dr. {profile.full_name}
+            <Check size={13} /> Signed in as {roleLabel}{profile.full_name} <span className="text-slate-500 capitalize">· {profile.role}</span>
           </div>
         ) : (
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-slate-700 bg-slate-900 text-xs font-mono2 text-teal-300 mb-8">
@@ -229,12 +232,12 @@ function Landing({ go }) {
         </p>
         <EcgPulse className="w-64 mx-auto mt-8 text-teal-400" />
         <div className="flex flex-wrap justify-center gap-4 mt-8">
-          {isDoctorSignedIn ? (
+          {isSignedIn ? (
             <button
-              onClick={() => go("app")}
+              onClick={() => go(homeDestination)}
               className="px-6 py-3 rounded-2xl bg-teal-400 text-slate-950 font-body font-semibold hover:bg-teal-300 transition-colors flex items-center gap-2"
             >
-              <Stethoscope size={18} /> Continue to your Clinic App
+              <Stethoscope size={18} /> {homeLabel}
             </button>
           ) : (
             <button
