@@ -634,9 +634,11 @@ function QueueTab() {
 function OutboxTab() {
   const [rows, setRows] = useState([]);
   const [busy, setBusy] = useState(false);
+  const [sendError, setSendError] = useState(null);
+  const [lastResult, setLastResult] = useState(null);
   const load = async () => {
     const { data } = await supabase.from("notifications")
-      .select("id, channel, recipient, body, status, scheduled_at, sent_at")
+      .select("id, channel, recipient, body, status, scheduled_at, sent_at, error")
       .order("created_at", { ascending: false }).limit(50);
     setRows(data || []);
   };
@@ -644,10 +646,14 @@ function OutboxTab() {
 
   const processDue = async () => {
     setBusy(true);
-    await supabase.from("notifications")
-      .update({ status: "sent", sent_at: new Date().toISOString() })
-      .eq("status", "pending").lte("scheduled_at", new Date().toISOString());
+    setSendError(null);
+    const { data, error } = await supabase.functions.invoke("send-notifications", { body: {} });
     setBusy(false);
+    if (error) {
+      setSendError("Couldn't reach the notification worker — has send-notifications been deployed? (" + error.message + ")");
+      return;
+    }
+    setLastResult(data);
     load();
   };
 
@@ -657,10 +663,20 @@ function OutboxTab() {
     <div className="max-w-3xl">
       <div className="flex items-center justify-between mb-4">
         <p className="text-xs text-slate-500 font-body max-w-lg">
-          Confirmations and reminders queue here. In production a scheduled worker (Supabase Edge Function on cron) delivers pending rows via Semaphore (SMS) and Resend (email). The button simulates that worker.
+          Confirmations and reminders queue here, then deliver via a scheduled worker (Supabase Edge Function on pg_cron) using Semaphore for SMS and Resend for email — runs automatically every 2 minutes once deployed. This button triggers it manually, useful for testing.
         </p>
         <button onClick={processDue} disabled={busy} className={btnPrimary + " flex items-center gap-1.5 shrink-0"}><Send size={14} /> {busy ? "Sending…" : "Send due now"}</button>
       </div>
+      {sendError && (
+        <div className="mb-4 flex items-start gap-2 text-sm text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-2xl px-4 py-3 font-body">
+          <AlertCircle size={16} className="mt-0.5 shrink-0" /> {sendError}
+        </div>
+      )}
+      {lastResult && (
+        <div className="mb-4 text-xs font-mono2 text-slate-500">
+          Last run: {lastResult.processed} processed · {lastResult.sent} sent · {lastResult.failed} failed
+        </div>
+      )}
       <div className="rounded-3xl border border-slate-800 bg-slate-900 overflow-hidden">
         {rows.length === 0 && <div className="px-5 py-10 text-center text-slate-500 font-body text-sm">No notifications yet — book an appointment to see confirmations queue here.</div>}
         {rows.map((n) => (
@@ -673,6 +689,7 @@ function OutboxTab() {
               </div>
             </div>
             <div className="text-sm text-slate-300 font-body">{n.body}</div>
+            {n.status === "failed" && n.error && <div className="text-xs text-rose-300 font-mono2 mt-1">{n.error}</div>}
           </div>
         ))}
       </div>
