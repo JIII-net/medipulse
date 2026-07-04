@@ -366,12 +366,18 @@ function Consult({ encounterId, me, myName, onExit }) {
   const applyTemplate = (id) => {
     const t = templates.find((x) => x.id === id);
     if (!t) return;
-    setNote((n) => ({
-      subjective: n.subjective || t.subjective || "",
-      objective: n.objective || t.objective || "",
-      assessment: n.assessment || t.assessment || "",
-      plan: n.plan || t.plan || "",
-    }));
+    const hasExistingText = Object.values(note).some((v) => v && v.trim());
+    if (hasExistingText && !window.confirm("This will replace the text currently in the SOAP note with the template. Continue?")) return;
+    // "Apply" means load this template's text now — overwrite rather
+    // than only filling empty fields, which previously made the
+    // button silently do nothing if any field already had content
+    // (e.g. a stray autosaved draft, or a field you'd clicked into).
+    setNote({
+      subjective: t.subjective || "",
+      objective: t.objective || "",
+      assessment: t.assessment || "",
+      plan: t.plan || "",
+    });
   };
 
   const saveDraft = async (silent = false) => {
