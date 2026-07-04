@@ -53,6 +53,22 @@ function SearchView({ onOpen, onRegister }) {
   const [searched, setSearched] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  const [recent, setRecent] = useState([]);
+  const [loadingRecent, setLoadingRecent] = useState(true);
+
+  const loadRecent = async () => {
+    setLoadingRecent(true);
+    const { data, error } = await supabase
+      .from("patients")
+      .select("id, mrn, first_name, middle_name, last_name, suffix, birthdate, sex, phone, senior_citizen_id, pwd_id, created_at")
+      .is("deleted_at", null)
+      .order("created_at", { ascending: false })
+      .limit(10);
+    setLoadingRecent(false);
+    if (error) { setError(error.message); return; }
+    setRecent(data || []);
+  };
+  useEffect(() => { loadRecent(); }, []);
 
   const search = async (e) => {
     e?.preventDefault();
@@ -71,6 +87,23 @@ function SearchView({ onOpen, onRegister }) {
     setResults(data || []);
   };
 
+  const clearSearch = () => { setQ(""); setSearched(false); setResults([]); };
+
+  const PatientRow = ({ p }) => (
+    <button key={p.id} onClick={() => onOpen(p.id)} className="w-full grid grid-cols-12 gap-2 items-center px-5 py-4 border-b border-slate-800/60 last:border-0 text-left hover:bg-slate-800/40 transition-colors">
+      <div className="col-span-5 min-w-0">
+        <div className="text-slate-100 font-body text-sm truncate">{fullName(p)}</div>
+        <div className="font-mono2 text-xs text-teal-300">{p.mrn}</div>
+      </div>
+      <div className="col-span-3 text-sm text-slate-400 font-body">{fmtDate(p.birthdate)}{calcAge(p.birthdate) != null ? ` · ${calcAge(p.birthdate)}y` : ""}{p.sex !== "unknown" ? ` · ${p.sex}` : ""}</div>
+      <div className="col-span-2 text-sm text-slate-400 font-body truncate">{p.phone || "—"}</div>
+      <div className="col-span-2 flex justify-end gap-1.5">
+        {p.senior_citizen_id && <span className="px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 text-xs">Senior</span>}
+        {p.pwd_id && <span className="px-2 py-0.5 rounded-full bg-violet-500/15 text-violet-300 border border-violet-500/30 text-xs">PWD</span>}
+      </div>
+    </button>
+  );
+
   return (
     <div className="fade-up">
       <div className="flex flex-wrap items-center gap-3 mb-6">
@@ -78,8 +111,8 @@ function SearchView({ onOpen, onRegister }) {
           <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
           <input
             value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search by name, MRN, or phone — search before registering"
+            onChange={(e) => { setQ(e.target.value); if (!e.target.value.trim()) clearSearch(); }}
+            placeholder="Search by name, MRN, or phone"
             className="w-full rounded-2xl bg-slate-900 border border-slate-700 pl-11 pr-4 py-3 text-slate-100 font-body placeholder-slate-500 focus:outline-none focus:border-teal-400"
           />
         </form>
@@ -89,30 +122,32 @@ function SearchView({ onOpen, onRegister }) {
 
       <ErrorBanner msg={error} />
 
-      {!searched ? (
-        <div className={card + " text-center py-14 text-slate-500 font-body text-sm"}>
-          Search for a patient to open their master record. Always search first — it's the best duplicate prevention.
-        </div>
-      ) : results.length === 0 ? (
-        <div className={card + " text-center py-14 font-body text-sm text-slate-400"}>
-          No patients match "{q}". <button onClick={onRegister} className="text-teal-300 hover:underline">Register them as a new patient →</button>
-        </div>
+      {searched ? (
+        results.length === 0 ? (
+          <div className={card + " text-center py-14 font-body text-sm text-slate-400"}>
+            No patients match "{q}". <button onClick={onRegister} className="text-teal-300 hover:underline">Register them as a new patient →</button>
+          </div>
+        ) : (
+          <div className="rounded-3xl border border-slate-800 bg-slate-900 overflow-hidden">
+            {results.map((p) => <PatientRow key={p.id} p={p} />)}
+          </div>
+        )
       ) : (
-        <div className="rounded-3xl border border-slate-800 bg-slate-900 overflow-hidden">
-          {results.map((p) => (
-            <button key={p.id} onClick={() => onOpen(p.id)} className="w-full grid grid-cols-12 gap-2 items-center px-5 py-4 border-b border-slate-800/60 last:border-0 text-left hover:bg-slate-800/40 transition-colors">
-              <div className="col-span-5 min-w-0">
-                <div className="text-slate-100 font-body text-sm truncate">{fullName(p)}</div>
-                <div className="font-mono2 text-xs text-teal-300">{p.mrn}</div>
-              </div>
-              <div className="col-span-3 text-sm text-slate-400 font-body">{fmtDate(p.birthdate)}{calcAge(p.birthdate) != null ? ` · ${calcAge(p.birthdate)}y` : ""}{p.sex !== "unknown" ? ` · ${p.sex}` : ""}</div>
-              <div className="col-span-2 text-sm text-slate-400 font-body truncate">{p.phone || "—"}</div>
-              <div className="col-span-2 flex justify-end gap-1.5">
-                {p.senior_citizen_id && <span className="px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 text-xs">Senior</span>}
-                {p.pwd_id && <span className="px-2 py-0.5 rounded-full bg-violet-500/15 text-violet-300 border border-violet-500/30 text-xs">PWD</span>}
-              </div>
-            </button>
-          ))}
+        <div>
+          <div className="text-xs font-mono2 text-slate-500 mb-2">
+            {loadingRecent ? "Loading…" : recent.length > 0 ? "RECENTLY ADDED" : ""}
+          </div>
+          {loadingRecent ? (
+            <div className={card + " text-center py-14 text-slate-500 font-body text-sm"}>Loading your patients…</div>
+          ) : recent.length === 0 ? (
+            <div className={card + " text-center py-14 text-slate-500 font-body text-sm"}>
+              No patients yet — register your first one, or search once you've added some.
+            </div>
+          ) : (
+            <div className="rounded-3xl border border-slate-800 bg-slate-900 overflow-hidden">
+              {recent.map((p) => <PatientRow key={p.id} p={p} />)}
+            </div>
+          )}
         </div>
       )}
     </div>
