@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { CreditCard, MapPin, Users, Plus, Trash2, Copy, Check, AlertCircle } from "lucide-react";
+import { CreditCard, MapPin, Users, Plus, Trash2, Copy, Check, AlertCircle, FileText, Pencil, X } from "lucide-react";
 import { useAuth } from "./lib/AuthContext";
 import { supabase } from "./lib/supabaseClient";
 
@@ -190,7 +190,130 @@ export default function PracticeSettings() {
             <Plus size={14} /> Generate invite code
           </button>
         </div>
+
+        <TemplatesCard doctorId={me} />
       </div>
+    </div>
+  );
+}
+
+/* --------------------------- SOAP templates -------------------------- */
+
+const SOAP_FIELDS = [
+  ["subjective", "Subjective"], ["objective", "Objective"], ["assessment", "Assessment"], ["plan", "Plan"],
+];
+const EMPTY_TEMPLATE = { name: "", specialty: "", subjective: "", objective: "", assessment: "", plan: "" };
+
+function TemplatesCard({ doctorId }) {
+  const [templates, setTemplates] = useState([]);
+  const [editing, setEditing] = useState(null); // {} for new, or a template row
+  const [error, setError] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  const load = async () => {
+    const { data, error } = await supabase.from("note_templates").select("*").order("created_at", { ascending: false });
+    if (error) { setError(error.message); return; }
+    setTemplates(data || []);
+  };
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, []);
+
+  const mine = templates.filter((t) => t.doctor_id === doctorId);
+  const builtIn = templates.filter((t) => !t.doctor_id);
+
+  const openNew = () => setEditing({ ...EMPTY_TEMPLATE });
+  const openEdit = (t) => setEditing({ ...t });
+
+  const save = async () => {
+    if (!editing.name.trim()) { setError("Give the template a name."); return; }
+    setBusy(true); setError(null);
+    const payload = {
+      name: editing.name.trim(), specialty: editing.specialty.trim() || null,
+      subjective: editing.subjective || null, objective: editing.objective || null,
+      assessment: editing.assessment || null, plan: editing.plan || null,
+    };
+    const { error } = editing.id
+      ? await supabase.from("note_templates").update(payload).eq("id", editing.id)
+      : await supabase.from("note_templates").insert({ ...payload, doctor_id: doctorId });
+    setBusy(false);
+    if (error) { setError(error.message); return; }
+    setEditing(null);
+    load();
+  };
+
+  const remove = async (id) => {
+    const { error } = await supabase.from("note_templates").delete().eq("id", id);
+    if (error) { setError(error.message); return; }
+    load();
+  };
+
+  return (
+    <div className={card}>
+      <div className="font-display font-semibold text-slate-100 flex items-center gap-2 mb-1">
+        <FileText size={16} className="text-teal-300" /> Consultation templates
+      </div>
+      <p className="text-xs text-slate-500 font-body mb-4">
+        Build your own SOAP note templates — they show up in the "Apply a template" picker during a consultation, alongside the built-in ones. Only you can see, edit, or delete your own templates.
+      </p>
+
+      {error && (
+        <div className="flex items-start gap-2 text-sm text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-2xl px-4 py-3 font-body mb-4">
+          <AlertCircle size={16} className="mt-0.5 shrink-0" /> {error}
+        </div>
+      )}
+
+      <div className="text-xs font-mono2 text-teal-300 mb-2">MY TEMPLATES</div>
+      {mine.length === 0 && <div className="text-sm text-slate-500 font-body mb-3">You haven't created any yet.</div>}
+      {mine.map((t) => (
+        <div key={t.id} className="flex items-center justify-between py-2.5 border-b border-slate-800/60 last:border-0 text-sm font-body">
+          <span className="text-slate-200">{t.name}{t.specialty ? <span className="text-slate-500"> · {t.specialty}</span> : ""}</span>
+          <div className="flex items-center gap-2">
+            <button onClick={() => openEdit(t)} className="text-slate-500 hover:text-teal-300"><Pencil size={14} /></button>
+            <button onClick={() => remove(t.id)} className="text-slate-500 hover:text-rose-300"><Trash2 size={14} /></button>
+          </div>
+        </div>
+      ))}
+      <button onClick={openNew} className={btnGhost + " mt-3 flex items-center gap-1.5"}><Plus size={14} /> New template</button>
+
+      {builtIn.length > 0 && (
+        <div className="mt-5 pt-4 border-t border-slate-800">
+          <div className="text-xs font-mono2 text-slate-500 mb-2">BUILT-IN (shared, read-only)</div>
+          {builtIn.map((t) => (
+            <div key={t.id} className="py-1.5 text-sm font-body text-slate-400">
+              {t.name}{t.specialty ? <span className="text-slate-600"> · {t.specialty}</span> : ""}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {editing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80" onClick={() => setEditing(null)}>
+          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-3xl border border-slate-700 bg-slate-900 p-6 fade-up" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-display text-lg font-bold text-slate-50">{editing.id ? "Edit template" : "New template"}</h3>
+              <button onClick={() => setEditing(null)} className="text-slate-500 hover:text-slate-300"><X size={18} /></button>
+            </div>
+            <div className="space-y-3">
+              <input className={inputCls} placeholder="Template name (e.g. Follow-up: Diabetes)" value={editing.name} onChange={(e) => setEditing((p) => ({ ...p, name: e.target.value }))} />
+              <input className={inputCls} placeholder="Specialty tag (optional)" value={editing.specialty || ""} onChange={(e) => setEditing((p) => ({ ...p, specialty: e.target.value }))} />
+              {SOAP_FIELDS.map(([key, label]) => (
+                <div key={key}>
+                  <label className="text-xs font-mono2 text-slate-500 mb-1 block">{label.toUpperCase()}</label>
+                  <textarea
+                    className={inputCls + " min-h-20"}
+                    value={editing[key] || ""}
+                    onChange={(e) => setEditing((p) => ({ ...p, [key]: e.target.value }))}
+                    placeholder={`Default text for ${label.toLowerCase()}...`}
+                  />
+                </div>
+              ))}
+              <div className="flex justify-end gap-2">
+                <button onClick={() => setEditing(null)} className={btnGhost}>Cancel</button>
+                <button onClick={save} disabled={busy} className={btnPrimary}>{busy ? "Saving…" : "Save template"}</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

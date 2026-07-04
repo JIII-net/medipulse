@@ -506,7 +506,14 @@ function Consult({ encounterId, me, myName, onExit }) {
                 {!signed && (
                   <select className={inputCls + " w-64"} defaultValue="" onChange={(e) => { applyTemplate(e.target.value); e.target.value = ""; }}>
                     <option value="" disabled>Apply a template…</option>
-                    {templates.map((t) => <option key={t.id} value={t.id}>{t.name}{t.specialty ? ` (${t.specialty})` : ""}</option>)}
+                    {templates.some((t) => t.doctor_id) && (
+                      <optgroup label="My templates">
+                        {templates.filter((t) => t.doctor_id).map((t) => <option key={t.id} value={t.id}>{t.name}{t.specialty ? ` (${t.specialty})` : ""}</option>)}
+                      </optgroup>
+                    )}
+                    <optgroup label="Built-in">
+                      {templates.filter((t) => !t.doctor_id).map((t) => <option key={t.id} value={t.id}>{t.name}{t.specialty ? ` (${t.specialty})` : ""}</option>)}
+                    </optgroup>
                   </select>
                 )}
               </div>
