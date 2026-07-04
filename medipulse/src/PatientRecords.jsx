@@ -170,9 +170,8 @@ function RegisterView({ onDone, onBack }) {
         return;
       }
     }
-    const { data, error } = await supabase
-      .from("patients")
-      .insert({
+    const { data: newId, error } = await supabase.rpc("register_patient", {
+      p: {
         first_name: f.first_name.trim(), middle_name: f.middle_name.trim() || null,
         last_name: f.last_name.trim(), suffix: f.suffix.trim() || null,
         birthdate: f.birthdate, sex: f.sex,
@@ -183,13 +182,11 @@ function RegisterView({ onDone, onBack }) {
         philhealth_no: f.philhealth_no.trim() || null,
         senior_citizen_id: f.senior_citizen_id.trim() || null,
         pwd_id: f.pwd_id.trim() || null,
-        created_by: session?.user?.id || null,
-      })
-      .select("id")
-      .single();
+      },
+    });
     setBusy(false);
     if (error) { setError(error.message); return; }
-    onDone(data.id);
+    onDone(newId);
   };
 
   return (
