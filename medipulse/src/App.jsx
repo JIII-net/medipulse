@@ -1434,8 +1434,10 @@ export default function App() {
 }
 
 function AppShell() {
+  const { session, profile, signOut } = useAuth();
   const [view, setView] = useState("landing");
   const [navOpen, setNavOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
 
   if (view === "app") {
     return (
@@ -1461,7 +1463,35 @@ function AppShell() {
           </button>
 
           {/* desktop nav */}
-          <div className="hidden sm:flex items-center gap-1.5 rounded-2xl border border-slate-800 bg-slate-900 p-1 text-sm">
+          <div className="hidden sm:flex items-center gap-3">
+            {session && profile && (
+              <div className="relative">
+                <button
+                  onClick={() => setAccountOpen((o) => !o)}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-teal-400/30 bg-teal-400/10 text-xs font-mono2 text-teal-300 hover:border-teal-400/60 transition-colors"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-teal-400" />
+                  {profile.full_name} <span className="text-slate-500 capitalize">· {profile.role}</span>
+                </button>
+                {accountOpen && (
+                  <div className="absolute top-full right-0 mt-2 w-48 rounded-2xl border border-slate-800 bg-slate-900 shadow-xl shadow-slate-950/60 overflow-hidden fade-up z-50">
+                    <button
+                      onClick={() => { setAccountOpen(false); setView(profile.role === "patient" ? "patient" : "app"); }}
+                      className="w-full text-left px-4 py-2.5 text-sm font-body text-slate-300 hover:bg-slate-800/60 transition-colors border-b border-slate-800/60"
+                    >
+                      {profile.role === "patient" ? "Patient Portal" : "Clinic App"}
+                    </button>
+                    <button
+                      onClick={() => { setAccountOpen(false); signOut(); }}
+                      className="w-full text-left px-4 py-2.5 text-sm font-body text-rose-300 hover:bg-slate-800/60 transition-colors"
+                    >
+                      Log out
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+            <div className="flex items-center gap-1.5 rounded-2xl border border-slate-800 bg-slate-900 p-1 text-sm">
             {[
               ["landing", "Home"],
               ["doctor", "Doctor signup"],
@@ -1479,6 +1509,7 @@ function AppShell() {
                 {label}
               </button>
             ))}
+            </div>
           </div>
 
           {/* mobile hamburger */}
@@ -1492,6 +1523,12 @@ function AppShell() {
 
           {navOpen && (
             <div className="sm:hidden absolute top-full left-0 right-0 mx-4 mt-2 rounded-2xl border border-slate-800 bg-slate-900 shadow-xl shadow-slate-950/60 overflow-hidden fade-up">
+              {session && profile && (
+                <div className="px-4 py-3 border-b border-slate-800/60 bg-teal-400/5">
+                  <div className="text-xs font-mono2 text-teal-300">{profile.full_name} <span className="text-slate-500 capitalize">· {profile.role}</span></div>
+                  <button onClick={() => { setNavOpen(false); signOut(); }} className="text-xs text-rose-300 mt-1 hover:underline">Log out</button>
+                </div>
+              )}
               {[
                 ["landing", "Home"],
                 ["doctor", "Doctor signup"],
