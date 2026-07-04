@@ -666,13 +666,6 @@ function EditDemographicsModal({ patient, onClose, onSaved }) {
     onSaved();
   };
 
-  const Field = ({ label, value, onChange, type = "text" }) => (
-    <div>
-      <label className={labelCls}>{label}</label>
-      <input className={inputCls} type={type} value={value} onChange={onChange} />
-    </div>
-  );
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80" onClick={onClose}>
       <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl border border-slate-700 bg-slate-900 p-6 fade-up" onClick={(e) => e.stopPropagation()}>
