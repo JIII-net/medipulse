@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   Calendar, Clock, Plus, X, Check, ChevronLeft, ChevronRight, Search,
-  Bell, Send, UserPlus, RotateCcw, CalendarPlus, Trash2, AlertCircle, Megaphone, MapPin,
+  Bell, Send, UserPlus, RotateCcw, CalendarPlus, Trash2, AlertCircle, Megaphone, MapPin, QrCode,
 } from "lucide-react";
+import { Html5Qrcode } from "html5-qrcode";
 import { useAuth } from "./lib/AuthContext";
 import { supabase } from "./lib/supabaseClient";
 import { StaffGate } from "./lib/StaffGate";
@@ -527,8 +528,11 @@ function SchedulesTab({ doctors, schedules, locations = [], reload }) {
 /* ----------------------------- queue tab -------------------------- */
 
 function QueueTab() {
+  const { profile } = useAuth();
   const [tickets, setTickets] = useState([]);
   const [walkIn, setWalkIn] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [myDoctorIds, setMyDoctorIds] = useState([]);
   const [station, setStation] = useState("Triage");
   const [error, setError] = useState(null);
 
@@ -542,6 +546,16 @@ function QueueTab() {
     setTickets(data || []);
   };
   useEffect(() => { load(); }, []);
+
+  useEffect(() => {
+    (async () => {
+      if (profile?.role === "doctor") { setMyDoctorIds([profile.id]); return; }
+      if (profile?.role === "secretary") {
+        const { data } = await supabase.from("staff_assignments").select("doctor_id").eq("secretary_id", profile.id);
+        setMyDoctorIds((data || []).map((d) => d.doctor_id));
+      }
+    })();
+  }, [profile]);
 
   const advance = async (t, status) => {
     const patch = { status };
@@ -571,6 +585,7 @@ function QueueTab() {
       <div className="flex flex-wrap items-center gap-3 mb-5">
         <div className="font-mono2 text-xs text-slate-500 flex items-center gap-2"><Megaphone size={13} className="text-teal-400" /> Today's queue · sorted by priority then arrival</div>
         <div className="flex-1" />
+        <button onClick={() => setScanning(true)} className={btnGhost + " flex items-center gap-1.5"}><QrCode size={15} /> Scan ID card</button>
         <button onClick={() => setWalkIn(true)} className={btnPrimary + " flex items-center gap-1.5"}><UserPlus size={15} /> Walk-in registration</button>
       </div>
       <ErrorBanner msg={error} />
@@ -625,11 +640,112 @@ function QueueTab() {
           </div>
         </div>
       )}
+
+      {scanning && (
+        <QRCheckinModal
+          station={station}
+          myDoctorIds={myDoctorIds}
+          onClose={() => setScanning(false)}
+          onDone={() => { setScanning(false); load(); }}
+        />
+      )}
     </div>
   );
 }
 
-/* ----------------------------- outbox tab ------------------------- */
+/* --------------------------- QR check-in scanner --------------------- */
+
+function QRCheckinModal({ station: initialStation, myDoctorIds, onClose, onDone }) {
+  const [station, setStation] = useState(initialStation);
+  const [doctorId, setDoctorId] = useState(myDoctorIds[0] || "");
+  const [error, setError] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState(null);
+  const scannerRef = useRef(null);
+  const elId = "qr-checkin-reader";
+
+  useEffect(() => {
+    const scanner = new Html5Qrcode(elId);
+    scannerRef.current = scanner;
+    scanner.start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: 220 },
+      (decodedText) => handleScan(decodedText),
+      () => {} // ignore per-frame "no QR found" noise
+    ).catch((e) => setError("Couldn't access the camera: " + e.message + " — check browser camera permissions."));
+
+    return () => {
+      scanner.stop().catch(() => {}).finally(() => scanner.clear());
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleScan = async (decodedText) => {
+    if (busy || result) return; // ignore repeat frames while processing / after success
+    let payload;
+    try { payload = JSON.parse(decodedText); } catch { setError("That QR code isn't a MediPulse patient ID card."); return; }
+    if (!payload?.mrn || !payload?.t) { setError("That QR code isn't a MediPulse patient ID card."); return; }
+    if (!doctorId) { setError("No doctor selected to check this patient in under — pick one below."); return; }
+
+    setBusy(true); setError(null);
+    const st = STATIONS.find((s) => s.name === station);
+    const { data, error: rpcErr } = await supabase.rpc("checkin_patient_by_qr", {
+      p_mrn: payload.mrn, p_qr_token: payload.t, p_doctor_id: doctorId,
+      p_station: station, p_prefix: st.prefix,
+    });
+    setBusy(false);
+    if (rpcErr) { setError(rpcErr.message); return; }
+    const row = Array.isArray(data) ? data[0] : data;
+    setResult(row);
+    await scannerRef.current?.stop().catch(() => {});
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80" onClick={onClose}>
+      <div className="w-full max-w-md rounded-3xl border border-slate-700 bg-slate-900 p-6 fade-up" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-display text-lg font-bold text-slate-50 flex items-center gap-2"><QrCode size={18} className="text-teal-300" /> Scan patient ID card</h3>
+          <button onClick={onClose} className="text-slate-500 hover:text-slate-300"><X size={18} /></button>
+        </div>
+
+        {result ? (
+          <div className="text-center py-4">
+            <div className="w-14 h-14 rounded-2xl bg-teal-400/15 border border-teal-400/40 flex items-center justify-center mx-auto mb-4">
+              <Check size={24} className="text-teal-300" />
+            </div>
+            <div className="font-display text-lg font-bold text-slate-50">{result.first_name} {result.last_name}</div>
+            <div className="font-mono2 text-2xl font-bold text-teal-300 mt-2">{result.ticket_number}</div>
+            <div className="text-xs text-slate-500 font-body mt-1">Checked in at {station}</div>
+            <button onClick={onDone} className={btnPrimary + " mt-5"}>Done</button>
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              <select className={inputCls} value={station} onChange={(e) => setStation(e.target.value)}>
+                {STATIONS.map((s) => <option key={s.name}>{s.name}</option>)}
+              </select>
+              {myDoctorIds.length > 1 ? (
+                <select className={inputCls} value={doctorId} onChange={(e) => setDoctorId(e.target.value)}>
+                  {myDoctorIds.map((id) => <option key={id} value={id}>{id.slice(0, 8)}…</option>)}
+                </select>
+              ) : (
+                <div className="flex items-center text-xs text-slate-500 font-body">Doctor: (your assigned doctor)</div>
+              )}
+            </div>
+            <div id={elId} className="rounded-2xl overflow-hidden border border-slate-700" />
+            <p className="text-xs text-slate-500 font-body mt-3">Point the camera at the QR code on the patient's ID card. Checking in issues a queue number automatically.</p>
+            {error && (
+              <div className="mt-3 flex items-start gap-2 text-sm text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-2xl px-4 py-3 font-body">
+                <AlertCircle size={16} className="mt-0.5 shrink-0" /> {error}
+              </div>
+            )}
+            {busy && <div className="text-xs text-slate-500 font-body mt-2">Checking in…</div>}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function OutboxTab() {
   const [rows, setRows] = useState([]);

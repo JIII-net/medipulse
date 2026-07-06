@@ -171,6 +171,40 @@ const Field = ({ label, value, onChange, type = "text", placeholder }) => (
   </div>
 );
 
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+// A native <input type="date"> is unreliable for typing the year
+// directly across browsers/OSes (some only respond to clicking the
+// calendar icon segment-by-segment). Three plain inputs are far more
+// predictable and let you just type the year.
+function DobInput({ label, value, onChange }) {
+  const [y, m, d] = (value || "").split("-");
+  const set = (ny, nm, nd) => {
+    if (ny && nm && nd) onChange(`${ny.padStart(4, "0")}-${nm.padStart(2, "0")}-${nd.padStart(2, "0")}`);
+    else onChange("");
+  };
+  return (
+    <div>
+      <label className={labelCls}>{label}</label>
+      <div className="grid grid-cols-3 gap-2">
+        <input
+          className={inputCls} type="number" placeholder="Year" min="1900" max={new Date().getFullYear()}
+          value={y || ""} onChange={(e) => set(e.target.value, m || "", d || "")}
+        />
+        <select className={inputCls} value={m || ""} onChange={(e) => set(y || "", e.target.value, d || "")}>
+          <option value="">Month</option>
+          {MONTH_NAMES.map((name, i) => <option key={name} value={String(i + 1).padStart(2, "0")}>{name}</option>)}
+        </select>
+        <select className={inputCls} value={d || ""} onChange={(e) => set(y || "", m || "", e.target.value)}>
+          <option value="">Day</option>
+          {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+            <option key={day} value={String(day).padStart(2, "0")}>{day}</option>
+          ))}
+        </select>
+      </div>
+    </div>
+  );
+}
+
 function RegisterView({ onDone, onBack }) {
   const { session } = useAuth();
   const [f, setF] = useState(EMPTY_FORM);
@@ -256,7 +290,7 @@ function RegisterView({ onDone, onBack }) {
             <Field label="MIDDLE NAME"  value={f.middle_name} onChange={set("middle_name")} />
             <Field label="LAST NAME *"  value={f.last_name} onChange={set("last_name")} />
             <Field label="SUFFIX" placeholder="Jr., III…"  value={f.suffix} onChange={set("suffix")} />
-            <Field label="BIRTHDATE *" type="date"  value={f.birthdate} onChange={set("birthdate")} />
+            <DobInput label="BIRTHDATE *" value={f.birthdate} onChange={(v) => setF((prev) => ({ ...prev, birthdate: v }))} />
             <div>
               <label className={labelCls}>SEX *</label>
               <select className={inputCls} value={f.sex} onChange={set("sex")}>
@@ -493,22 +527,39 @@ function DetailView({ patientId, onBack, onOpen }) {
             </div>
             <div className={card}>
               <div className="font-display font-semibold text-slate-100 mb-3 flex items-center gap-2"><Shield size={15} className="text-teal-300" /> Insurance</div>
-              {insurance.length === 0 && <div className="text-sm text-slate-500 font-body">No policies recorded yet.</div>}
-              {insurance.map((i) => (
-                <div key={i.id} className="flex justify-between py-2 border-b border-slate-800/60 last:border-0 text-sm font-body">
-                  <span className="text-slate-200">{i.provider_name}<span className="text-slate-500"> · {i.provider_type}</span></span>
-                  <span className="font-mono2 text-slate-300">{i.policy_no}</span>
+              {p.no_insurance ? (
+                <div className="flex items-center justify-between rounded-2xl border border-slate-700 bg-slate-800/40 px-3.5 py-2.5 mb-3">
+                  <span className="text-sm text-slate-300 font-body">Confirmed self-pay / no insurance</span>
+                  <button onClick={async () => { await supabase.from("patients").update({ no_insurance: false }).eq("id", p.id); load(); }} className="text-xs text-teal-300 hover:underline">Undo</button>
                 </div>
-              ))}
-              <AddRow
-                addLabel="Add policy"
-                fields={[
-                  { key: "provider_type", label: "Type", options: ["philhealth", "hmo", "private"] },
-                  { key: "provider_name", label: "Provider (e.g. Maxicare)" },
-                  { key: "policy_no", label: "Policy / member no." },
-                ]}
-                onAdd={async (v) => { await supabase.from("insurance_policies").insert({ patient_id: p.id, provider_type: v.provider_type || "hmo", provider_name: v.provider_name, policy_no: v.policy_no }); load(); }}
-              />
+              ) : (
+                <>
+                  {insurance.length === 0 && <div className="text-sm text-slate-500 font-body">No policies recorded yet.</div>}
+                  {insurance.map((i) => (
+                    <div key={i.id} className="flex justify-between py-2 border-b border-slate-800/60 last:border-0 text-sm font-body">
+                      <span className="text-slate-200">{i.provider_name}<span className="text-slate-500"> · {i.provider_type}</span></span>
+                      <span className="font-mono2 text-slate-300">{i.policy_no}</span>
+                    </div>
+                  ))}
+                  <AddRow
+                    addLabel="Add policy"
+                    fields={[
+                      { key: "provider_type", label: "Type", options: ["philhealth", "hmo", "private"] },
+                      { key: "provider_name", label: "Provider (e.g. Maxicare)" },
+                      { key: "policy_no", label: "Policy / member no." },
+                    ]}
+                    onAdd={async (v) => { await supabase.from("insurance_policies").insert({ patient_id: p.id, provider_type: v.provider_type || "hmo", provider_name: v.provider_name, policy_no: v.policy_no }); load(); }}
+                  />
+                  {insurance.length === 0 && (
+                    <button
+                      onClick={async () => { await supabase.from("patients").update({ no_insurance: true }).eq("id", p.id); load(); }}
+                      className="text-xs text-slate-500 font-body hover:text-teal-300 mt-2"
+                    >
+                      Mark as self-pay / no insurance instead
+                    </button>
+                  )}
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -680,7 +731,7 @@ function EditDemographicsModal({ patient, onClose, onSaved }) {
             <Field label="MIDDLE NAME" value={f.middle_name} onChange={set("middle_name")} />
             <Field label="LAST NAME *" value={f.last_name} onChange={set("last_name")} />
             <Field label="SUFFIX" value={f.suffix} onChange={set("suffix")} />
-            <Field label="BIRTHDATE" value={f.birthdate} onChange={set("birthdate")} type="date" />
+            <DobInput label="BIRTHDATE" value={f.birthdate} onChange={(v) => setF((prev) => ({ ...prev, birthdate: v }))} />
             <div>
               <label className={labelCls}>SEX</label>
               <select className={inputCls} value={f.sex} onChange={set("sex")}>
