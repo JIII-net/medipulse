@@ -129,6 +129,7 @@ function Dashboard({ me, onOpenEncounter }) {
       supabase.from("appointments")
         .select("id, starts_at, status, type, patient_id, patient_record_id, location:location_id(name), patient_rec:patient_record_id(id, first_name, last_name, birthdate, sex), portal:patient_id(full_name)")
         .eq("doctor_id", me).gte("starts_at", from).lt("starts_at", todayStr() + "T23:59:59")
+        .neq("status", "canceled")
         .order("starts_at"),
       supabase.from("queue_tickets")
         .select("id, number, priority, status, patient:patient_record_id(id, first_name, last_name, birthdate, sex)")

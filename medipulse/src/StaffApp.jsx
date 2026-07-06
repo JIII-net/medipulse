@@ -97,7 +97,7 @@ function DashboardHome({ go }) {
       const from = todayStr() + "T00:00:00";
       const [p, a, w, o] = await Promise.all([
         supabase.from("patients").select("id", { count: "exact", head: true }).is("deleted_at", null),
-        supabase.from("appointments").select("id", { count: "exact", head: true }).gte("starts_at", from).lt("starts_at", todayStr() + "T23:59:59"),
+        supabase.from("appointments").select("id", { count: "exact", head: true }).gte("starts_at", from).lt("starts_at", todayStr() + "T23:59:59").neq("status", "canceled"),
         supabase.from("queue_tickets").select("id", { count: "exact", head: true }).gte("created_at", from).in("status", ["waiting", "called"]),
         supabase.from("encounters").select("id", { count: "exact", head: true }).is("ended_at", null),
       ]);
@@ -127,7 +127,7 @@ function DashboardHome({ go }) {
         <div className="font-mono2 text-xs text-teal-300 mb-1">
           {new Date().toLocaleDateString("en-PH", { weekday: "long", month: "long", day: "numeric" }).toUpperCase()}
         </div>
-        <h2 className="font-display text-3xl font-bold text-slate-50">{greeting}, {profile?.full_name?.split(" ")[0]}.</h2>
+        <h2 className="font-display text-3xl font-bold text-slate-50">{greeting}, {profile?.full_name}.</h2>
       </div>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
