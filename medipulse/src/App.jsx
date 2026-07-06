@@ -1108,10 +1108,7 @@ function PatientDirectory() {
                 {d.telehealth && <span className="flex items-center gap-1 text-violet-300"><Video size={13} /> Video</span>}
               </div>
               <div className="flex items-center justify-between mt-auto pt-4 border-t border-slate-800">
-                <div>
-                  <div className="font-mono2 text-xs text-slate-500 flex items-center gap-1"><Clock size={11} /> {d.nextSlot}</div>
-                  <div className="font-display font-semibold text-slate-100 mt-0.5">{peso(d.fee)}</div>
-                </div>
+                <div className="font-mono2 text-xs text-slate-500 flex items-center gap-1"><Clock size={11} /> {d.nextSlot}</div>
                 <button
                   onClick={() => setBooking(d)}
                   className="px-4 py-2 rounded-xl bg-teal-400 text-slate-950 text-sm font-body font-semibold hover:bg-teal-300 transition-colors"
