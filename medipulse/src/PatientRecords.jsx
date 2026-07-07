@@ -640,7 +640,7 @@ function DetailView({ patientId, onBack, onOpen }) {
                 { key: "occurred_at", label: "Date", type: "date" },
                 { key: "details", label: "Details" },
               ]}
-              onAdd={async (v) => { await supabase.from("history_entries").insert({ patient_id: p.id, kind: v.kind || "other", title: v.title, occurred_at: v.occurred_at || new Date().toISOString().slice(0, 10), details: v.details || null, recorded_by: uid }); load(); }}
+              onAdd={async (v) => { const now = new Date(); const localToday = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`; await supabase.from("history_entries").insert({ patient_id: p.id, kind: v.kind || "other", title: v.title, occurred_at: v.occurred_at || localToday, details: v.details || null, recorded_by: uid }); load(); }}
             />
             <div className="mt-5 space-y-0">
               {timeline.map((e, i) => (

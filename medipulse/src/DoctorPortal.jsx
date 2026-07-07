@@ -20,7 +20,14 @@ const card = "rounded-3xl border border-slate-800 bg-slate-900 p-5";
 
 const fmtDT = (iso) => new Date(iso).toLocaleString("en-PH", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 const fmtT = (iso) => new Date(iso).toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" });
-const todayStr = () => new Date().toISOString().slice(0, 10);
+const todayStr = () => {
+  // Use local date parts, not toISOString() (which is always UTC) —
+  // otherwise "today" silently rolls back to the wrong calendar day
+  // during Philippine early-morning hours (UTC+8 means local
+  // midnight-7:59am is still "yesterday" in UTC).
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
 const calcAge = (b) => {
   if (!b) return null; // provisional records may not have one yet
   // Parse the y-m-d string directly rather than via `new Date(str)`,

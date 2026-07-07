@@ -41,11 +41,18 @@ const STATUS_STYLE = {
 
 /* ------------------------------ helpers --------------------------- */
 
-const todayStr = () => new Date().toISOString().slice(0, 10);
+const todayStr = () => {
+  // Use local date parts, not toISOString() (which is always UTC) —
+  // otherwise "today" silently rolls back to the wrong calendar day
+  // during Philippine early-morning hours (UTC+8 means local
+  // midnight-7:59am is still "yesterday" in UTC).
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
 const addDays = (dateStr, n) => {
   const d = new Date(dateStr + "T12:00:00");
   d.setDate(d.getDate() + n);
-  return d.toISOString().slice(0, 10);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
 const weekdayOf = (dateStr) => new Date(dateStr + "T12:00:00").getDay();
 const toISO = (dateStr, time) => new Date(`${dateStr}T${time}:00`).toISOString();

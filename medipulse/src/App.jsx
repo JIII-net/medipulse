@@ -604,8 +604,13 @@ const bmLocalHM = (iso) => {
 
 function BookingModal({ doctor, onClose }) {
   const { session, profile } = useAuth();
-  const tomorrow = (() => { const d = new Date(); d.setDate(d.getDate() + 1); return d.toISOString().slice(0, 10); })();
-  const [dateStr, setDateStr] = useState(tomorrow);
+  // Local date parts, not toISOString() (always UTC) — otherwise
+  // "today"/"tomorrow" silently roll back a day during PH early
+  // mornings (UTC+8 means local midnight-7:59am is still "yesterday"
+  // in UTC terms).
+  const fmtLocal = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const todayLocal = fmtLocal(new Date());
+  const [dateStr, setDateStr] = useState(todayLocal);
   const [schedules, setSchedules] = useState([]);
   const [taken, setTaken] = useState([]);
   const [slot, setSlot] = useState(null);
@@ -748,13 +753,29 @@ function BookingModal({ doctor, onClose }) {
               <div className="mb-4 text-xs text-slate-400 font-body">📍 {doctor.locations[0].name}{doctor.locations[0].address ? ` — ${doctor.locations[0].address}` : ""}</div>
             )}
             <div className="text-xs font-mono2 text-slate-500 mb-2">PICK A DATE</div>
-            <input
-              type="date"
-              min={new Date().toISOString().slice(0, 10)}
-              value={dateStr}
-              onChange={(e) => setDateStr(e.target.value)}
-              className="w-full rounded-xl bg-slate-900 border border-slate-700 px-3.5 py-2.5 text-sm text-slate-100 font-body focus:outline-none focus:border-teal-400 mb-4"
-            />
+            <div className="flex items-center gap-2 mb-4">
+              <input
+                type="date"
+                min={todayLocal}
+                value={dateStr}
+                onChange={(e) => setDateStr(e.target.value)}
+                className="flex-1 rounded-xl bg-slate-900 border border-slate-700 px-3.5 py-2.5 text-sm text-slate-100 font-body focus:outline-none focus:border-teal-400"
+              />
+              <button
+                type="button"
+                onClick={() => setDateStr(todayLocal)}
+                className={"px-3 py-2.5 rounded-xl text-xs font-body border transition-colors " + (dateStr === todayLocal ? "bg-teal-400 text-slate-950 border-teal-400 font-medium" : "border-slate-700 text-slate-300 hover:border-teal-500/60")}
+              >
+                Today
+              </button>
+              <button
+                type="button"
+                onClick={() => setDateStr(fmtLocal(new Date(Date.now() + 86400000)))}
+                className={"px-3 py-2.5 rounded-xl text-xs font-body border transition-colors " + (dateStr === fmtLocal(new Date(Date.now() + 86400000)) ? "bg-teal-400 text-slate-950 border-teal-400 font-medium" : "border-slate-700 text-slate-300 hover:border-teal-500/60")}
+              >
+                Tomorrow
+              </button>
+            </div>
             <div className="text-xs font-mono2 text-slate-500 mb-2">{prettyDate.toUpperCase()} · AVAILABLE SLOTS</div>
             {loadingSlots ? (
               <div className="text-sm text-slate-500 font-body py-4 text-center">Checking availability…</div>
