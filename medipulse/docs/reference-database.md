@@ -12,7 +12,8 @@ Every table lives in the `public` schema of your Supabase Postgres database, cre
 8. `medipulse-multi-specialty.sql` — `profession_type` and `specialties[]` on `doctors`
 9. `medipulse-admin-setup.sql` — `specialties` master table, RLS on `plans`, `admin_invites`
 10. `medipulse-ophtho.sql` — `eye_exams`, `eye_conditions`, seeds the Ophthalmology specialty
-11. Assorted fix migrations (`medipulse-*-fix.sql`) — see each file's header comment for what it corrects
+11. `medipulse-ophtho-profession.sql` — 'ophthalmologist' as a third `profession_type`, eye subspecialties
+12. Assorted fix migrations (`medipulse-*-fix.sql`) — see each file's header comment for what it corrects
 
 ## Core tables
 

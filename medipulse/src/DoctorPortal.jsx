@@ -336,7 +336,7 @@ function Consult({ encounterId, me, myName, onExit }) {
     setSpecialty(doc?.specialties?.length ? doc.specialties.join(" / ") : doc?.specialty || null);
     const dentist = doc?.profession_type === "dentist";
     setIsDentist(dentist);
-    setIsOphtho((doc?.specialties || []).includes("Ophthalmology") || doc?.specialty === "Ophthalmology");
+    setIsOphtho(doc?.profession_type === "ophthalmologist" || (doc?.specialties || []).includes("Ophthalmology") || doc?.specialty === "Ophthalmology");
     if (dentist) {
       const { data: dp } = await supabase.from("dental_procedures").select("*").eq("encounter_id", encounterId).order("performed_at");
       setDentalProcs(dp || []);

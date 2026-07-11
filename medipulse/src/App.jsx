@@ -74,6 +74,7 @@ function normalizePlan(row, index) {
 
 const SPECIALTIES = ["All", "Cardiology", "Pediatrics", "Dermatology", "Internal Medicine", "OB-GYN", "Neurology", "Ophthalmology", "Dentistry", "Orthodontics", "Oral Surgery"];
 const DENTAL_SPECIALTIES = ["Dentistry", "Orthodontics", "Oral Surgery"];
+const OPHTHO_SPECIALTIES = ["Ophthalmology", "Retina", "Glaucoma", "Cornea & External Disease", "Pediatric Ophthalmology", "Neuro-Ophthalmology", "Oculoplastics"];
 
 const DOCTORS = [
   { id: 1, name: "Dr. Maria Santos", specialty: "Cardiology", specialties: ["Cardiology"], rating: 4.9, reviews: 212, fee: 900, online: true, telehealth: true, nextSlot: "Today, 3:30 PM", hospital: "St. Luke's Medical Center", exp: 14 },
@@ -457,12 +458,12 @@ function DoctorSignup({ go }) {
 
           <div>
             <label className="text-xs font-mono2 text-slate-500 mb-2 block">I AM A</label>
-            <div className="grid grid-cols-2 gap-3">
-              {[["doctor", "Doctor / Physician"], ["dentist", "Dentist"]].map(([id, label]) => (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {[["doctor", "Doctor / Physician"], ["dentist", "Dentist"], ["ophthalmologist", "Ophthalmologist"]].map(([id, label]) => (
                 <button
                   key={id}
                   type="button"
-                  onClick={() => setForm((f) => ({ ...f, professionType: id, specialties: id === "dentist" ? ["Dentistry"] : ["Cardiology"] }))}
+                  onClick={() => setForm((f) => ({ ...f, professionType: id, specialties: id === "dentist" ? ["Dentistry"] : id === "ophthalmologist" ? ["Ophthalmology"] : ["Cardiology"] }))}
                   className={
                     "px-4 py-3 rounded-2xl border text-left font-body text-sm transition-colors " +
                     (form.professionType === id
@@ -481,7 +482,9 @@ function DoctorSignup({ go }) {
             <div className="flex flex-wrap gap-2">
               {(liveSpecialties.length > 0
                 ? liveSpecialties.filter((s) => s.profession_type === form.professionType).map((s) => s.name)
-                : (form.professionType === "dentist" ? DENTAL_SPECIALTIES : SPECIALTIES.filter((s) => s !== "All" && !DENTAL_SPECIALTIES.includes(s)))
+                : (form.professionType === "dentist" ? DENTAL_SPECIALTIES
+                  : form.professionType === "ophthalmologist" ? OPHTHO_SPECIALTIES
+                  : SPECIALTIES.filter((s) => s !== "All" && !DENTAL_SPECIALTIES.includes(s) && !OPHTHO_SPECIALTIES.includes(s)))
               ).map((s) => {
                 const active = form.specialties.includes(s);
                 return (

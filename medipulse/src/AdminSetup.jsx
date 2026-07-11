@@ -298,6 +298,7 @@ export function SpecialtiesTab() {
 
   const doctorSpecs = rows.filter((r) => r.profession_type === "doctor");
   const dentistSpecs = rows.filter((r) => r.profession_type === "dentist");
+  const ophthoSpecs = rows.filter((r) => r.profession_type === "ophthalmologist");
 
   const List = ({ title, items }) => (
     <div className={card}>
@@ -329,6 +330,7 @@ export function SpecialtiesTab() {
           <select className={inputCls + " w-40"} value={newType} onChange={(e) => setNewType(e.target.value)}>
             <option value="doctor">Doctor</option>
             <option value="dentist">Dentist</option>
+            <option value="ophthalmologist">Ophthalmologist</option>
           </select>
           <input className={inputCls} placeholder="Specialty name (e.g. Endocrinology)" value={newName} onChange={(e) => setNewName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()} />
           <button onClick={add} disabled={busy} className={btnPrimary + " shrink-0 flex items-center gap-1.5"}><Plus size={15} /> Add</button>
@@ -338,6 +340,7 @@ export function SpecialtiesTab() {
       <div className="grid sm:grid-cols-2 gap-4">
         <List title="Doctor / Physician specialties" items={doctorSpecs} />
         <List title="Dentist specialties" items={dentistSpecs} />
+        <List title="Ophthalmologist specialties" items={ophthoSpecs} />
       </div>
     </div>
   );
