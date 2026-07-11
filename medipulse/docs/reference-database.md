@@ -11,7 +11,8 @@ Every table lives in the `public` schema of your Supabase Postgres database, cre
 7. `medipulse-dental.sql` — `tooth_conditions`, `dental_procedures`
 8. `medipulse-multi-specialty.sql` — `profession_type` and `specialties[]` on `doctors`
 9. `medipulse-admin-setup.sql` — `specialties` master table, RLS on `plans`, `admin_invites`
-10. Assorted fix migrations (`medipulse-*-fix.sql`) — see each file's header comment for what it corrects
+10. `medipulse-ophtho.sql` — `eye_exams`, `eye_conditions`, seeds the Ophthalmology specialty
+11. Assorted fix migrations (`medipulse-*-fix.sql`) — see each file's header comment for what it corrects
 
 ## Core tables
 
@@ -25,6 +26,8 @@ Every table lives in the `public` schema of your Supabase Postgres database, cre
 | `encounters` | One row per visit — the spine everything clinical hangs off (notes, prescriptions, procedures, invoices) |
 | `clinical_notes` | SOAP notes; **immutable once signed** (enforced by a trigger, not just app logic) |
 | `invoices` / `payments` | Billing — invoices compute PH senior/PWD discounts automatically; payments support split methods with auto-numbered official receipts |
+| `tooth_conditions` / `dental_procedures` | Dental module — append-only odontogram history + per-visit dental work (dentists only) |
+| `eye_exams` / `eye_conditions` | Ophthalmology module — one exam row per encounter (acuity, IOP, refraction) + append-only per-eye findings |
 | `queue_tickets` | Walk-in/check-in queue, numbered atomically per station via `issue_queue_number()` |
 | `notifications` | Outbox for SMS/email — delivered by the Edge Function, not by the app directly |
 

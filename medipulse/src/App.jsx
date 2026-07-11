@@ -72,7 +72,7 @@ function normalizePlan(row, index) {
   };
 }
 
-const SPECIALTIES = ["All", "Cardiology", "Pediatrics", "Dermatology", "Internal Medicine", "OB-GYN", "Neurology", "Dentistry", "Orthodontics", "Oral Surgery"];
+const SPECIALTIES = ["All", "Cardiology", "Pediatrics", "Dermatology", "Internal Medicine", "OB-GYN", "Neurology", "Ophthalmology", "Dentistry", "Orthodontics", "Oral Surgery"];
 const DENTAL_SPECIALTIES = ["Dentistry", "Orthodontics", "Oral Surgery"];
 
 const DOCTORS = [
