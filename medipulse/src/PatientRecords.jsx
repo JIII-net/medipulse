@@ -177,30 +177,58 @@ const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Se
 // calendar icon segment-by-segment). Three plain inputs are far more
 // predictable and let you just type the year.
 function DobInput({ label, value, onChange }) {
-  const [y, m, d] = (value || "").split("-");
-  const set = (ny, nm, nd) => {
-    if (ny && nm && nd) onChange(`${ny.padStart(4, "0")}-${nm.padStart(2, "0")}-${nd.padStart(2, "0")}`);
-    else onChange("");
+  // Internal state per segment: the parent only stores a complete
+  // "YYYY-MM-DD" (or ""), so without this, picking one segment while the
+  // others are still empty would collapse back to "" and wipe the pick.
+  const parse = (v) => { const [y = "", m = "", d = ""] = (v || "").split("-"); return { y, m, d }; };
+  const [parts, setParts] = useState(() => parse(value));
+
+  const compose = (p) => (p.y.length === 4 && p.m && p.d ? `${p.y}-${p.m}-${p.d}` : "");
+  // null = still incomplete, false = complete but not a real date
+  const isValid = (p) => {
+    if (!(p.y.length === 4 && p.m && p.d)) return null;
+    const yr = Number(p.y);
+    if (yr < 1900 || yr > new Date().getFullYear()) return false;
+    const dt = new Date(`${p.y}-${p.m}-${p.d}T00:00:00`);
+    return dt.getFullYear() === yr && dt.getMonth() + 1 === Number(p.m) && dt.getDate() === Number(p.d);
   };
+
+  // Resync if the parent value changes underneath us (e.g. the edit
+  // modal opening on a patient) — but never clobber in-progress input
+  // just because the composed value is still "".
+  useEffect(() => {
+    if ((value || "") !== compose(parts) && (value || "") !== "") setParts(parse(value));
+    // eslint-disable-next-line
+  }, [value]);
+
+  const update = (patch) => {
+    const next = { ...parts, ...patch };
+    setParts(next);
+    onChange(isValid(next) ? compose(next) : "");
+  };
+
   return (
     <div>
       <label className={labelCls}>{label}</label>
       <div className="grid grid-cols-3 gap-2">
         <input
           className={inputCls} type="number" placeholder="Year" min="1900" max={new Date().getFullYear()}
-          value={y || ""} onChange={(e) => set(e.target.value, m || "", d || "")}
+          value={parts.y} onChange={(e) => update({ y: e.target.value })}
         />
-        <select className={inputCls} value={m || ""} onChange={(e) => set(y || "", e.target.value, d || "")}>
+        <select className={inputCls} value={parts.m} onChange={(e) => update({ m: e.target.value })}>
           <option value="">Month</option>
           {MONTH_NAMES.map((name, i) => <option key={name} value={String(i + 1).padStart(2, "0")}>{name}</option>)}
         </select>
-        <select className={inputCls} value={d || ""} onChange={(e) => set(y || "", m || "", e.target.value)}>
+        <select className={inputCls} value={parts.d} onChange={(e) => update({ d: e.target.value })}>
           <option value="">Day</option>
           {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
             <option key={day} value={String(day).padStart(2, "0")}>{day}</option>
           ))}
         </select>
       </div>
+      {isValid(parts) === false && (
+        <p className="mt-1 text-xs text-rose-300 font-body">That date doesn't exist — check the day, month and year.</p>
+      )}
     </div>
   );
 }
@@ -290,7 +318,7 @@ function RegisterView({ onDone, onBack }) {
             <Field label="MIDDLE NAME"  value={f.middle_name} onChange={set("middle_name")} />
             <Field label="LAST NAME *"  value={f.last_name} onChange={set("last_name")} />
             <Field label="SUFFIX" placeholder="Jr., III…"  value={f.suffix} onChange={set("suffix")} />
-            <DobInput label="BIRTHDATE *" value={f.birthdate} onChange={(v) => setF((prev) => ({ ...prev, birthdate: v }))} />
+            <DobInput label="BIRTHDATE *" value={f.birthdate} onChange={(v) => { setF((prev) => ({ ...prev, birthdate: v })); setDupes(null); }} />
             <div>
               <label className={labelCls}>SEX *</label>
               <select className={inputCls} value={f.sex} onChange={set("sex")}>
