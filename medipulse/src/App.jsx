@@ -8,6 +8,7 @@ import { supabase } from "./lib/supabaseClient";
 import StaffApp from "./StaffApp";
 import { PlansTab, InvitesTab, SpecialtiesTab } from "./AdminSetup";
 import { PROFESSIONS, ALL_SPECIALTIES, professionById } from "./lib/professions";
+import { PaymentProofModal, paymentLabel, paymentStyle } from "./PaymentProof";
 
 /* ------------------------------------------------------------------ */
 /*  MediPulse — Patient Management SaaS prototype                      */
@@ -621,6 +622,9 @@ function BookingModal({ doctor, onClose }) {
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [saveError, setSaveError] = useState(null);
   const [patientRecordId, setPatientRecordId] = useState(null);
+  const [newAppt, setNewAppt] = useState(null);
+  const [payOpen, setPayOpen] = useState(false);
+  const [paySent, setPaySent] = useState(false);
   const isRealDoctor = typeof doctor.id === "string" && doctor.id.includes("-");
   const chosenLocation = doctor.locations?.find((l) => l.id === locationId);
 
@@ -686,7 +690,12 @@ function BookingModal({ doctor, onClose }) {
 
     const starts = new Date(`${dateStr}T${slot}:00`);
     const ends = new Date(starts.getTime() + 30 * 60000);
-    const { error } = await supabase.from("appointments").insert({
+    // When the doctor asks for payment up front the slot is only held —
+    // it isn't a confirmed booking until the clinic checks the payment.
+    const due = doctor.requirePrepayment
+      ? new Date(Math.min(starts.getTime(), Date.now() + doctor.holdMinutes * 60000))
+      : null;
+    const { data: appt, error } = await supabase.from("appointments").insert({
       doctor_id: doctor.id,
       patient_id: session.user.id,
       patient_record_id: recordId,
@@ -696,9 +705,12 @@ function BookingModal({ doctor, onClose }) {
       fee_charged: doctor.fee,
       location_id: locationId || null,
       source: "online",
-    });
+      payment_status: doctor.requirePrepayment ? "awaiting_payment" : "not_required",
+      payment_due_at: due ? due.toISOString() : null,
+    }).select("id").single();
     setSaving(false);
     if (error) { setSaveError(error.message); return; }
+    setNewAppt({ id: appt.id, dueAt: due });
     setBooked(true);
   };
 
@@ -709,16 +721,57 @@ function BookingModal({ doctor, onClose }) {
       <div className="w-full max-w-md rounded-3xl border border-slate-700 bg-slate-900 p-6 fade-up max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         {booked ? (
           <div className="text-center py-6">
-            <div className="w-14 h-14 rounded-2xl bg-teal-400/15 border border-teal-400/40 flex items-center justify-center mx-auto mb-4">
-              <Check size={24} className="text-teal-300" />
+            <div className={"w-14 h-14 rounded-2xl border flex items-center justify-center mx-auto mb-4 " + (doctor.requirePrepayment && !paySent ? "bg-amber-500/15 border-amber-500/40" : "bg-teal-400/15 border-teal-400/40")}>
+              <Check size={24} className={doctor.requirePrepayment && !paySent ? "text-amber-300" : "text-teal-300"} />
             </div>
-            <h3 className="font-display text-xl font-bold text-slate-50">Appointment confirmed</h3>
+            <h3 className="font-display text-xl font-bold text-slate-50">
+              {!doctor.requirePrepayment ? "Appointment confirmed"
+                : paySent ? "Payment sent for checking"
+                : "Slot held for you"}
+            </h3>
             <p className="font-body text-slate-400 text-sm mt-2">
               {doctor.name} · {prettyDate} at {bm12h(slot)} · {mode === "video" ? "video visit" : "in clinic"}
               {chosenLocation ? ` at ${chosenLocation.name}` : ""}.
-              You'll get a reminder 24h before.
+              {!doctor.requirePrepayment && " You'll get a reminder 24h before."}
             </p>
-            <button onClick={onClose} className="mt-6 px-5 py-2.5 rounded-2xl bg-teal-400 text-slate-950 font-body font-semibold">Done</button>
+
+            {doctor.requirePrepayment && !paySent && (
+              <div className="mt-4 text-left rounded-2xl border border-amber-500/40 bg-amber-500/10 px-4 py-3">
+                <p className="text-sm text-amber-200 font-body">
+                  This doctor asks for payment before confirming. Send {peso(doctor.prepayAmount)} and upload your receipt
+                  {newAppt?.dueAt ? ` by ${newAppt.dueAt.toLocaleString("en-PH", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}` : ""},
+                  or the slot is released.
+                </p>
+                {doctor.paymentInstructions && (
+                  <p className="text-sm text-slate-200 font-body mt-2 whitespace-pre-wrap">{doctor.paymentInstructions}</p>
+                )}
+              </div>
+            )}
+            {paySent && (
+              <p className="mt-4 text-sm text-teal-300 font-body">
+                The clinic will check it and confirm your appointment. You can follow the status under "My appointments".
+              </p>
+            )}
+
+            <div className="flex gap-2 justify-center mt-6">
+              {doctor.requirePrepayment && !paySent && newAppt && (
+                <button onClick={() => setPayOpen(true)} className="px-5 py-2.5 rounded-2xl bg-teal-400 text-slate-950 font-body font-semibold">Upload proof of payment</button>
+              )}
+              <button onClick={onClose} className={doctor.requirePrepayment && !paySent ? "px-5 py-2.5 rounded-2xl border border-slate-700 text-slate-300 font-body" : "px-5 py-2.5 rounded-2xl bg-teal-400 text-slate-950 font-body font-semibold"}>
+                {doctor.requirePrepayment && !paySent ? "Later" : "Done"}
+              </button>
+            </div>
+
+            {payOpen && newAppt && (
+              <PaymentProofModal
+                appointment={{ id: newAppt.id }}
+                userId={session.user.id}
+                amount={doctor.prepayAmount}
+                instructions={doctor.paymentInstructions}
+                onClose={() => setPayOpen(false)}
+                onDone={() => { setPayOpen(false); setPaySent(true); }}
+              />
+            )}
           </div>
         ) : (
           <>
@@ -893,12 +946,13 @@ function MyAppointments() {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState(null);
+  const [payFor, setPayFor] = useState(null);
 
   const load = async () => {
     setLoading(true);
     const { data, error } = await supabase
       .from("appointments")
-      .select("id, starts_at, status, type, mode, fee_charged, location:location_id(name, address), doctors:doctor_id(specialty, profiles(full_name))")
+      .select("id, starts_at, status, type, mode, fee_charged, patient_record_id, payment_status, payment_due_at, location:location_id(name, address), doctors:doctor_id(specialty, prepayment_amount, payment_instructions, profiles(full_name))")
       .eq("patient_id", session.user.id)
       .order("starts_at", { ascending: false });
     setLoading(false);
@@ -929,31 +983,60 @@ function MyAppointments() {
     no_show: "text-rose-300 border-rose-500/30 bg-rose-500/10",
   };
 
-  const Row = ({ a, isPast }) => (
-    <div className="flex items-center justify-between gap-4 py-3.5 border-b border-slate-800/60 last:border-0">
-      <div className="min-w-0">
-        <div className="text-sm text-slate-100 font-body truncate">
-          {a.doctors?.profiles?.full_name || "Doctor"} <span className="text-slate-500">· {a.doctors?.specialty}</span>
+  const Row = ({ a, isPast }) => {
+    const payLabel = paymentLabel(a.payment_status);
+    const needsPay = !isPast && ["awaiting_payment", "rejected"].includes(a.payment_status);
+    return (
+      <div className="py-3.5 border-b border-slate-800/60 last:border-0">
+        <div className="flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <div className="text-sm text-slate-100 font-body truncate">
+              {a.doctors?.profiles?.full_name || "Doctor"} <span className="text-slate-500">· {a.doctors?.specialty}</span>
+            </div>
+            <div className="font-mono2 text-xs text-slate-500 mt-0.5">
+              {new Date(a.starts_at).toLocaleString("en-PH", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+              {" · "}{a.type?.replace("_", " ")}{a.mode === "video" ? " · video" : ""}
+              {a.location ? ` · ${a.location.name}` : ""}
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {payLabel && <span className={"px-2.5 py-0.5 rounded-full border text-xs font-body " + paymentStyle[a.payment_status]}>{payLabel}</span>}
+            <span className={"px-2.5 py-0.5 rounded-full border text-xs font-body " + (statusStyle[a.status] || statusStyle.booked)}>{a.status.replace("_", " ")}</span>
+            {!isPast && ["booked", "confirmed"].includes(a.status) && (
+              <button onClick={() => cancel(a.id)} disabled={busyId === a.id} className="text-xs text-rose-300 hover:underline disabled:opacity-50">
+                {busyId === a.id ? "…" : "Cancel"}
+              </button>
+            )}
+          </div>
         </div>
-        <div className="font-mono2 text-xs text-slate-500 mt-0.5">
-          {new Date(a.starts_at).toLocaleString("en-PH", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
-          {" · "}{a.type?.replace("_", " ")}{a.mode === "video" ? " · video" : ""}
-          {a.location ? ` · ${a.location.name}` : ""}
-        </div>
-      </div>
-      <div className="flex items-center gap-2 shrink-0">
-        <span className={"px-2.5 py-0.5 rounded-full border text-xs font-body " + (statusStyle[a.status] || statusStyle.booked)}>{a.status.replace("_", " ")}</span>
-        {!isPast && ["booked", "confirmed"].includes(a.status) && (
-          <button onClick={() => cancel(a.id)} disabled={busyId === a.id} className="text-xs text-rose-300 hover:underline disabled:opacity-50">
-            {busyId === a.id ? "…" : "Cancel"}
-          </button>
+
+        {needsPay && (
+          <div className="mt-2 flex flex-wrap items-center gap-3 rounded-2xl border border-amber-500/40 bg-amber-500/10 px-3 py-2">
+            <span className="text-xs text-amber-200 font-body">
+              {a.payment_status === "rejected" ? "Your payment couldn't be verified — please send it again." : "Slot held until you send proof of payment"}
+              {a.payment_due_at && a.payment_status !== "rejected"
+                ? ` · by ${new Date(a.payment_due_at).toLocaleString("en-PH", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`
+                : ""}
+            </span>
+            <button onClick={() => setPayFor(a)} className="text-xs text-teal-300 hover:underline">Upload proof</button>
+          </div>
         )}
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="fade-up">
+      {payFor && (
+        <PaymentProofModal
+          appointment={payFor}
+          userId={session.user.id}
+          amount={payFor.doctors?.prepayment_amount || payFor.fee_charged}
+          instructions={payFor.doctors?.payment_instructions}
+          onClose={() => setPayFor(null)}
+          onDone={() => { setPayFor(null); load(); }}
+        />
+      )}
       {error && (
         <div className="mb-6 flex items-start gap-2 text-sm text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-2xl px-4 py-3 font-body">
           <AlertCircle size={16} className="mt-0.5 shrink-0" /> {error}
@@ -1027,7 +1110,7 @@ function PatientDirectory() {
     (async () => {
       const { data, error } = await supabase
         .from("doctors")
-        .select("id, specialty, specialties, consult_fee, telehealth_enabled, is_online, hospital, years_experience, profiles(full_name), locations:clinic_locations(id, name, address)");
+        .select("id, specialty, specialties, consult_fee, telehealth_enabled, is_online, hospital, years_experience, require_prepayment, prepayment_amount, payment_instructions, prepayment_hold_minutes, profiles(full_name), locations:clinic_locations(id, name, address)");
       if (cancelled) return;
       if (error || !data || data.length === 0) {
         setLoadError(error?.message || null);
@@ -1048,6 +1131,10 @@ function PatientDirectory() {
           hospital: d.locations?.[0]?.name || d.hospital || "Location not yet listed",
           locations: d.locations || [],
           exp: d.years_experience || 0,
+          requirePrepayment: !!d.require_prepayment,
+          prepayAmount: d.prepayment_amount ?? d.consult_fee,
+          paymentInstructions: d.payment_instructions || "",
+          holdMinutes: d.prepayment_hold_minutes || 1440,
         }))
       );
     })();

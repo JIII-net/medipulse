@@ -191,7 +191,131 @@ export default function PracticeSettings() {
           </button>
         </div>
 
+        <BookingRulesCard doctorId={me} />
+
         <TemplatesCard doctorId={me} />
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------- booking & payment ------------------------- */
+
+const EMPTY_RULES = { require_prepayment: false, prepayment_amount: "", payment_instructions: "", prepayment_hold_minutes: 1440 };
+
+const HOLD_CHOICES = [
+  [120, "2 hours"], [360, "6 hours"], [1440, "24 hours"], [2880, "2 days"], [4320, "3 days"],
+];
+
+function BookingRulesCard({ doctorId }) {
+  const [f, setF] = useState(EMPTY_RULES);
+  const [fee, setFee] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState(null);
+
+  const load = async () => {
+    const { data, error } = await supabase
+      .from("doctors")
+      .select("consult_fee, require_prepayment, prepayment_amount, payment_instructions, prepayment_hold_minutes")
+      .eq("id", doctorId).maybeSingle();
+    if (error) { setError(error.message); return; }
+    if (data) {
+      setFee(Number(data.consult_fee || 0));
+      setF({
+        require_prepayment: !!data.require_prepayment,
+        prepayment_amount: data.prepayment_amount ?? "",
+        payment_instructions: data.payment_instructions || "",
+        prepayment_hold_minutes: data.prepayment_hold_minutes || 1440,
+      });
+    }
+  };
+  useEffect(() => { if (doctorId) load(); /* eslint-disable-next-line */ }, [doctorId]);
+
+  const save = async () => {
+    setBusy(true); setError(null); setSaved(false);
+    const { error } = await supabase.from("doctors").update({
+      require_prepayment: f.require_prepayment,
+      prepayment_amount: f.prepayment_amount === "" ? null : Number(f.prepayment_amount),
+      payment_instructions: f.payment_instructions.trim() || null,
+      prepayment_hold_minutes: Number(f.prepayment_hold_minutes) || 1440,
+    }).eq("id", doctorId);
+    setBusy(false);
+    if (error) { setError(error.message); return; }
+    setSaved(true);
+    load();
+  };
+
+  return (
+    <div className={card}>
+      <div className="font-display font-semibold text-slate-100 mb-1 flex items-center gap-2">
+        <CreditCard size={15} className="text-teal-300" /> Booking & payment
+      </div>
+      <p className="text-sm text-slate-400 font-body mb-4">
+        Ask patients to pay before you confirm their slot. They upload a screenshot of their payment and your front desk verifies it.
+      </p>
+      {error && <div className="mb-4 text-sm text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-2xl px-4 py-3 font-body">{error}</div>}
+
+      <div className="flex flex-wrap gap-2 mb-4">
+        {[[false, "Book right away"], [true, "Require payment first"]].map(([val, label]) => (
+          <button
+            key={String(val)}
+            onClick={() => { setF((x) => ({ ...x, require_prepayment: val })); setSaved(false); }}
+            className={
+              "px-4 py-2 rounded-xl border text-sm font-body transition-colors " +
+              (f.require_prepayment === val
+                ? "bg-teal-400/10 border-teal-400 text-teal-200"
+                : "bg-slate-900 border-slate-700 text-slate-300 hover:border-slate-500")
+            }
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {f.require_prepayment && (
+        <div className="space-y-3">
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-mono2 text-slate-500 mb-1 block">AMOUNT TO COLLECT</label>
+              <input
+                className={inputCls} type="number" step="0.01"
+                placeholder={`Leave blank for full fee (${peso(fee)})`}
+                value={f.prepayment_amount}
+                onChange={(e) => { setF((x) => ({ ...x, prepayment_amount: e.target.value })); setSaved(false); }}
+              />
+            </div>
+            <div>
+              <label className="text-xs font-mono2 text-slate-500 mb-1 block">HOLD THE SLOT FOR</label>
+              <select
+                className={inputCls}
+                value={f.prepayment_hold_minutes}
+                onChange={(e) => { setF((x) => ({ ...x, prepayment_hold_minutes: e.target.value })); setSaved(false); }}
+              >
+                {HOLD_CHOICES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-mono2 text-slate-500 mb-1 block">HOW TO PAY — SHOWN TO THE PATIENT</label>
+            <textarea
+              className={inputCls + " min-h-24 resize-y"}
+              placeholder={"GCash: Juan D. — 0917 123 4567\nBPI: 1234-5678-90 (Juan Dela Cruz)\nSend a screenshot after paying."}
+              value={f.payment_instructions}
+              onChange={(e) => { setF((x) => ({ ...x, payment_instructions: e.target.value })); setSaved(false); }}
+            />
+            <p className="text-xs text-slate-500 font-body mt-1">
+              Anyone booking with you can read this, so don't put anything private here beyond your payment details.
+            </p>
+          </div>
+        </div>
+      )}
+
+      <div className="flex items-center gap-3 mt-4">
+        <button onClick={save} disabled={busy} className={btnPrimary + " flex items-center gap-1.5"}>
+          <Check size={14} /> {busy ? "Saving…" : "Save"}
+        </button>
+        {saved && <span className="text-xs text-teal-300 font-body">Saved ✓</span>}
       </div>
     </div>
   );

@@ -7,6 +7,7 @@ import { Html5Qrcode } from "html5-qrcode";
 import { useAuth } from "./lib/AuthContext";
 import { supabase } from "./lib/supabaseClient";
 import { StaffGate } from "./lib/StaffGate";
+import { PaymentProofReview, paymentLabel, paymentStyle } from "./PaymentProof";
 
 /* ------------------------------------------------------------------ */
 /*  Appointment Management — staff module                              */
@@ -238,8 +239,10 @@ function DetailModal({ appt, doctors, schedules, onClose, onChanged }) {
   const [time, setTime] = useState(localTime(appt.starts_at));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  const [showProof, setShowProof] = useState(false);
   const slots = slotsFor(appt.doctor_id, dateStr, schedules);
   const patient = appt.patient_rec;
+  const onDone = () => { onChanged(); onClose(); };
 
   const act = async (fn) => { setBusy(true); setError(null); const err = await fn(); setBusy(false); if (err) setError(err); else { onChanged(); onClose(); } };
 
@@ -297,6 +300,23 @@ function DetailModal({ appt, doctors, schedules, onClose, onChanged }) {
         <ErrorBanner msg={error} />
         {mode === "view" ? (
           <div className="space-y-2">
+            {appt.payment_status && appt.payment_status !== "not_required" && (
+              <div className={"rounded-2xl border px-3 py-2.5 mb-1 flex flex-wrap items-center justify-between gap-2 " + (paymentStyle[appt.payment_status] || "")}>
+                <span className="text-xs font-body">Payment: {paymentLabel(appt.payment_status)}</span>
+                {["proof_submitted", "verified", "rejected"].includes(appt.payment_status) && (
+                  <button onClick={() => setShowProof(true)} className="text-xs underline">
+                    {appt.payment_status === "proof_submitted" ? "Review proof" : "View proof"}
+                  </button>
+                )}
+              </div>
+            )}
+            {showProof && (
+              <PaymentProofReview
+                appointmentId={appt.id}
+                onClose={() => setShowProof(false)}
+                onReviewed={() => { setShowProof(false); onDone(); }}
+              />
+            )}
             {["booked", "confirmed"].includes(appt.status) && (
               <button onClick={checkIn} disabled={busy} className={btnPrimary + " w-full flex items-center justify-center gap-2"}>
                 <Check size={15} /> Check in → issue queue number
@@ -361,7 +381,7 @@ function CalendarTab({ doctors, schedules, locations }) {
     const to = new Date(addDays(rangeStart, rangeDays) + "T00:00:00").toISOString();
     const { data, error } = await supabase
       .from("appointments")
-      .select("id, doctor_id, starts_at, status, type, patient_id, location_id, location:location_id(name, address), patient_rec:patient_record_id(id, first_name, last_name, phone, email, senior_citizen_id, pwd_id), portal:patient_id(full_name)")
+      .select("id, doctor_id, starts_at, status, type, patient_id, location_id, payment_status, payment_due_at, location:location_id(name, address), patient_rec:patient_record_id(id, first_name, last_name, phone, email, senior_citizen_id, pwd_id), portal:patient_id(full_name)")
       .gte("starts_at", from).lt("starts_at", to);
     setLoading(false);
     if (error) { setError(error.message); return; }
