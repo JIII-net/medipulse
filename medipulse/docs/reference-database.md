@@ -13,7 +13,9 @@ Every table lives in the `public` schema of your Supabase Postgres database, cre
 9. `medipulse-admin-setup.sql` — `specialties` master table, RLS on `plans`, `admin_invites`
 10. `medipulse-ophtho.sql` — `eye_exams`, `eye_conditions`, seeds the Ophthalmology specialty
 11. `medipulse-ophtho-profession.sql` — 'ophthalmologist' as a third `profession_type`, eye subspecialties
-12. Assorted fix migrations (`medipulse-*-fix.sql`) — see each file's header comment for what it corrects
+12. `medipulse-psych-profession.sql` — 'psychiatrist' and 'psychologist' profession types *(run in two passes — see the file header)*
+13. `medipulse-psych.sql` — `mh_assessments`, `mh_screenings`, built-in psych note templates
+14. Assorted fix migrations (`medipulse-*-fix.sql`) — see each file's header comment for what it corrects
 
 ## Core tables
 
@@ -29,6 +31,7 @@ Every table lives in the `public` schema of your Supabase Postgres database, cre
 | `invoices` / `payments` | Billing — invoices compute PH senior/PWD discounts automatically; payments support split methods with auto-numbered official receipts |
 | `tooth_conditions` / `dental_procedures` | Dental module — append-only odontogram history + per-visit dental work (dentists only) |
 | `eye_exams` / `eye_conditions` | Ophthalmology module — one exam row per encounter (acuity, IOP, refraction) + append-only per-eye findings |
+| `mh_assessments` / `mh_screenings` | Mental health module — one row per encounter (mental status exam, risk, session note) + append-only PHQ-9/GAD-7 scores |
 | `queue_tickets` | Walk-in/check-in queue, numbered atomically per station via `issue_queue_number()` |
 | `notifications` | Outbox for SMS/email — delivered by the Edge Function, not by the app directly |
 

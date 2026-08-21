@@ -9,6 +9,8 @@ import { StaffGate } from "./lib/StaffGate";
 import { printDocument, esc } from "./lib/print";
 import DentalChart from "./DentalChart";
 import EyeExamChart from "./EyeExamChart";
+import MentalHealthChart from "./MentalHealthChart";
+import { MENTAL_HEALTH_TYPES } from "./lib/professions";
 
 /* ------------------------------------------------------------------ */
 /*  Doctor Portal — dashboard + consultation workspace                 */
@@ -301,6 +303,9 @@ function Consult({ encounterId, me, myName, onExit }) {
   const [specialty, setSpecialty] = useState(null);
   const [isDentist, setIsDentist] = useState(false);
   const [isOphtho, setIsOphtho] = useState(false);
+  const [isMentalHealth, setIsMentalHealth] = useState(false);
+  const [isPsychologist, setIsPsychologist] = useState(false);
+  const [riskLevel, setRiskLevel] = useState(null);
   const [showBilling, setShowBilling] = useState(false);
 
   const load = async () => {
@@ -337,9 +342,24 @@ function Consult({ encounterId, me, myName, onExit }) {
     const dentist = doc?.profession_type === "dentist";
     setIsDentist(dentist);
     setIsOphtho(doc?.profession_type === "ophthalmologist" || (doc?.specialties || []).includes("Ophthalmology") || doc?.specialty === "Ophthalmology");
+    // Specialty-name fallback so doctors already tagged "Psychiatry" get the
+    // module without having to re-register under the new profession type.
+    const mh = MENTAL_HEALTH_TYPES.includes(doc?.profession_type)
+      || (doc?.specialties || []).some((s) => /psych/i.test(s))
+      || /psych/i.test(doc?.specialty || "");
+    setIsMentalHealth(mh);
+    setIsPsychologist(doc?.profession_type === "psychologist");
     if (dentist) {
       const { data: dp } = await supabase.from("dental_procedures").select("*").eq("encounter_id", encounterId).order("performed_at");
       setDentalProcs(dp || []);
+    }
+    if (mh) {
+      // Latest recorded risk for this patient, so an elevated risk from a
+      // previous visit is visible the moment the next clinician opens them.
+      const { data: mha } = await supabase.from("mh_assessments")
+        .select("risk_level, recorded_at").eq("patient_record_id", e.patient_record_id)
+        .order("recorded_at", { ascending: false }).limit(1).maybeSingle();
+      setRiskLevel(mha?.risk_level || null);
     }
   };
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [encounterId]);
@@ -451,6 +471,11 @@ function Consult({ encounterId, me, myName, onExit }) {
           <div className="font-display text-lg font-bold text-slate-50">{patient.first_name} {patient.last_name}</div>
           <div className="font-mono2 text-xs text-teal-300">{patient.mrn}{calcAge(patient.birthdate) != null ? ` · ${calcAge(patient.birthdate)}y` : ""}{patient.sex !== "unknown" ? ` ${patient.sex}` : ""} · started {fmtT(enc.started_at)}</div>
           <div className="flex flex-wrap gap-1.5 mt-1.5">
+            {["moderate", "high"].includes(riskLevel) && (
+              <span className={"px-2 py-0.5 rounded-full border text-xs font-body font-semibold " + (riskLevel === "high" ? "bg-rose-500/25 text-rose-200 border-rose-400" : "bg-amber-500/20 text-amber-200 border-amber-500/50")}>
+                ⚠ {riskLevel === "high" ? "High" : "Moderate"} mental health risk
+              </span>
+            )}
             {allergies.map((a, i) => (
               <span key={i} className="px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-300 border border-rose-500/40 text-xs font-body">⚠ {a.substance}</span>
             ))}
@@ -479,7 +504,10 @@ function Consult({ encounterId, me, myName, onExit }) {
               ["soap", "SOAP note"],
               ...(isDentist ? [["dental", "Dental Chart"]] : []),
               ...(isOphtho ? [["eye", "Eye Exam"]] : []),
-              ["rx", "e-Prescription"], ["proc", "Procedures"], ["cert", "Med certificate"], ["fu", "Follow-up"],
+              ...(isMentalHealth ? [["mh", "Mental Health"]] : []),
+              // Psychologists don't prescribe — no prescription pad for them.
+              ...(isPsychologist ? [] : [["rx", "e-Prescription"]]),
+              ["proc", "Procedures"], ["cert", "Med certificate"], ["fu", "Follow-up"],
             ].map(([id, label]) => (
               <button key={id} onClick={() => setTab(id)} className={"px-3 py-1.5 rounded-xl font-body transition-colors " + (tab === id ? "bg-teal-400 text-slate-950 font-medium" : "text-slate-400 hover:text-slate-100")}>
                 {label}
@@ -524,6 +552,10 @@ function Consult({ encounterId, me, myName, onExit }) {
 
           {tab === "eye" && (
             <EyeExamChart patient={patient} encounterId={encounterId} me={me} signed={signed} myName={myName} />
+          )}
+
+          {tab === "mh" && (
+            <MentalHealthChart patient={patient} encounterId={encounterId} me={me} signed={signed} isPsychologist={isPsychologist} />
           )}
 
           {tab === "rx" && (

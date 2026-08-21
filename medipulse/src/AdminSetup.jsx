@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Plus, Trash2, Copy, Check, X, AlertCircle, Pencil, Star } from "lucide-react";
 import { supabase } from "./lib/supabaseClient";
+import { PROFESSIONS } from "./lib/professions";
 
 /* ------------------------------------------------------------------ */
 /*  Admin setup — Plans, Invites, Specialties                          */
@@ -296,10 +297,6 @@ export function SpecialtiesTab() {
     load();
   };
 
-  const doctorSpecs = rows.filter((r) => r.profession_type === "doctor");
-  const dentistSpecs = rows.filter((r) => r.profession_type === "dentist");
-  const ophthoSpecs = rows.filter((r) => r.profession_type === "ophthalmologist");
-
   const List = ({ title, items }) => (
     <div className={card}>
       <div className="font-display font-semibold text-slate-100 mb-3">{title}</div>
@@ -321,16 +318,14 @@ export function SpecialtiesTab() {
   return (
     <div className="max-w-3xl">
       <p className="text-sm text-slate-400 font-body mb-4">
-        The master list of specialties doctors and dentists pick from at signup. Add a new one anytime a doctor needs a specialty that isn't listed — no code changes needed. Deactivate instead of deleting if it's already in use.
+        The master list of specialties every kind of provider picks from at signup. Add a new one anytime someone needs a specialty that isn't listed — no code changes needed. Deactivate instead of deleting if it's already in use.
       </p>
       <ErrorBanner msg={error} />
 
       <div className={card + " mb-5"}>
         <div className="flex gap-2">
-          <select className={inputCls + " w-40"} value={newType} onChange={(e) => setNewType(e.target.value)}>
-            <option value="doctor">Doctor</option>
-            <option value="dentist">Dentist</option>
-            <option value="ophthalmologist">Ophthalmologist</option>
+          <select className={inputCls + " w-52"} value={newType} onChange={(e) => setNewType(e.target.value)}>
+            {PROFESSIONS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
           </select>
           <input className={inputCls} placeholder="Specialty name (e.g. Endocrinology)" value={newName} onChange={(e) => setNewName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()} />
           <button onClick={add} disabled={busy} className={btnPrimary + " shrink-0 flex items-center gap-1.5"}><Plus size={15} /> Add</button>
@@ -338,9 +333,9 @@ export function SpecialtiesTab() {
       </div>
 
       <div className="grid sm:grid-cols-2 gap-4">
-        <List title="Doctor / Physician specialties" items={doctorSpecs} />
-        <List title="Dentist specialties" items={dentistSpecs} />
-        <List title="Ophthalmologist specialties" items={ophthoSpecs} />
+        {PROFESSIONS.map((p) => (
+          <List key={p.id} title={`${p.label} specialties`} items={rows.filter((r) => r.profession_type === p.id)} />
+        ))}
       </div>
     </div>
   );
