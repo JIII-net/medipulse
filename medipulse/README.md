@@ -1,4 +1,4 @@
-# MediPulse — Patient Management SaaS (prototype)
+# 4MED — Patient Management SaaS (prototype)
 
 A modern, futuristic patient management platform prototype: doctors register and set up a subscription plan during onboarding; patients log in to browse available doctors and book appointments.
 
@@ -29,7 +29,7 @@ Note: Supabase email confirmation is on by default for new projects. For faster 
 ```bash
 git init
 git add .
-git commit -m "Initial MediPulse prototype"
+git commit -m "Initial 4MED prototype"
 git branch -M main
 git remote add origin https://github.com/YOUR_USERNAME/medipulse.git
 git push -u origin main

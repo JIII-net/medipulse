@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { X, Check, Printer, Eye, Activity, Glasses } from "lucide-react";
 import { supabase } from "./lib/supabaseClient";
-import { printDocument, esc } from "./lib/print";
+import { printDocument, esc, letterhead } from "./lib/print";
 
 /* ------------------------------------------------------------------ */
 /*  Eye Exam — visual acuity, IOP with trend, refraction, per-eye      */
@@ -191,7 +191,7 @@ export default function EyeExamChart({ patient, encounterId, me, signed, myName 
       <td style="text-align:center">${axis === "" || axis == null ? "—" : esc(axis) + "°"}</td>
       <td style="text-align:center">${esc(fmtDiopter(add))}</td></tr>`;
     printDocument("Eyeglass Prescription", `
-      <h1>MEDIPULSE CLINIC</h1><div class="sub">Eyeglass Prescription</div><div class="rule"></div>
+      ${letterhead("Eyeglass Prescription")}
       <table><tr><td class="label">Patient</td><td>${esc(patient.first_name)} ${esc(patient.last_name)}</td></tr>
       <tr><td class="label">MRN</td><td>${esc(patient.mrn)}</td></tr>
       <tr><td class="label">Date</td><td>${esc(new Date().toLocaleDateString("en-PH", { dateStyle: "long" }))}</td></tr></table>
@@ -205,7 +205,7 @@ export default function EyeExamChart({ patient, encounterId, me, signed, myName 
       ${exam.va_corr_od || exam.va_corr_os ? `<p><strong>Corrected VA:</strong> OD ${esc(exam.va_corr_od || "—")} · OS ${esc(exam.va_corr_os || "—")}</p>` : ""}
       ${exam.notes ? `<p><strong>Notes:</strong> ${esc(exam.notes)}</p>` : ""}
       <div class="sig"><div class="line">${esc(myName)}<br/>Lic. No. _______________</div></div>
-      <div class="muted">Electronically generated via MediPulse. Valid with prescriber's signature.</div>`);
+      <div class="muted">Electronically generated via 4MED. Valid with prescriber's signature.</div>`);
   };
 
   const legend = Object.entries(CONDITION_META);

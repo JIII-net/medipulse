@@ -1,11 +1,11 @@
-# MediPulse Documentation
+# 4MED Documentation
 
-MediPulse is a multi-tenant outpatient clinic management SaaS for the Philippines — doctors and dentists register, subscribe to a plan, and run their entire practice (patients, scheduling, consultations, billing) from one app. Patients book appointments through a public portal.
+4MED is a multi-tenant outpatient clinic management SaaS for the Philippines — doctors and dentists register, subscribe to a plan, and run their entire practice (patients, scheduling, consultations, billing) from one app. Patients book appointments through a public portal.
 
 New here? Start with the tutorial. Looking for something specific? Jump to the reference or how-to that covers it.
 
 ## Tutorials (learn by doing)
-- [Getting started](./tutorial-getting-started.md) — get MediPulse running locally and walk through a full patient visit, start to finish
+- [Getting started](./tutorial-getting-started.md) — get 4MED running locally and walk through a full patient visit, start to finish
 
 ## How-to guides (accomplish a specific task)
 - [Common tasks](./howto-common-tasks.md) — register a patient, book an appointment, run a consult, bill a visit, add a secretary, deploy the notification worker, and more

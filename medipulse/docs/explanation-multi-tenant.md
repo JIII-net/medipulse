@@ -1,6 +1,6 @@
 # Why the multi-tenant security model works the way it does
 
-MediPulse is one platform shared by many independent doctors. Without deliberate design, that's a serious privacy problem: doctor A should never be able to browse doctor B's patients, even though both doctors' data lives in the same `patients` table.
+4MED is one platform shared by many independent doctors. Without deliberate design, that's a serious privacy problem: doctor A should never be able to browse doctor B's patients, even though both doctors' data lives in the same `patients` table.
 
 ## The naive approach (and why it fails)
 
@@ -8,7 +8,7 @@ The obvious first attempt is "doctors can only see patients they registered" —
 
 ## The actual model: relationship-based access
 
-MediPulse tracks *why* a doctor can see a patient, not just *whether* they registered them. A `patient_access` table records every doctor-patient relationship, and it's populated automatically — never manually — whenever a real interaction happens:
+4MED tracks *why* a doctor can see a patient, not just *whether* they registered them. A `patient_access` table records every doctor-patient relationship, and it's populated automatically — never manually — whenever a real interaction happens:
 
 - A doctor (or their secretary) **registers** the patient
 - A doctor **books an appointment** with the patient

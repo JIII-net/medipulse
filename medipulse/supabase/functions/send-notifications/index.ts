@@ -1,4 +1,4 @@
-// MediPulse — send-notifications Edge Function
+// 4MED — send-notifications Edge Function
 // Delivers any due, pending rows from the `notifications` table via
 // Semaphore (Philippine SMS) and Resend (email). Called on a schedule
 // by pg_cron (see medipulse-notifications-worker.sql), or manually for
@@ -6,9 +6,9 @@
 //
 // Required secrets (set via `supabase secrets set`):
 //   SEMAPHORE_API_KEY   — from semaphore.co dashboard
-//   SEMAPHORE_SENDER_NAME — your approved sender name, e.g. "MediPulse"
+//   SEMAPHORE_SENDER_NAME — your approved sender name, e.g. "4MED"
 //   RESEND_API_KEY       — from resend.com dashboard
-//   RESEND_FROM          — a verified sender, e.g. "MediPulse <noreply@yourclinic.com>"
+//   RESEND_FROM          — a verified sender, e.g. "4MED <noreply@yourclinic.com>"
 //
 // Supabase provides SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY
 // automatically inside Edge Functions — no need to set those.
@@ -22,7 +22,7 @@ const supabase = createClient(
 
 async function sendSms(recipient, body) {
   const apiKey = Deno.env.get("SEMAPHORE_API_KEY");
-  const senderName = Deno.env.get("SEMAPHORE_SENDER_NAME") || "MediPulse";
+  const senderName = Deno.env.get("SEMAPHORE_SENDER_NAME") || "4MED";
   if (!apiKey) throw new Error("SEMAPHORE_API_KEY not configured");
   const res = await fetch("https://api.semaphore.co/api/v4/messages", {
     method: "POST",
@@ -34,12 +34,12 @@ async function sendSms(recipient, body) {
 
 async function sendEmail(recipient, body) {
   const apiKey = Deno.env.get("RESEND_API_KEY");
-  const from = Deno.env.get("RESEND_FROM") || "MediPulse <onboarding@resend.dev>";
+  const from = Deno.env.get("RESEND_FROM") || "4MED <onboarding@resend.dev>";
   if (!apiKey) throw new Error("RESEND_API_KEY not configured");
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({ from, to: recipient, subject: "MediPulse notification", text: body }),
+    body: JSON.stringify({ from, to: recipient, subject: "4MED notification", text: body }),
   });
   if (!res.ok) throw new Error(`Resend error ${res.status}: ${await res.text()}`);
 }

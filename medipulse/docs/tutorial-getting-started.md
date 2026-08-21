@@ -1,6 +1,6 @@
-# Getting started with MediPulse
+# Getting started with 4MED
 
-You'll get MediPulse running on your machine, connect it to a real Supabase backend, and walk through one complete patient visit — from a doctor signing up to a patient getting billed. By the end you'll understand how the pieces connect.
+You'll get 4MED running on your machine, connect it to a real Supabase backend, and walk through one complete patient visit — from a doctor signing up to a patient getting billed. By the end you'll understand how the pieces connect.
 
 ## What you'll need
 
@@ -17,7 +17,7 @@ cp .env.example .env
 npm run dev
 ```
 
-Open `http://localhost:5173` — you'll see the MediPulse landing page. Nothing works yet because `.env` is still pointing at placeholder values; that's next.
+Open `http://localhost:5173` — you'll see the 4MED landing page. Nothing works yet because `.env` is still pointing at placeholder values; that's next.
 
 ## Step 2: Connect a real Supabase project
 

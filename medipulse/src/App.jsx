@@ -8,11 +8,12 @@ import { supabase } from "./lib/supabaseClient";
 import StaffApp from "./StaffApp";
 import { PlansTab, InvitesTab, SpecialtiesTab } from "./AdminSetup";
 import { PROFESSIONS, ALL_SPECIALTIES, professionById } from "./lib/professions";
+import { LogoMark } from "./Logo";
 import { PaymentProofModal, paymentLabel, paymentStyle } from "./PaymentProof";
 import { ConsentFormsPanel } from "./ConsentForms";
 
 /* ------------------------------------------------------------------ */
-/*  MediPulse — Patient Management SaaS prototype                      */
+/*  4MED — Patient Management SaaS prototype                      */
 /*  Views: Landing → Doctor onboarding (with plan setup) → Patient     */
 /* ------------------------------------------------------------------ */
 
@@ -229,7 +230,7 @@ function Landing({ go }) {
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-300 to-cyan-400"> on autopilot.</span>
         </h1>
         <p className="font-body text-slate-400 max-w-2xl mx-auto mt-5 text-lg">
-          MediPulse connects doctors and patients on one secure platform — smart scheduling,
+          4MED connects doctors and patients on one secure platform — smart scheduling,
           digital records, telehealth, and automated reminders.
         </p>
         <EcgPulse className="w-64 mx-auto mt-8 text-teal-400" />
@@ -1577,10 +1578,8 @@ function AppShell() {
       <nav className="sticky top-0 z-40 backdrop-blur bg-slate-950/80 border-b border-slate-800">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between relative">
           <button onClick={() => { setView("landing"); setNavOpen(false); }} className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-teal-400 flex items-center justify-center">
-              <Activity size={17} className="text-slate-950" />
-            </div>
-            <span className="font-display font-bold text-lg tracking-tight">MediPulse</span>
+            <LogoMark size={32} />
+            <span className="font-display font-bold text-lg tracking-tight">4MED</span>
           </button>
 
           {/* desktop nav */}
@@ -1681,7 +1680,7 @@ function AppShell() {
 
       <footer className="border-t border-slate-800 mt-16">
         <div className="max-w-6xl mx-auto px-6 py-8 flex flex-wrap items-center justify-between gap-3 text-xs font-mono2 text-slate-600">
-          <span>MediPulse · interactive prototype</span>
+          <span>4MED · interactive prototype</span>
           <span className="flex items-center gap-1.5"><Shield size={12} /> AES-256 · TLS 1.3 · audit-logged</span>
         </div>
       </footer>

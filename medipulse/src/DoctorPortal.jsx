@@ -6,7 +6,7 @@ import {
 import { useAuth } from "./lib/AuthContext";
 import { supabase } from "./lib/supabaseClient";
 import { StaffGate } from "./lib/StaffGate";
-import { printDocument, esc } from "./lib/print";
+import { printDocument, esc, letterhead } from "./lib/print";
 import DentalChart from "./DentalChart";
 import EyeExamChart from "./EyeExamChart";
 import MentalHealthChart from "./MentalHealthChart";
@@ -433,18 +433,18 @@ function Consult({ encounterId, me, myName, onExit }) {
        ${esc([i.route, i.frequency, i.duration].filter(Boolean).join(" · "))}${i.quantity ? ` · #${esc(i.quantity)}` : ""}
        ${i.instructions ? `<br/><em>${esc(i.instructions)}</em>` : ""}</div>`).join("");
     printDocument("e-Prescription", `
-      <h1>MEDIPULSE CLINIC</h1><div class="sub">Electronic Prescription</div><div class="rule"></div>
+      ${letterhead("Electronic Prescription")}
       <table><tr><td class="label">Patient</td><td>${esc(patient.first_name)} ${esc(patient.last_name)}${(calcAge(patient.birthdate) != null || patient.sex !== "unknown") ? ` (${calcAge(patient.birthdate) != null ? calcAge(patient.birthdate) + "y" : ""}${calcAge(patient.birthdate) != null && patient.sex !== "unknown" ? ", " : ""}${patient.sex !== "unknown" ? esc(patient.sex) : ""})` : ""}</td></tr>
       <tr><td class="label">MRN</td><td>${esc(patient.mrn)}</td></tr>
       <tr><td class="label">Date</td><td>${esc(new Date().toLocaleDateString("en-PH", { dateStyle: "long" }))}</td></tr></table>
       <div class="rule"></div><div style="font-size:30px">℞</div>${items}
       <div class="sig"><div class="line">${esc(myName)}<br/>Lic. No. _______________</div></div>
-      <div class="muted">Electronically generated via MediPulse. Valid with prescriber's signature.</div>`);
+      <div class="muted">Electronically generated via 4MED. Valid with prescriber's signature.</div>`);
   };
 
   const printCert = (c) => {
     printDocument("Medical Certificate", `
-      <h1>MEDIPULSE CLINIC</h1><div class="sub">Medical Certificate</div><div class="rule"></div>
+      ${letterhead("Medical Certificate")}
       <p>This is to certify that <strong>${esc(patient.first_name)} ${esc(patient.last_name)}</strong>${calcAge(patient.birthdate) != null ? `, ${calcAge(patient.birthdate)} years old,` : ","} was seen and examined on
       ${esc(new Date(c.issued_at).toLocaleDateString("en-PH", { dateStyle: "long" }))} with the following findings:</p>
       <p><strong>Diagnosis:</strong> ${esc(c.diagnosis)}</p>
@@ -452,7 +452,7 @@ function Consult({ encounterId, me, myName, onExit }) {
       ${c.rest_days > 0 ? `<p>The patient is advised to rest for <strong>${esc(c.rest_days)} day(s)</strong>.</p>` : ""}
       <p>This certificate is issued upon the patient's request for whatever legal purpose it may serve.</p>
       <div class="sig"><div class="line">${esc(myName)}<br/>Lic. No. _______________</div></div>
-      <div class="muted">Electronically generated via MediPulse.</div>`);
+      <div class="muted">Electronically generated via 4MED.</div>`);
   };
 
   if (!enc || !patient) return <div className="py-20 text-center text-slate-500 font-body">{error || "Loading consultation…"}</div>;

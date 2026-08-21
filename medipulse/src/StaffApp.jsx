@@ -11,6 +11,7 @@ import AppointmentsModule from "./AppointmentsModule";
 import DoctorPortal from "./DoctorPortal";
 import PracticeSettings from "./PracticeSettings";
 import BillingModule from "./BillingModule";
+import { LogoMark } from "./Logo";
 
 /* ------------------------------------------------------------------ */
 /*  StaffApp — the unified clinic application shell                    */
@@ -195,10 +196,8 @@ function StaffAppInner({ AdminPortal, onExitToSite }) {
   const SidebarContent = () => (
     <>
       <button onClick={onExitToSite} className="flex items-center gap-2.5 px-5 h-16 border-b border-slate-800 shrink-0">
-        <div className="w-8 h-8 rounded-xl bg-teal-400 flex items-center justify-center">
-          <Activity size={17} className="text-slate-950" />
-        </div>
-        <span className="font-display font-bold text-lg tracking-tight text-slate-50">MediPulse</span>
+        <LogoMark size={32} />
+        <span className="font-display font-bold text-lg tracking-tight text-slate-50">4MED</span>
       </button>
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
         {items.map(({ id, label, icon: Icon }) => (

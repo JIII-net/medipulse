@@ -4,6 +4,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "./lib/AuthContext";
 import { supabase } from "./lib/supabaseClient";
+import { letterhead } from "./lib/print";
 
 /* ------------------------------------------------------------------ */
 /*  Billing & Cashier — invoices, PH discounts, payments, ORs          */
@@ -56,6 +57,9 @@ function printDoc(title, bodyHtml) {
       .totals td { padding: 3px 4px; }
       .grand { font-weight: bold; border-top: 1px solid #111; }
       .muted { color: #777; font-size: 11px; margin-top: 26px; }
+      .letterhead { display: flex; align-items: center; gap: 12px; }
+      .letterhead .mark { flex: 0 0 auto; line-height: 0; }
+      .letterhead h1 { margin: 0; }
     </style></head><body>${bodyHtml}<scr` + `ipt>window.onload = () => window.print();</scr` + `ipt></body></html>`
   );
   w.document.close();
@@ -307,7 +311,7 @@ function InvoiceDetail({ invoiceId, onBack, reloadList }) {
   const printSOA = () => {
     const rows = items.map((i) => `<tr><td>${esc(i.description)}</td><td class="r">${esc(i.quantity)}</td><td class="r">${peso(i.unit_price)}</td><td class="r">${peso(i.amount)}</td></tr>`).join("");
     printDoc("Statement of Account", `
-      <h1>MEDIPULSE CLINIC</h1><div class="sub">Statement of Account · ${esc(inv.invoice_no)}</div><div class="rule"></div>
+      ${letterhead("Statement of Account · " + (inv.invoice_no || ""))}
       <table><tr><td style="color:#555;width:120px">Patient</td><td>${esc(inv.patient.first_name)} ${esc(inv.patient.last_name)} (${esc(inv.patient.mrn)})</td></tr>
       <tr><td style="color:#555">Doctor</td><td>${esc(doctorName)}</td></tr>
       <tr><td style="color:#555">Date</td><td>${esc(new Date(inv.created_at).toLocaleDateString("en-PH", { dateStyle: "long" }))}</td></tr></table>
@@ -321,12 +325,12 @@ function InvoiceDetail({ invoiceId, onBack, reloadList }) {
         <tr><td class="r" style="color:#555">Paid</td><td class="r">${peso(paid)}</td></tr>
         <tr><td class="r" style="color:#555">Balance</td><td class="r">${peso(balance)}</td></tr>
       </table>
-      <div class="muted">Generated via MediPulse. ${inv.is_senior_pwd ? "Senior Citizen/PWD benefits applied per RA 9994 / RA 10754." : ""}</div>`);
+      <div class="muted">Generated via 4MED. ${inv.is_senior_pwd ? "Senior Citizen/PWD benefits applied per RA 9994 / RA 10754." : ""}</div>`);
   };
 
   const printOR = (p) => {
     printDoc("Official Receipt", `
-      <h1>MEDIPULSE CLINIC</h1><div class="sub">OFFICIAL RECEIPT · ${esc(p.or_number)}</div><div class="rule"></div>
+      ${letterhead("OFFICIAL RECEIPT · " + (p.or_number || ""))}
       <table>
         <tr><td style="color:#555;width:140px">Received from</td><td>${esc(inv.patient.first_name)} ${esc(inv.patient.last_name)}</td></tr>
         <tr><td style="color:#555">Date</td><td>${esc(new Date(p.paid_at).toLocaleString("en-PH", { dateStyle: "long", timeStyle: "short" }))}</td></tr>
@@ -334,7 +338,7 @@ function InvoiceDetail({ invoiceId, onBack, reloadList }) {
         <tr><td style="color:#555">Payment method</td><td style="text-transform:uppercase">${esc(p.method)}${p.reference_no ? ` (ref: ${esc(p.reference_no)})` : ""}</td></tr>
         <tr><td style="color:#555">Amount</td><td style="font-size:20px;font-weight:bold">${peso(p.amount)}</td></tr>
       </table>
-      <div class="muted">This serves as your official receipt. Generated via MediPulse.</div>`);
+      <div class="muted">This serves as your official receipt. Generated via 4MED.</div>`);
   };
 
   return (

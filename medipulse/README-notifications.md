@@ -1,4 +1,4 @@
-# MediPulse — Real notification delivery (SMS + email)
+# 4MED — Real notification delivery (SMS + email)
 
 This makes appointment confirmations and reminders actually send, via
 **Semaphore** (Philippine SMS) and **Resend** (email), instead of the
@@ -6,7 +6,7 @@ old placeholder button that just flipped a status flag.
 
 ## 1. Get API keys
 
-- **Semaphore**: sign up at semaphore.co, load some credits, grab your API key from the dashboard. Register a sender name (e.g. "MediPulse") — takes a day or two for approval; use the default sender in the meantime.
+- **Semaphore**: sign up at semaphore.co, load some credits, grab your API key from the dashboard. Register a sender name (e.g. "4MED") — takes a day or two for approval; use the default sender in the meantime.
 - **Resend**: sign up at resend.com (free tier is generous), verify a sending domain (or use their test domain while developing), grab your API key.
 
 ## 2. Install the Supabase CLI (one-time, on your own machine)
@@ -29,9 +29,9 @@ supabase functions deploy send-notifications
 
 ```bash
 supabase secrets set SEMAPHORE_API_KEY=your_semaphore_key
-supabase secrets set SEMAPHORE_SENDER_NAME=MediPulse
+supabase secrets set SEMAPHORE_SENDER_NAME=4MED
 supabase secrets set RESEND_API_KEY=your_resend_key
-supabase secrets set RESEND_FROM="MediPulse <noreply@yourdomain.com>"
+supabase secrets set RESEND_FROM="4MED <noreply@yourdomain.com>"
 ```
 
 ## 5. Run the SQL migration

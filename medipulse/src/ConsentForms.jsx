@@ -3,7 +3,7 @@ import { X, Check, FileText, AlertCircle, PenLine } from "lucide-react";
 import { supabase } from "./lib/supabaseClient";
 import SignaturePad from "./SignaturePad";
 import { BUCKET_SIGNATURES, uploadDataUrl, signedUrl } from "./lib/uploads";
-import { printDocument, esc } from "./lib/print";
+import { printDocument, esc, letterhead } from "./lib/print";
 
 /* ------------------------------------------------------------------ */
 /*  Consent forms — the patient reads a document, signs it, and the    */
@@ -231,7 +231,7 @@ export function PatientConsentTab({ patient, me }) {
     const doc = state.documents.find((d) => d.id === row.document_id);
     const img = await signedUrl(BUCKET_SIGNATURES, row.signature_path, 300);
     printDocument(row.doc?.title || "Consent", `
-      <h1>MEDIPULSE CLINIC</h1><div class="sub">${esc(row.doc?.title || "Consent form")}</div><div class="rule"></div>
+      ${letterhead(row.doc?.title || "Consent form")}
       <table><tr><td class="label">Patient</td><td>${esc(patient.first_name)} ${esc(patient.last_name)}</td></tr>
       <tr><td class="label">MRN</td><td>${esc(patient.mrn)}</td></tr>
       <tr><td class="label">Signed</td><td>${esc(new Date(row.signed_at).toLocaleString("en-PH", { dateStyle: "long", timeStyle: "short" }))}</td></tr>
@@ -242,7 +242,7 @@ export function PatientConsentTab({ patient, me }) {
         ${img ? `<img src="${esc(img)}" style="max-height:90px" /><br/>` : ""}
         <div class="line">${esc(row.signed_name)}</div>
       </div>
-      <div class="muted">Signed electronically via MediPulse.</div>`);
+      <div class="muted">Signed electronically via 4MED.</div>`);
   };
 
   return (

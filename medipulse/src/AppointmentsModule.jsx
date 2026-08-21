@@ -98,16 +98,16 @@ async function queueNotifications(patient, appt, kind) {
   if (!patient) return;
   const when = `${fmtDay(localDate(appt.starts_at))} at ${fmt12h(localTime(appt.starts_at))}`;
   const messages = {
-    confirmed: `MediPulse: your ${appt.type.replace("_", " ")} is confirmed for ${when}. Reply CANCEL to cancel.`,
-    rescheduled: `MediPulse: your appointment has been moved to ${when}.`,
-    canceled: `MediPulse: your appointment on ${when} has been cancelled. Contact the clinic to rebook.`,
+    confirmed: `4MED: your ${appt.type.replace("_", " ")} is confirmed for ${when}. Reply CANCEL to cancel.`,
+    rescheduled: `4MED: your appointment has been moved to ${when}.`,
+    canceled: `4MED: your appointment on ${when} has been cancelled. Contact the clinic to rebook.`,
   };
   const rows = [];
   if (patient.phone) rows.push({ channel: "sms", recipient: patient.phone, body: messages[kind], related_appointment: appt.id });
   if (patient.email) rows.push({ channel: "email", recipient: patient.email, body: messages[kind], related_appointment: appt.id });
   if (kind === "confirmed" || kind === "rescheduled") {
     const remindAt = new Date(new Date(appt.starts_at).getTime() - 24 * 3600 * 1000).toISOString();
-    const reminderBody = `MediPulse reminder: you have a ${appt.type.replace("_", " ")} tomorrow, ${when}.`;
+    const reminderBody = `4MED reminder: you have a ${appt.type.replace("_", " ")} tomorrow, ${when}.`;
     if (patient.phone) rows.push({ channel: "sms", recipient: patient.phone, body: reminderBody, related_appointment: appt.id, scheduled_at: remindAt });
     else if (patient.email) rows.push({ channel: "email", recipient: patient.email, body: reminderBody, related_appointment: appt.id, scheduled_at: remindAt });
   }
@@ -710,8 +710,8 @@ function QRCheckinModal({ station: initialStation, myDoctorIds, onClose, onDone 
   const handleScan = async (decodedText) => {
     if (busy || result) return; // ignore repeat frames while processing / after success
     let payload;
-    try { payload = JSON.parse(decodedText); } catch { setError("That QR code isn't a MediPulse patient ID card."); return; }
-    if (!payload?.mrn || !payload?.t) { setError("That QR code isn't a MediPulse patient ID card."); return; }
+    try { payload = JSON.parse(decodedText); } catch { setError("That QR code isn't a 4MED patient ID card."); return; }
+    if (!payload?.mrn || !payload?.t) { setError("That QR code isn't a 4MED patient ID card."); return; }
     if (!doctorId) { setError("No doctor selected to check this patient in under — pick one below."); return; }
 
     setBusy(true); setError(null);
