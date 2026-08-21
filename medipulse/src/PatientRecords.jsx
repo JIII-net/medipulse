@@ -4,6 +4,7 @@ import {
   Phone, Droplet, Link2, ClipboardList, Shield, Lock, LogOut, AlertTriangle, Pencil,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
+import { PatientConsentTab } from "./ConsentForms";
 import { useAuth } from "./lib/AuthContext";
 import { StaffGate } from "./lib/StaffGate";
 import { supabase } from "./lib/supabaseClient";
@@ -514,7 +515,7 @@ function DetailView({ patientId, onBack, onOpen }) {
         </div>
       )}
       <div className="flex gap-1.5 rounded-2xl border border-slate-800 bg-slate-900 p-1 text-sm w-fit mb-6">
-        {[["overview", "Overview"], ["medical", "Medical"], ["family", "Family"], ["timeline", "Timeline"]].map(([id, label]) => (
+        {[["overview", "Overview"], ["medical", "Medical"], ["family", "Family"], ["timeline", "Timeline"], ["documents", "Documents"]].map(([id, label]) => (
           <button key={id} onClick={() => setTab(id)} className={"px-3.5 py-1.5 rounded-xl font-body transition-colors " + (tab === id ? "bg-teal-400 text-slate-950 font-medium" : "text-slate-400 hover:text-slate-100")}>
             {label}
           </button>
@@ -653,6 +654,12 @@ function DetailView({ patientId, onBack, onOpen }) {
             </button>
           ))}
           <FamilyLinker patientId={p.id} onLinked={load} />
+        </div>
+      )}
+
+      {tab === "documents" && (
+        <div className="max-w-2xl">
+          <PatientConsentTab patient={p} me={session?.user?.id} />
         </div>
       )}
 

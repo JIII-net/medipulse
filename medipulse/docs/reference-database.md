@@ -15,7 +15,10 @@ Every table lives in the `public` schema of your Supabase Postgres database, cre
 11. `medipulse-ophtho-profession.sql` — 'ophthalmologist' as a third `profession_type`, eye subspecialties
 12. `medipulse-psych-profession.sql` — 'psychiatrist' and 'psychologist' profession types *(run in two passes — see the file header)*
 13. `medipulse-psych.sql` — `mh_assessments`, `mh_screenings`, built-in psych note templates
-14. Assorted fix migrations (`medipulse-*-fix.sql`) — see each file's header comment for what it corrects
+14. `medipulse-storage.sql` — the first Storage buckets (`payment-proofs`, `consent-signatures`) and their policies
+15. `medipulse-prepayment.sql` — prepayment settings on `doctors`, payment state on `appointments`, `payment_proofs`, and the appointment guard trigger
+16. `medipulse-consent.sql` — `consent_documents`, `consent_signatures`, `sign_consent_document()`, built-in forms
+17. Assorted fix migrations (`medipulse-*-fix.sql`) — see each file's header comment for what it corrects
 
 ## Core tables
 
@@ -32,6 +35,8 @@ Every table lives in the `public` schema of your Supabase Postgres database, cre
 | `tooth_conditions` / `dental_procedures` | Dental module — append-only odontogram history + per-visit dental work (dentists only) |
 | `eye_exams` / `eye_conditions` | Ophthalmology module — one exam row per encounter (acuity, IOP, refraction) + append-only per-eye findings |
 | `mh_assessments` / `mh_screenings` | Mental health module — one row per encounter (mental status exam, risk, session note) + append-only PHQ-9/GAD-7 scores |
+| `payment_proofs` | Screenshots patients send when a doctor requires payment before confirming a slot; staff verify or reject them |
+| `consent_documents` / `consent_signatures` | Forms patients read and sign before a consultation; signatures are append-only and immutable |
 | `queue_tickets` | Walk-in/check-in queue, numbered atomically per station via `issue_queue_number()` |
 | `notifications` | Outbox for SMS/email — delivered by the Edge Function, not by the app directly |
 

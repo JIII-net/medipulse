@@ -9,6 +9,7 @@ import StaffApp from "./StaffApp";
 import { PlansTab, InvitesTab, SpecialtiesTab } from "./AdminSetup";
 import { PROFESSIONS, ALL_SPECIALTIES, professionById } from "./lib/professions";
 import { PaymentProofModal, paymentLabel, paymentStyle } from "./PaymentProof";
+import { ConsentFormsPanel } from "./ConsentForms";
 
 /* ------------------------------------------------------------------ */
 /*  MediPulse — Patient Management SaaS prototype                      */
@@ -1074,18 +1075,33 @@ function MyAppointments() {
 
 function PatientPortal() {
   const [tab, setTab] = useState("find");
+  const { session } = useAuth();
+  const [recordId, setRecordId] = useState(null);
+
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    supabase.from("patients").select("id").eq("profile_id", session.user.id).maybeSingle()
+      .then(({ data }) => setRecordId(data?.id || null));
+  }, [session?.user?.id]);
+
   return (
     <PatientAuthGate>
       <div className="max-w-6xl mx-auto px-6 pt-10">
         <div className="flex gap-1.5 rounded-2xl border border-slate-800 bg-slate-900 p-1 text-sm w-fit mb-6">
-          {[["find", "Find a doctor"], ["mine", "My appointments"]].map(([id, label]) => (
+          {[["find", "Find a doctor"], ["mine", "My appointments"], ["forms", "My forms"]].map(([id, label]) => (
             <button key={id} onClick={() => setTab(id)} className={"px-3.5 py-1.5 rounded-xl font-body transition-colors " + (tab === id ? "bg-teal-400 text-slate-950 font-medium" : "text-slate-400 hover:text-slate-100")}>
               {label}
             </button>
           ))}
         </div>
       </div>
-      {tab === "find" ? <PatientDirectory /> : <div className="max-w-6xl mx-auto px-6 pb-10"><MyAppointments /></div>}
+      {tab === "find" ? <PatientDirectory /> : (
+        <div className="max-w-6xl mx-auto px-6 pb-10">
+          {tab === "mine"
+            ? <MyAppointments />
+            : <ConsentFormsPanel patientRecordId={recordId} userId={session?.user?.id} />}
+        </div>
+      )}
     </PatientAuthGate>
   );
 }

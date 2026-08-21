@@ -193,6 +193,8 @@ export default function PracticeSettings() {
 
         <BookingRulesCard doctorId={me} />
 
+        <ConsentDocsCard doctorId={me} />
+
         <TemplatesCard doctorId={me} />
       </div>
     </div>
@@ -317,6 +319,125 @@ function BookingRulesCard({ doctorId }) {
         </button>
         {saved && <span className="text-xs text-teal-300 font-body">Saved ✓</span>}
       </div>
+    </div>
+  );
+}
+
+/* --------------------------- consent forms --------------------------- */
+
+const EMPTY_DOC = { title: "", body: "", required_before_consult: true, active: true };
+
+function ConsentDocsCard({ doctorId }) {
+  const [docs, setDocs] = useState([]);
+  const [editing, setEditing] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+
+  const load = async () => {
+    const { data, error } = await supabase.from("consent_documents").select("*").order("title");
+    if (error) { setError(error.message); return; }
+    setDocs(data || []);
+  };
+  useEffect(() => { load(); }, []);
+
+  const save = async () => {
+    if (!editing.title.trim() || !editing.body.trim()) { setError("A form needs a title and body."); return; }
+    setBusy(true); setError(null);
+    const payload = {
+      title: editing.title.trim(),
+      body: editing.body,
+      required_before_consult: editing.required_before_consult,
+      active: editing.active,
+    };
+    // Editing the wording bumps the version, so patients who signed the
+    // old text are asked to read and sign the new one.
+    const { error } = editing.id
+      ? await supabase.from("consent_documents").update({ ...payload, version: (editing.version || 1) + 1 }).eq("id", editing.id)
+      : await supabase.from("consent_documents").insert({ ...payload, doctor_id: doctorId });
+    setBusy(false);
+    if (error) { setError(error.message); return; }
+    setEditing(null);
+    load();
+  };
+
+  const mine = docs.filter((d) => d.doctor_id === doctorId);
+  const builtIn = docs.filter((d) => !d.doctor_id);
+
+  const Row = ({ d, editable }) => (
+    <div className="flex items-center justify-between gap-3 py-2.5 border-b border-slate-800/60 last:border-0">
+      <div className="min-w-0">
+        <div className="text-sm text-slate-200 font-body truncate">
+          {d.title} <span className="font-mono2 text-xs text-slate-600">v{d.version}</span>
+        </div>
+        <div className="font-mono2 text-xs text-slate-500">
+          {d.required_before_consult ? "required before consult" : "optional"}{d.active ? "" : " · inactive"}
+        </div>
+      </div>
+      <button
+        onClick={() => setEditing(editable ? d : { ...d, id: null, doctor_id: doctorId, title: d.title + " (my version)", version: 1 })}
+        className="text-xs text-teal-300 hover:underline shrink-0"
+      >
+        {editable ? "Edit" : "Copy & edit"}
+      </button>
+    </div>
+  );
+
+  return (
+    <div className={card}>
+      <div className="font-display font-semibold text-slate-100 mb-1 flex items-center gap-2">
+        <FileText size={15} className="text-teal-300" /> Consent forms
+      </div>
+      <p className="text-sm text-slate-400 font-body mb-4">
+        Patients read and sign these before their consultation, in the portal or on a tablet at the desk. Everyone signing in can read them, so keep them to the form text itself.
+      </p>
+      {error && <div className="mb-4 text-sm text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-2xl px-4 py-3 font-body">{error}</div>}
+
+      {mine.length > 0 && (
+        <>
+          <div className="text-xs font-mono2 text-slate-500 mb-1">MY FORMS</div>
+          <div className="mb-4">{mine.map((d) => <Row key={d.id} d={d} editable />)}</div>
+        </>
+      )}
+      <div className="text-xs font-mono2 text-slate-500 mb-1">BUILT-IN</div>
+      {builtIn.length === 0 ? (
+        <div className="text-sm text-slate-500 font-body">None yet — run the consent migration to load the standard set.</div>
+      ) : builtIn.map((d) => <Row key={d.id} d={d} editable={false} />)}
+
+      <button onClick={() => setEditing({ ...EMPTY_DOC })} className={btnPrimary + " mt-4 flex items-center gap-1.5"}>
+        <Plus size={14} /> New form
+      </button>
+
+      {editing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80" onClick={() => setEditing(null)}>
+          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl border border-slate-700 bg-slate-900 p-6 fade-up" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-display text-lg font-bold text-slate-50">{editing.id ? "Edit form" : "New form"}</h3>
+              <button onClick={() => setEditing(null)} className="text-slate-500 hover:text-slate-300"><X size={18} /></button>
+            </div>
+            <input className={inputCls + " mb-3"} placeholder="Title, e.g. Consent to Treatment" value={editing.title} onChange={(e) => setEditing((d) => ({ ...d, title: e.target.value }))} />
+            <textarea className={inputCls + " min-h-64 resize-y mb-3"} placeholder="The full text the patient reads…" value={editing.body} onChange={(e) => setEditing((d) => ({ ...d, body: e.target.value }))} />
+            <div className="flex flex-wrap gap-4 mb-4">
+              <label className="flex items-center gap-2 text-sm text-slate-300 font-body cursor-pointer">
+                <input type="checkbox" className="accent-teal-400" checked={editing.required_before_consult} onChange={(e) => setEditing((d) => ({ ...d, required_before_consult: e.target.checked }))} />
+                Required before the consultation
+              </label>
+              <label className="flex items-center gap-2 text-sm text-slate-300 font-body cursor-pointer">
+                <input type="checkbox" className="accent-teal-400" checked={editing.active} onChange={(e) => setEditing((d) => ({ ...d, active: e.target.checked }))} />
+                Active
+              </label>
+            </div>
+            {editing.id && (
+              <p className="text-xs text-amber-300 font-body mb-3">
+                Saving publishes version {(editing.version || 1) + 1}. Patients who signed the current version will be asked to read and sign again.
+              </p>
+            )}
+            <div className="flex gap-2">
+              <button onClick={() => setEditing(null)} className={btnGhost + " flex-1"}>Cancel</button>
+              <button onClick={save} disabled={busy} className={btnPrimary + " flex-1"}>{busy ? "Saving…" : "Save form"}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

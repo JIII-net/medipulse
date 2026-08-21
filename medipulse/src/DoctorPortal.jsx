@@ -10,6 +10,7 @@ import { printDocument, esc } from "./lib/print";
 import DentalChart from "./DentalChart";
 import EyeExamChart from "./EyeExamChart";
 import MentalHealthChart from "./MentalHealthChart";
+import { SignConsentModal, fetchConsentState } from "./ConsentForms";
 import { MENTAL_HEALTH_TYPES } from "./lib/professions";
 
 /* ------------------------------------------------------------------ */
@@ -306,6 +307,8 @@ function Consult({ encounterId, me, myName, onExit }) {
   const [isMentalHealth, setIsMentalHealth] = useState(false);
   const [isPsychologist, setIsPsychologist] = useState(false);
   const [riskLevel, setRiskLevel] = useState(null);
+  const [unsignedDocs, setUnsignedDocs] = useState([]);
+  const [signDoc, setSignDoc] = useState(null);
   const [showBilling, setShowBilling] = useState(false);
 
   const load = async () => {
@@ -363,6 +366,13 @@ function Consult({ encounterId, me, myName, onExit }) {
     }
   };
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [encounterId]);
+
+  const loadConsents = async () => {
+    if (!enc?.patient_record_id) return;
+    const { outstanding } = await fetchConsentState(enc.patient_record_id);
+    setUnsignedDocs(outstanding);
+  };
+  useEffect(() => { loadConsents(); /* eslint-disable-next-line */ }, [enc?.patient_record_id]);
 
   const applyTemplate = (id) => {
     const t = templates.find((x) => x.id === id);
@@ -491,6 +501,28 @@ function Consult({ encounterId, me, myName, onExit }) {
           </div>
         )}
       </div>
+
+      {unsignedDocs.length > 0 && !signed && (
+        <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 mb-5 flex flex-wrap items-center justify-between gap-3">
+          <span className="text-sm text-amber-200 font-body">
+            Not signed yet: {unsignedDocs.map((d) => d.title).join(", ")}
+          </span>
+          <button onClick={() => setSignDoc(unsignedDocs[0])} className="text-xs text-teal-300 hover:underline">
+            Sign on this device
+          </button>
+        </div>
+      )}
+      {signDoc && (
+        <SignConsentModal
+          doc={signDoc}
+          patientRecordId={patient.id}
+          userId={me}
+          appointmentId={enc.appointment_id}
+          encounterId={encounterId}
+          onClose={() => setSignDoc(null)}
+          onSigned={() => { setSignDoc(null); loadConsents(); }}
+        />
+      )}
 
       <ErrorBanner msg={error} />
 
