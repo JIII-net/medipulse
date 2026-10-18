@@ -10,9 +10,10 @@ import PatientRecords from "./PatientRecords";
 import AppointmentsModule from "./AppointmentsModule";
 import DoctorPortal from "./DoctorPortal";
 import PracticeSettings from "./PracticeSettings";
+import { PaymentProofReview } from "./PaymentProof";
 import BillingModule from "./BillingModule";
 import { LogoMark } from "./Logo";
-import { StatusMark, FieldLabel, btnSm, btnGhostSm, btnQuiet, tintForProfession } from "./ui";
+import { StatusMark, FieldLabel, HoldCountdown, btnSm, btnGhostSm, btnQuiet, tintForProfession } from "./ui";
 
 /* ------------------------------------------------------------------ */
 /*  StaffApp — the unified clinic application shell                    */
@@ -104,11 +105,17 @@ function DashboardHome({ go, clinic }) {
   const [today, setToday] = useState(null); // null = loading
   const [serving, setServing] = useState(null);
   const [tickets, setTickets] = useState({}); // appointment_id -> queue number
+  const [toCheck, setToCheck] = useState([]); // receipts waiting for the front desk
+  const [awaiting, setAwaiting] = useState([]); // holds still waiting for the patient to pay
+  const [reviewing, setReviewing] = useState(null);
+  const [reload, setReload] = useState(0);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     (async () => {
       try {
+        // Release lapsed unpaid holds first so every list below is current.
+        await supabase.rpc("expire_unpaid_holds");
         const from = todayStr() + "T00:00:00";
         const to = todayStr() + "T23:59:59";
         const [p, a, w, o, list, now, tk] = await Promise.all([
@@ -131,12 +138,18 @@ function DashboardHome({ go, clinic }) {
         setToday(list.error ? [] : list.data || []);
         setServing(now.data?.[0] || null);
         setTickets(Object.fromEntries((tk.data || []).map((t) => [t.appointment_id, t.number])));
+        const pay = await supabase.from("appointments")
+          .select("id, starts_at, payment_status, payment_due_at, patient_rec:patient_record_id(first_name, last_name), portal:patient_id(full_name)")
+          .in("payment_status", ["proof_submitted", "awaiting_payment"]).neq("status", "canceled")
+          .order("starts_at");
+        setToCheck((pay.data || []).filter((r) => r.payment_status === "proof_submitted"));
+        setAwaiting((pay.data || []).filter((r) => r.payment_status === "awaiting_payment"));
       } catch {
         setError(true);
         setToday([]);
       }
     })();
-  }, []);
+  }, [reload]);
 
   const counts = [
     { label: "Booked today", value: stats.appts, mod: "appointments" },
@@ -232,6 +245,48 @@ function DashboardHome({ go, clinic }) {
         </section>
 
         <aside className="space-y-6">
+          {/* receipts the patient sent; approving one confirms the slot */}
+          {(toCheck.length > 0 || awaiting.length > 0) && (
+            <section className="rounded-xl border border-amber-500/50 bg-white overflow-hidden">
+              <div className="px-5 py-3 border-b border-slate-800 bg-butter/60 flex items-baseline justify-between">
+                <h2 className="font-display text-lg font-bold text-ink">Payments to check</h2>
+                <span className="text-sm text-slate-200 font-body tnum">{toCheck.length}</span>
+              </div>
+              <ul>
+                {toCheck.map((r) => (
+                  <li key={r.id} className="flex items-center justify-between gap-3 px-5 py-3 border-b border-slate-800 last:border-0 font-body">
+                    <div className="min-w-0">
+                      <div className="text-ink font-semibold truncate">{name(r)}</div>
+                      <div className="text-sm text-slate-400 tnum">{new Date(r.starts_at).toLocaleString("en-PH", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</div>
+                    </div>
+                    <button onClick={() => setReviewing(r.id)} className={btnSm + " shrink-0"}>Check receipt</button>
+                  </li>
+                ))}
+                {toCheck.length === 0 && <li className="px-5 py-3 text-sm text-slate-300 font-body">No receipts waiting.</li>}
+              </ul>
+              {awaiting.length > 0 && (
+                <div className="px-5 py-3 border-t border-slate-800">
+                  <div className="field-label mb-1.5">Waiting for the patient to pay</div>
+                  <ul className="space-y-1.5">
+                    {awaiting.map((r) => (
+                      <li key={r.id} className="flex items-baseline justify-between gap-3 text-sm font-body">
+                        <span className="text-ink truncate">{name(r)}</span>
+                        <HoldCountdown dueAt={r.payment_due_at} className="text-slate-300 shrink-0" />
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </section>
+          )}
+          {reviewing && (
+            <PaymentProofReview
+              appointmentId={reviewing}
+              onClose={() => setReviewing(null)}
+              onReviewed={() => { setReviewing(null); setReload((n) => n + 1); }}
+            />
+          )}
+
           {/* now serving: the stub torn off the current ticket */}
           <section className="rounded-xl border border-ink/20 bg-mint overflow-hidden">
             <div className="px-5 pt-4 pb-5">

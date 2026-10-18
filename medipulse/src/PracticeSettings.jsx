@@ -197,14 +197,22 @@ export default function PracticeSettings() {
 
 /* ------------------------- booking & payment ------------------------- */
 
-const EMPTY_RULES = { require_prepayment: false, prepayment_amount: "", payment_instructions: "", prepayment_hold_minutes: 1440 };
+// New settings start at a 30-minute hold: long enough to open GCash and
+// send, short enough that an unpaid slot goes back on sale quickly.
+const EMPTY_RULES = { require_prepayment: false, prepayment_amount: "", payment_instructions: "", prepayment_hold_minutes: 30 };
 
 const HOLD_CHOICES = [
-  [120, "2 hours"], [360, "6 hours"], [1440, "24 hours"], [2880, "2 days"], [4320, "3 days"],
+  [15, "15 minutes"], [30, "30 minutes"], [60, "1 hour"], [120, "2 hours"],
+  [360, "6 hours"], [1440, "24 hours"], [2880, "2 days"],
 ];
+
+const DOWNPAYMENT_SHARES = [20, 30, 50];
 
 function BookingRulesCard({ doctorId }) {
   const [f, setF] = useState(EMPTY_RULES);
+  // "down" collects a set amount now and the rest at the clinic; "full"
+  // collects the whole consultation fee up front (stored as a null amount).
+  const [kind, setKind] = useState("down");
   const [fee, setFee] = useState(0);
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -218,23 +226,32 @@ function BookingRulesCard({ doctorId }) {
     if (error) { setError(error.message); return; }
     if (data) {
       setFee(Number(data.consult_fee || 0));
+      setKind(data.require_prepayment && data.prepayment_amount == null ? "full" : "down");
       setF({
         require_prepayment: !!data.require_prepayment,
         prepayment_amount: data.prepayment_amount ?? "",
         payment_instructions: data.payment_instructions || "",
-        prepayment_hold_minutes: data.prepayment_hold_minutes || 1440,
+        prepayment_hold_minutes: data.prepayment_hold_minutes || 30,
       });
     }
   };
   useEffect(() => { if (doctorId) load(); /* eslint-disable-next-line */ }, [doctorId]);
 
+  const set = (patch) => { setF((x) => ({ ...x, ...patch })); setSaved(false); };
+  const amount = Number(f.prepayment_amount);
+  const downValid = kind === "full" || (amount > 0 && (!fee || amount <= fee));
+
   const save = async () => {
+    if (f.require_prepayment && !downValid) {
+      setError(fee && amount > fee ? `The downpayment can't be more than your ${peso(fee)} fee.` : "Enter the downpayment amount.");
+      return;
+    }
     setBusy(true); setError(null); setSaved(false);
     const { error } = await supabase.from("doctors").update({
       require_prepayment: f.require_prepayment,
-      prepayment_amount: f.prepayment_amount === "" ? null : Number(f.prepayment_amount),
+      prepayment_amount: kind === "full" || f.prepayment_amount === "" ? null : amount,
       payment_instructions: f.payment_instructions.trim() || null,
-      prepayment_hold_minutes: Number(f.prepayment_hold_minutes) || 1440,
+      prepayment_hold_minutes: Number(f.prepayment_hold_minutes) || 30,
     }).eq("id", doctorId);
     setBusy(false);
     if (error) { setError(error.message); return; }
@@ -242,27 +259,26 @@ function BookingRulesCard({ doctorId }) {
     load();
   };
 
+  const holdLabel = (HOLD_CHOICES.find(([v]) => v === Number(f.prepayment_hold_minutes)) || [0, `${f.prepayment_hold_minutes} minutes`])[1];
+  const payNow = kind === "full" ? fee : amount || 0;
+
   return (
     <div className={card}>
-      <div className="font-display font-semibold text-slate-100 mb-1 flex items-center gap-2">
-        <CreditCard size={15} className="text-teal-300" /> Booking & payment
+      <div className="font-display text-lg font-bold text-ink mb-1 flex items-center gap-2">
+        <CreditCard size={17} /> Booking and payment
       </div>
-      <p className="text-sm text-slate-400 font-body mb-4">
-        Ask patients to pay before you confirm their slot. They upload a screenshot of their payment and your front desk verifies it.
+      <p className="text-sm text-slate-300 font-body mb-4">
+        Ask patients to pay a downpayment, or the full fee, before their slot is confirmed. They pay by GCash, Maya or bank, upload the receipt, and your front desk approves it.
       </p>
-      {error && <div className="mb-4 text-sm text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-2xl px-4 py-3 font-body">{error}</div>}
+      {error && <div className="mb-4 text-sm text-rose-300 bg-blush border border-rose-500/30 rounded-lg px-4 py-3 font-body">{error}</div>}
 
-      <div className="flex flex-wrap gap-2 mb-4">
-        {[[false, "Book right away"], [true, "Require payment first"]].map(([val, label]) => (
+      <div className="inline-flex gap-1 rounded-lg border border-slate-700 bg-white p-1 text-sm mb-5" role="group" aria-label="Booking rule">
+        {[[false, "Confirm bookings right away"], [true, "Ask for payment first"]].map(([val, label]) => (
           <button
             key={String(val)}
-            onClick={() => { setF((x) => ({ ...x, require_prepayment: val })); setSaved(false); }}
-            className={
-              "px-4 py-2 rounded-xl border text-sm font-body transition-colors " +
-              (f.require_prepayment === val
-                ? "bg-teal-400/10 border-teal-400 text-teal-200"
-                : "bg-slate-900 border-slate-700 text-slate-300 hover:border-slate-500")
-            }
+            aria-pressed={f.require_prepayment === val}
+            onClick={() => set({ require_prepayment: val })}
+            className={"px-3.5 py-2 rounded-md font-body transition-colors " + (f.require_prepayment === val ? "bg-ink text-white font-semibold" : "text-slate-300 hover:text-ink")}
           >
             {label}
           </button>
@@ -270,56 +286,100 @@ function BookingRulesCard({ doctorId }) {
       </div>
 
       {f.require_prepayment && (
-        <div className="space-y-3">
-          <div className="grid sm:grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-mono2 text-slate-500 mb-1 block">AMOUNT TO COLLECT</label>
-              <input
-                className={inputCls} type="number" step="0.01"
-                placeholder={`Leave blank for full fee (${peso(fee)})`}
-                value={f.prepayment_amount}
-                onChange={(e) => { setF((x) => ({ ...x, prepayment_amount: e.target.value })); setSaved(false); }}
-              />
-            </div>
-            <div>
-              <label className="text-xs font-mono2 text-slate-500 mb-1 block">HOLD THE SLOT FOR</label>
-              <select
-                className={inputCls}
-                value={f.prepayment_hold_minutes}
-                onChange={(e) => { setF((x) => ({ ...x, prepayment_hold_minutes: e.target.value })); setSaved(false); }}
-              >
-                {HOLD_CHOICES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-              </select>
+        <div className="space-y-5">
+          <div>
+            <span className="field-label block mb-2">What the patient pays to hold the slot</span>
+            <div className="grid sm:grid-cols-2 gap-3">
+              {[["down", "A downpayment", "The rest is paid at the clinic."], ["full", "The full fee", fee ? `${peso(fee)}, paid in advance.` : "Your consultation fee, paid in advance."]].map(([k, t, d]) => (
+                <button
+                  key={k}
+                  type="button"
+                  aria-pressed={kind === k}
+                  onClick={() => { setKind(k); setSaved(false); }}
+                  className={"text-left rounded-lg border px-4 py-3 font-body transition-colors " + (kind === k ? "border-ink ring-2 ring-ink bg-sky/40" : "border-slate-700 bg-white hover:border-ink")}
+                >
+                  <div className="font-semibold text-ink">{t}</div>
+                  <div className="text-sm text-slate-300">{d}</div>
+                </button>
+              ))}
             </div>
           </div>
+
+          {kind === "down" && (
+            <div>
+              <label className="field-label block mb-1.5" htmlFor="downpayment">Downpayment amount</label>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="relative w-40">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">₱</span>
+                  <input
+                    id="downpayment"
+                    className={inputCls + " pl-7 tnum"} type="number" min="1" step="1" inputMode="decimal"
+                    placeholder="500"
+                    value={f.prepayment_amount}
+                    onChange={(e) => set({ prepayment_amount: e.target.value })}
+                  />
+                </div>
+                {fee > 0 && DOWNPAYMENT_SHARES.map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => set({ prepayment_amount: String(Math.round((fee * p) / 100)) })}
+                    className="px-3 py-2 rounded-md border border-slate-700 bg-white text-sm font-body text-ink hover:border-ink"
+                  >
+                    {p}% · {peso(Math.round((fee * p) / 100))}
+                  </button>
+                ))}
+              </div>
+              {fee > 0 && amount > 0 && amount <= fee && (
+                <p className="text-sm text-slate-300 font-body mt-2 tnum">Patient pays {peso(amount)} now and {peso(fee - amount)} at the clinic.</p>
+              )}
+              {fee > 0 && amount > fee && <p className="text-sm text-rose-300 font-body mt-2">That's more than your {peso(fee)} consultation fee.</p>}
+            </div>
+          )}
+
           <div>
-            <label className="text-xs font-mono2 text-slate-500 mb-1 block">HOW TO PAY — SHOWN TO THE PATIENT</label>
+            <label className="field-label block mb-1.5" htmlFor="hold">Time to pay before the slot is released</label>
+            <select id="hold" className={inputCls + " sm:w-56"} value={f.prepayment_hold_minutes} onChange={(e) => set({ prepayment_hold_minutes: e.target.value })}>
+              {HOLD_CHOICES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            </select>
+            <p className="text-sm text-slate-400 font-body mt-1.5">
+              The clock stops as soon as the patient uploads a receipt. If they don't pay in time, the slot opens up for someone else.
+            </p>
+          </div>
+
+          <div>
+            <label className="field-label block mb-1.5" htmlFor="howtopay">How to pay, shown to the patient</label>
             <textarea
+              id="howtopay"
               className={inputCls + " min-h-24 resize-y"}
               placeholder={"GCash: Juan D. — 0917 123 4567\nBPI: 1234-5678-90 (Juan Dela Cruz)\nSend a screenshot after paying."}
               value={f.payment_instructions}
-              onChange={(e) => { setF((x) => ({ ...x, payment_instructions: e.target.value })); setSaved(false); }}
+              onChange={(e) => set({ payment_instructions: e.target.value })}
             />
-            <p className="text-xs text-slate-500 font-body mt-1">
+            <p className="text-sm text-slate-400 font-body mt-1.5">
               Anyone booking with you can read this, so don't put anything private here beyond your payment details.
             </p>
+          </div>
+
+          {/* what the patient will be told, so the doctor can check the wording */}
+          <div className="rounded-lg border border-dashed border-amber-500/60 bg-butter/50 px-4 py-3 text-sm font-body text-ink">
+            <div className="field-label mb-1">Patients will see</div>
+            {kind === "full"
+              ? `Pay the ${fee ? peso(fee) + " " : ""}fee within ${holdLabel} to hold your slot. The clinic confirms it after checking your receipt.`
+              : `Pay a ${payNow ? peso(payNow) + " " : ""}downpayment within ${holdLabel} to hold your slot${fee && payNow ? `; the remaining ${peso(Math.max(fee - payNow, 0))} is paid at the clinic` : ""}. The clinic confirms it after checking your receipt.`}
           </div>
         </div>
       )}
 
-      <div className="flex items-center gap-3 mt-4">
-        <button onClick={save} disabled={busy} className={btnPrimary + " flex items-center gap-1.5"}>
+      <div className="flex items-center gap-3 mt-5">
+        <button onClick={save} disabled={busy} className={btnPrimary}>
           <Check size={14} /> {busy ? "Saving…" : "Save"}
         </button>
-        {saved && <span className="text-xs text-teal-300 font-body">Saved</span>}
+        {saved && <span className="text-sm text-ink font-body">Saved</span>}
       </div>
     </div>
   );
 }
-
-/* --------------------------- consent forms --------------------------- */
-
-const EMPTY_DOC = { title: "", body: "", required_before_consult: true, active: true };
 
 function ConsentDocsCard({ doctorId }) {
   const [docs, setDocs] = useState([]);
