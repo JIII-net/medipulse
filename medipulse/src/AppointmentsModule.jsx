@@ -377,6 +377,7 @@ function CalendarTab({ doctors, schedules, locations }) {
 
   const load = useCallback(async () => {
     setLoading(true);
+    await supabase.rpc("expire_unpaid_holds"); // lapsed unpaid holds drop off the calendar
     const from = new Date(rangeStart + "T00:00:00").toISOString();
     const to = new Date(addDays(rangeStart, rangeDays) + "T00:00:00").toISOString();
     const { data, error } = await supabase

@@ -21,6 +21,7 @@ export function paymentLabel(status) {
     proof_submitted: "checking payment",
     verified: "paid",
     rejected: "payment rejected",
+    expired: "time to pay ran out",
   }[status] || null;
 }
 

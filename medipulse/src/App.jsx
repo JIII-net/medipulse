@@ -12,7 +12,7 @@ import { LogoMark } from "./Logo";
 import { PaymentProofModal } from "./PaymentProof";
 import { ConsentFormsPanel } from "./ConsentForms";
 import {
-  Avatar, Stamp, StatusMark, FieldLabel, Notice, Tabs,
+  Avatar, Stamp, StatusMark, FieldLabel, Notice, Tabs, HoldCountdown,
   btn, btnLg, btnGhost, btnGhostLg, btnQuiet, inputCls,
   tintForProfession, tintForSpecialty, PROFESSION_TINT,
 } from "./ui";
@@ -81,6 +81,23 @@ const DOCTORS = [
 ];
 
 const peso = (n) => "₱" + Number(n || 0).toLocaleString();
+
+// "30 minutes", "2 hours", "24 hours" — how long a payment hold lasts.
+const holdText = (min) => {
+  const m = Number(min) || 0;
+  if (m < 60) return `${m} minutes`;
+  if (m < 1440) return m === 60 ? "1 hour" : `${Math.round(m / 60)} hours`;
+  return m === 1440 ? "24 hours" : `${Math.round(m / 1440)} days`;
+};
+
+// What a doctor asks for up front, in the patient's words: a downpayment
+// with the balance due at the clinic, or the whole fee.
+const prepayTerms = (d) => {
+  const now = Number(d.prepayAmount) || 0;
+  const fee = Number(d.fee) || 0;
+  const isDown = fee > 0 && now > 0 && now < fee;
+  return { now, balance: isDown ? fee - now : 0, isDown };
+};
 
 /* ------------------------- shared bits ---------------------------- */
 
@@ -790,7 +807,10 @@ function BookingModal({ doctor, onClose }) {
     setSlot(null);
     if (!isRealDoctor) { setTaken([]); return; }
     setLoadingSlots(true);
-    supabase.rpc("taken_slots", { d: doctor.id, day: dateStr })
+    // Free up anyone's lapsed unpaid hold first, so a slot that ran out
+    // of time shows as open again. Harmless if nothing has lapsed.
+    supabase.rpc("expire_unpaid_holds")
+      .then(() => supabase.rpc("taken_slots", { d: doctor.id, day: dateStr }))
       .then(({ data }) => {
         setTaken((data || []).map((row) => bmLocalHM(typeof row === "string" ? row : row.taken_slots || row)));
         setLoadingSlots(false);
@@ -900,9 +920,11 @@ function BookingModal({ doctor, onClose }) {
 
             {awaitingPay && (
               <Notice tone="warn" className="mt-5">
+                {newAppt?.dueAt && <div className="text-base text-ink mb-1.5"><HoldCountdown dueAt={newAppt.dueAt} /></div>}
                 <p>
-                  {doctor.name.split(" ").slice(0, 2).join(" ")} asks for payment before confirming. Send {peso(doctor.prepayAmount)} and upload your receipt
+                  Send {prepayTerms(doctor).isDown ? `the ${peso(prepayTerms(doctor).now)} downpayment` : peso(prepayTerms(doctor).now)} and upload your receipt
                   {newAppt?.dueAt ? ` by ${newAppt.dueAt.toLocaleString("en-PH", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}` : ""}, or the slot is released.
+                  {prepayTerms(doctor).isDown ? ` The remaining ${peso(prepayTerms(doctor).balance)} is paid at the clinic.` : ""}
                 </p>
                 {doctor.paymentInstructions && <p className="mt-2 text-ink whitespace-pre-wrap">{doctor.paymentInstructions}</p>}
               </Notice>
@@ -1000,7 +1022,12 @@ function BookingModal({ doctor, onClose }) {
             </div>
 
             {doctor.requirePrepayment && (
-              <p className="text-sm text-slate-300 font-body">This doctor asks for {peso(doctor.prepayAmount)} up front. You'll upload your receipt after choosing a time.</p>
+              <div className="rounded-lg border border-dashed border-amber-500/60 bg-butter/50 px-4 py-3 text-sm font-body text-ink">
+                {prepayTerms(doctor).isDown
+                  ? <>This doctor asks for a <b>{peso(prepayTerms(doctor).now)} downpayment</b> to hold your slot; the remaining {peso(prepayTerms(doctor).balance)} is paid at the clinic.</>
+                  : <>This doctor asks for the <b>{peso(prepayTerms(doctor).now)} fee</b> in advance to hold your slot.</>}
+                {" "}After you pick a time you have <b>{holdText(doctor.holdMinutes)}</b> to pay by GCash, Maya or bank and upload the receipt. The clinic confirms your slot once they've checked it.
+              </div>
             )}
             {saveError && <Notice tone="error" icon={AlertCircle}>{saveError}</Notice>}
 
@@ -1085,6 +1112,7 @@ function MyAppointments() {
 
   const load = async () => {
     setLoading(true);
+    await supabase.rpc("expire_unpaid_holds"); // so a lapsed hold shows as released, not still pending
     const { data, error } = await supabase
       .from("appointments")
       .select("id, starts_at, status, type, mode, fee_charged, patient_record_id, payment_status, payment_due_at, location:location_id(name, address), doctors:doctor_id(specialty, prepayment_amount, payment_instructions, profiles(full_name))")
@@ -1113,7 +1141,8 @@ function MyAppointments() {
   // An upcoming visit is a clinic card: the doctor's stock on top, the
   // date written in, and the stamps that have landed so far.
   const Card = ({ a }) => {
-    const needsPay = ["awaiting_payment", "rejected"].includes(a.payment_status);
+    const lapsed = a.payment_status === "awaiting_payment" && a.payment_due_at && new Date(a.payment_due_at) <= new Date();
+    const needsPay = ["awaiting_payment", "rejected"].includes(a.payment_status) && !lapsed;
     const when = new Date(a.starts_at);
     return (
       <article className="rounded-xl border border-ink/20 bg-white overflow-hidden flex flex-col">
@@ -1145,10 +1174,20 @@ function MyAppointments() {
         </div>
         {needsPay && (
           <div className="px-5 py-3 border-t border-amber-500/30 bg-butter/60 text-sm font-body text-amber-200">
-            {a.payment_status === "rejected" ? "The clinic couldn't verify your payment. Please send it again." : "Your slot is held until you send proof of payment"}
-            {a.payment_due_at && a.payment_status !== "rejected"
-              ? `, by ${new Date(a.payment_due_at).toLocaleString("en-PH", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}.`
-              : "."}
+            {a.payment_status === "rejected" ? (
+              "The clinic couldn't verify your payment. Please send it again."
+            ) : (
+              <>
+                {a.payment_due_at && <div className="text-base text-ink"><HoldCountdown dueAt={a.payment_due_at} /></div>}
+                Your slot is held until you upload proof of payment
+                {a.payment_due_at ? `, by ${new Date(a.payment_due_at).toLocaleString("en-PH", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}.` : "."}
+              </>
+            )}
+          </div>
+        )}
+        {lapsed && (
+          <div className="px-5 py-3 border-t border-rose-500/30 bg-blush/60 text-sm font-body text-rose-200">
+            The time to pay ran out, so this slot is being released. Book again if you still need the visit.
           </div>
         )}
         <div className="px-5 py-3 border-t border-slate-800 flex items-center justify-between gap-3">
@@ -1209,7 +1248,7 @@ function MyAppointments() {
                         {a.mode === "video" ? " · video" : a.location ? ` · ${a.location.name}` : ""}
                       </div>
                     </div>
-                    <StatusMark status={a.status} />
+                    <StatusMark status={a.payment_status === "expired" ? "expired" : a.status} />
                   </div>
                 ))}
               </div>
@@ -1385,7 +1424,7 @@ function PatientDirectory() {
                   <dl className="overflow-hidden">
                     <div className="pt-3 mt-1 border-t border-dashed border-slate-700 grid grid-cols-[5.5rem_1fr] gap-x-3 gap-y-1.5">
                       <dt className="field-label pt-0.5">Payment</dt>
-                      <dd>{d.requirePrepayment ? `Pay ${peso(d.prepayAmount)} ahead to confirm` : "Pay at the clinic"}</dd>
+                      <dd>{!d.requirePrepayment ? "Pay at the clinic" : prepayTerms(d).isDown ? `${peso(prepayTerms(d).now)} downpayment within ${holdText(d.holdMinutes)}, rest at the clinic` : `Pay ${peso(prepayTerms(d).now)} within ${holdText(d.holdMinutes)} to confirm`}</dd>
                       {d.locations?.length > 1 && (<>
                         <dt className="field-label pt-0.5">Clinics</dt>
                         <dd>{d.locations.map((l) => l.name).join(" · ")}</dd>

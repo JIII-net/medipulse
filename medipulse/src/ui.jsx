@@ -104,6 +104,7 @@ const MARKS = {
   verified: { stamp: "Paid" },
   paid: { stamp: "Paid" },
   rejected: { stamp: "Payment rejected", tone: "void" },
+  expired: { stamp: "Time ran out", tone: "void" },
   // queue
   waiting: { pending: "Waiting" },
   called: { stamp: "Called", tone: "link" },
@@ -149,6 +150,30 @@ export function StatusMark({ status, label, size, className = "" }) {
     <Stamp key={status} tone={mark.tone} size={size} press={pressed} className={className}>
       {label || mark.stamp}
     </Stamp>
+  );
+}
+
+/* --------------------------- hold countdown ------------------------ */
+
+// Time left to pay before a held slot is released. Ticks every second;
+// once the deadline passes it says so instead of counting negative.
+export function HoldCountdown({ dueAt, className = "" }) {
+  const due = dueAt ? new Date(dueAt).getTime() : null;
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!due) return;
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [due]);
+  if (!due) return null;
+  const left = Math.max(0, Math.floor((due - now) / 1000));
+  if (left === 0) return <span className={"font-semibold text-rose-300 " + className}>Time to pay has run out</span>;
+  const h = Math.floor(left / 3600), m = Math.floor((left % 3600) / 60), sec = left % 60;
+  const clock = h > 0 ? `${h}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}` : `${m}:${String(sec).padStart(2, "0")}`;
+  return (
+    <span className={"tnum " + className} role="timer" aria-live="off">
+      <span className="font-semibold">{clock}</span> left to pay
+    </span>
   );
 }
 
