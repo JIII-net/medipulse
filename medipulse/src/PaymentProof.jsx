@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { X, Upload, Check, AlertCircle, Image as ImageIcon } from "lucide-react";
 import { supabase } from "./lib/supabaseClient";
 import { BUCKET_PAYMENT_PROOFS, validateUpload, uploadPrivate, signedUrl } from "./lib/uploads";
+import { inputSm as inputCls, btnSm as btnPrimary, btnGhostSm as btnGhost, StatusMark } from "./ui";
 
 /* ------------------------------------------------------------------ */
 /*  Proof of payment — patient uploads a GCash/bank screenshot against */
@@ -9,9 +10,6 @@ import { BUCKET_PAYMENT_PROOFS, validateUpload, uploadPrivate, signedUrl } from 
 /*  and confirm or reject.                                             */
 /* ------------------------------------------------------------------ */
 
-const inputCls = "w-full rounded-2xl bg-slate-900 border border-slate-700 px-4 py-2.5 text-slate-100 font-body placeholder-slate-500 focus:outline-none focus:border-teal-400 text-sm";
-const btnPrimary = "px-4 py-2 rounded-xl bg-teal-400 text-slate-950 text-sm font-body font-semibold hover:bg-teal-300 transition-colors disabled:opacity-60";
-const btnGhost = "px-4 py-2 rounded-xl border border-slate-700 text-slate-300 text-sm font-body hover:border-slate-500 transition-colors";
 
 export const METHODS = ["gcash", "maya", "bank", "card", "cash"];
 
@@ -80,8 +78,8 @@ export function PaymentProofModal({ appointment, userId, amount, instructions, o
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80" onClick={onClose}>
-      <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-3xl border border-slate-700 bg-slate-900 p-6 fade-up" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40" onClick={onClose}>
+      <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-xl bg-white p-6 card-deal shadow-[0_24px_60px_-20px_rgba(19,48,94,0.5)]" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-display text-lg font-bold text-slate-50">Send proof of payment</h3>
           <button onClick={onClose} className="text-slate-500 hover:text-slate-300"><X size={18} /></button>
@@ -178,8 +176,8 @@ export function PaymentProofReview({ appointmentId, onClose, onReviewed }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80" onClick={onClose}>
-      <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-3xl border border-slate-700 bg-slate-900 p-6 fade-up" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40" onClick={onClose}>
+      <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl bg-white p-6 card-deal shadow-[0_24px_60px_-20px_rgba(19,48,94,0.5)]" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-display text-lg font-bold text-slate-50">Payment proof</h3>
           <button onClick={onClose} className="text-slate-500 hover:text-slate-300"><X size={18} /></button>
@@ -192,14 +190,12 @@ export function PaymentProofReview({ appointmentId, onClose, onReviewed }) {
         {proofs.length === 0 ? (
           <div className="text-sm text-slate-500 font-body py-6 text-center">Nothing submitted yet.</div>
         ) : proofs.map((p) => (
-          <div key={p.id} className="rounded-2xl border border-slate-800 p-4 mb-4">
+          <div key={p.id} className="rounded-lg border border-slate-700 p-4 mb-4">
             <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
               <span className="text-sm text-slate-100 font-body">
                 {peso(p.amount)} · {p.method} {p.reference_no ? <span className="font-mono2 text-xs text-slate-400">· {p.reference_no}</span> : null}
               </span>
-              <span className={"px-2.5 py-0.5 rounded-full border text-xs font-body " + (paymentStyle[p.status === "pending" ? "proof_submitted" : p.status === "verified" ? "verified" : "rejected"])}>
-                {p.status}
-              </span>
+              <StatusMark status={p.status === "pending" ? "proof_submitted" : p.status === "verified" ? "verified" : "rejected"} />
             </div>
             {urls[p.id] ? (
               <a href={urls[p.id]} target="_blank" rel="noreferrer">

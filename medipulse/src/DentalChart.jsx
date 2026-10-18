@@ -14,18 +14,18 @@ const LOWER_LEFT = [38, 37, 36, 35, 34, 33, 32, 31];
 const LOWER_RIGHT = [41, 42, 43, 44, 45, 46, 47, 48];
 
 const STATUS_META = {
-  healthy: { label: "Healthy", color: "#1e293b", border: "#475569", text: "#94a3b8" },
-  caries: { label: "Caries", color: "#7f1d1d", border: "#f87171", text: "#fecaca" },
-  filled: { label: "Filled", color: "#164e63", border: "#22d3ee", text: "#a5f3fc" },
-  crown: { label: "Crown", color: "#78350f", border: "#fbbf24", text: "#fde68a" },
-  missing: { label: "Missing", color: "#0f172a", border: "#1e293b", text: "#334155" },
-  root_canal: { label: "Root canal", color: "#4c1d95", border: "#a78bfa", text: "#ddd6fe" },
-  extraction_planned: { label: "Extraction planned", color: "#7c2d12", border: "#fb923c", text: "#fed7aa" },
-  extracted: { label: "Extracted", color: "#1c1917", border: "#44403c", text: "#57534e" },
-  impacted: { label: "Impacted", color: "#581c87", border: "#c084fc", text: "#f3e8ff" },
-  implant: { label: "Implant", color: "#134e4a", border: "#2dd4bf", text: "#99f6e4" },
-  bridge: { label: "Bridge", color: "#365314", border: "#a3e635", text: "#d9f99d" },
-  fractured: { label: "Fractured", color: "#701a75", border: "#e879f9", text: "#f5d0fe" },
+  healthy: { label: "Healthy", color: "#FFFFFF", border: "#8794A8", text: "#46597A" },
+  caries: { label: "Caries", color: "#F6D3D0", border: "#B8322F", text: "#8E2420" },
+  filled: { label: "Filled", color: "#CFE3F5", border: "#1F56A0", text: "#0B2C5E" },
+  crown: { label: "Crown", color: "#F6E7A8", border: "#9A6600", text: "#6E4700" },
+  missing: { label: "Missing", color: "#F2F3EF", border: "#C3CBD6", text: "#6E7D94" },
+  root_canal: { label: "Root canal", color: "#DDD5F0", border: "#5B3FA8", text: "#3F2A80" },
+  extraction_planned: { label: "Extraction planned", color: "#FBE0C8", border: "#C25E14", text: "#7A3A0A" },
+  extracted: { label: "Extracted", color: "#E4E6E9", border: "#6E7D94", text: "#46597A" },
+  impacted: { label: "Impacted", color: "#EBD8F2", border: "#8A3FA8", text: "#5C2470" },
+  implant: { label: "Implant", color: "#CDEBD9", border: "#2F8A57", text: "#1C5A37" },
+  bridge: { label: "Bridge", color: "#E3EFC6", border: "#5E7F1F", text: "#3E5612" },
+  fractured: { label: "Fractured", color: "#F7D5E8", border: "#B03A7C", text: "#7A1F52" },
 };
 
 // Tooth type by FDI position digit: 1-2 incisor, 3 canine, 4-5 premolar, 6-8 molar
@@ -59,8 +59,8 @@ function ToothIcon({ number, status, selected }) {
         <path
           d={path}
           fill={meta.color}
-          stroke={selected ? "#2dd4bf" : meta.border}
-          strokeWidth={selected ? 2 : 1.3}
+          stroke={selected ? "#13305E" : meta.border}
+          strokeWidth={selected ? 2.4 : 1.3}
         />
       </g>
     </svg>
@@ -75,10 +75,10 @@ function Tooth({ number, status, onClick, selected }) {
       className="flex flex-col items-center gap-0.5 group"
       title={`Tooth ${number} — ${meta.label}`}
     >
-      <div className={"transition-transform group-hover:scale-110 " + (selected ? "drop-shadow-[0_0_6px_rgba(45,212,191,0.6)]" : "")}>
+      <div className={"transition-transform group-hover:scale-110 " + (selected ? "-translate-y-0.5" : "")}>
         <ToothIcon number={number} status={status} selected={selected} />
       </div>
-      <span className="font-mono2 text-[9px] text-slate-500 group-hover:text-teal-300">{number}</span>
+      <span className="font-mono2 text-[10px] text-slate-400 group-hover:text-ink">{number}</span>
     </button>
   );
 }

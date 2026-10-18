@@ -1,0 +1,193 @@
+/* ------------------------------------------------------------------ */
+/*  4MED · Clinic Card                                                  */
+/*                                                                     */
+/*  The world: the tinted appointment card and queue stub a clinic     */
+/*  secretary fills in and rubber-stamps. One navy ink, flat card      */
+/*  stock per profession, violet stamp-pad ink for state, hairlines    */
+/*  as the only dividers. Colours live in index.html (tailwind.config) */
+/*  and are mirrored here as custom properties for plain CSS.          */
+/* ------------------------------------------------------------------ */
+
+:root {
+  --ink: #13305e;
+  --ink-2: #46597a;
+  --ink-3: #566884;
+  --line: #dde2e8;
+  --line-strong: #c3cbd6;
+  --paper: #ffffff;
+  --ground: #f2f3ef;
+  --sky: #cfe3f5;
+  --mint: #cdebd9;
+  --butter: #f6e7a8;
+  --lilac: #ddd5f0;
+  --blush: #f4d6d2;
+  --stamp: #5b3fa8;
+  --void: #b8322f;
+  --link: #1f56a0;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  color-scheme: light;
+}
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: "Archivo", system-ui, sans-serif;
+  font-stretch: 100%;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  caret-color: var(--link);
+}
+
+/* One grotesque at every size. The old three-family classes now all
+   resolve to Archivo; "display" leans condensed and tight, "mono2" is
+   the label voice: semi-condensed with tabular figures, never a code
+   font. */
+.font-display { font-family: "Archivo", system-ui, sans-serif; font-stretch: 88%; letter-spacing: -0.02em; }
+.font-body { font-family: "Archivo", system-ui, sans-serif; font-stretch: 100%; }
+.font-mono2 { font-family: "Archivo", system-ui, sans-serif; font-stretch: 85%; font-variant-numeric: tabular-nums; letter-spacing: 0.01em; }
+
+h1, h2, h3 { text-wrap: balance; }
+p { text-wrap: pretty; }
+table, .tnum, input[type="number"], input[type="date"], input[type="time"] { font-variant-numeric: tabular-nums; }
+
+::selection { background: var(--sky); color: var(--ink); }
+:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offset: 0; }
+a { text-underline-offset: 3px; }
+::placeholder { color: var(--ink-3); opacity: 1; }
+
+* { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 10px; border: 3px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-track { background: transparent; }
+
+select { background-color: var(--paper); }
+input[type="checkbox"], input[type="radio"] { accent-color: var(--ink); }
+
+/* ---------- labels: the printed field names on a clinic card ---------- */
+
+.field-label {
+  font-stretch: 80%;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+/* ---------- queue number: big, condensed, tabular ---------- */
+
+.queue-no {
+  font-stretch: 62%;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  line-height: 0.9;
+}
+
+/* ---------- the stamp: a state change, inked ---------- */
+
+.stamp {
+  --stamp-color: var(--stamp);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  padding: 0.28em 0.6em 0.24em;
+  border: 2px solid var(--stamp-color);
+  border-radius: 4px;
+  outline: 1px solid var(--stamp-color);
+  outline-offset: 2px;
+  background: transparent;
+  color: var(--stamp-color);
+  font-stretch: 70%;
+  font-weight: 800;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  line-height: 1.1;
+  text-transform: uppercase;
+  white-space: nowrap;
+  transform: rotate(var(--stamp-tilt, -3deg));
+  mix-blend-mode: multiply;
+  opacity: 0.94;
+  user-select: none;
+}
+.stamp-md { font-size: 14.5px; --stamp-tilt: -4deg; }
+.stamp-lg { font-size: 20px; border-width: 3px; padding: 0.3em 0.7em 0.26em; --stamp-tilt: -6deg; }
+.stamp-void { --stamp-color: var(--void); }
+.stamp-ink { --stamp-color: var(--ink); }
+.stamp-link { --stamp-color: var(--link); }
+
+/* The signature move: the stamp comes down, presses, and the ink
+   settles. Only plays when a state has just changed. */
+@keyframes stamp-press {
+  0% { opacity: 0; transform: scale(1.9) rotate(calc(var(--stamp-tilt, -3deg) - 9deg)); }
+  55% { opacity: 1; transform: scale(0.93) rotate(var(--stamp-tilt, -3deg)); }
+  72% { opacity: 0.78; transform: scale(1.02) rotate(var(--stamp-tilt, -3deg)); }
+  100% { opacity: 0.94; transform: scale(1) rotate(var(--stamp-tilt, -3deg)); }
+}
+.stamp-press { animation: stamp-press 0.42s var(--ease-out) backwards; }
+
+/* A pending state is not a stamp yet: just the printed blank. */
+.pending-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.pending-mark::before { content: ""; width: 14px; border-bottom: 1.5px dashed currentColor; }
+
+/* ---------- perforation: where the stub tears off ---------- */
+
+.perf {
+  position: relative;
+  height: 0;
+  border-top: 2px dashed var(--line-strong);
+}
+.perf::before,
+.perf::after {
+  content: "";
+  position: absolute;
+  top: -9px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--ground);
+}
+.perf::before { left: -9px; }
+.perf::after { right: -9px; }
+.perf-v { border-top: 0; border-left: 2px dashed var(--line-strong); height: auto; width: 0; align-self: stretch; }
+.perf-v::before, .perf-v::after { top: auto; left: -9px; }
+.perf-v::before { top: -9px; }
+.perf-v::after { bottom: -9px; right: auto; }
+
+/* ---------- write-in line: the underline a secretary fills ---------- */
+
+.write-in { border-bottom: 1px solid var(--ink); padding-bottom: 3px; }
+
+/* ---------- motion ---------- */
+
+@keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+/* "backwards", not "both": a transform held after the animation ends
+   would make this element the containing block for every fixed
+   modal inside it, trapping the overlay in the section. */
+.fade-up { animation: fadeUp 0.4s var(--ease-out) backwards; }
+
+@keyframes card-deal {
+  from { opacity: 0; transform: translateY(18px) rotate(1.5deg); }
+  to { opacity: 1; transform: none; }
+}
+.card-deal { animation: card-deal 0.6s var(--ease-out) backwards; }
+
+@media (prefers-reduced-motion: reduce) {
+  .stamp-press, .fade-up, .card-deal { animation: none; }
+}
+
+@media print {
+  body { background: #fff; }
+}

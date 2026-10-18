@@ -23,6 +23,20 @@ export function AuthProvider({ children }) {
   }, []);
 
   useEffect(() => {
+    // Dev-only preview: `?demo=patient|doctor|secretary|admin` signs in a
+    // fake account so the signed-in screens can be looked at without a
+    // Supabase project. Vite strips this branch from production builds.
+    if (import.meta.env.DEV) {
+      const role = new URLSearchParams(window.location.search).get("demo");
+      if (role) {
+        const names = { patient: "Maria Lourdes Santos", doctor: "Dra. Celia Reyes", secretary: "Joy Mendoza", admin: "4MED Admin" };
+        setSession({ user: { id: "demo-" + role } });
+        setProfile({ id: "demo-" + role, full_name: names[role] || "Demo user", role });
+        setLoading(false);
+        return;
+      }
+    }
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       loadProfile(session?.user?.id).finally(() => setLoading(false));

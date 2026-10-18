@@ -1,0 +1,640 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-18T01:02:47.463Z",
+  "title": "Design System: 4MED",
+  "extensions": {
+    "colorMeta": {
+      "ink": {
+        "role": "primary",
+        "displayName": "Logo Navy Ink",
+        "canonical": "oklch(31.5% 0.089 259)",
+        "tonalRamp": [
+          "#0B2349",
+          "#13305E",
+          "#1E3A66",
+          "#2C4670",
+          "#46597A",
+          "#566884",
+          "#6E7D94",
+          "#C3CBD6"
+        ]
+      },
+      "ink-deep": {
+        "role": "primary",
+        "displayName": "Pressed Ink",
+        "canonical": "oklch(37.8% 0.124 258)",
+        "tonalRamp": [
+          "oklch(15% 0.124 258)",
+          "oklch(26% 0.124 258)",
+          "oklch(38% 0.124 258)",
+          "oklch(49% 0.124 258)",
+          "oklch(61% 0.124 258)",
+          "oklch(72% 0.124 258)",
+          "oklch(84% 0.124 258)",
+          "oklch(95% 0.074 258)"
+        ]
+      },
+      "link": {
+        "role": "primary",
+        "displayName": "Ballpoint Blue",
+        "canonical": "oklch(45.9% 0.133 257)",
+        "tonalRamp": [
+          "oklch(15% 0.133 257)",
+          "oklch(26% 0.133 257)",
+          "oklch(38% 0.133 257)",
+          "oklch(49% 0.133 257)",
+          "oklch(61% 0.133 257)",
+          "oklch(72% 0.133 257)",
+          "oklch(84% 0.133 257)",
+          "oklch(95% 0.080 257)"
+        ]
+      },
+      "stamp": {
+        "role": "secondary",
+        "displayName": "Stamp-Pad Violet",
+        "canonical": "oklch(45.8% 0.161 291)",
+        "tonalRamp": [
+          "oklch(15% 0.161 291)",
+          "oklch(26% 0.161 291)",
+          "oklch(38% 0.161 291)",
+          "oklch(49% 0.161 291)",
+          "oklch(61% 0.161 291)",
+          "oklch(72% 0.161 291)",
+          "oklch(84% 0.161 291)",
+          "oklch(95% 0.096 291)"
+        ]
+      },
+      "void": {
+        "role": "tertiary",
+        "displayName": "Void Red",
+        "canonical": "oklch(52.3% 0.171 26)",
+        "tonalRamp": [
+          "oklch(15% 0.171 26)",
+          "oklch(26% 0.171 26)",
+          "oklch(38% 0.171 26)",
+          "oklch(49% 0.171 26)",
+          "oklch(61% 0.171 26)",
+          "oklch(72% 0.171 26)",
+          "oklch(84% 0.171 26)",
+          "oklch(95% 0.103 26)"
+        ]
+      },
+      "void-deep": {
+        "role": "tertiary",
+        "displayName": "Deep Void",
+        "canonical": "oklch(43.1% 0.142 27)",
+        "tonalRamp": [
+          "oklch(15% 0.142 27)",
+          "oklch(26% 0.142 27)",
+          "oklch(38% 0.142 27)",
+          "oklch(49% 0.142 27)",
+          "oklch(61% 0.142 27)",
+          "oklch(72% 0.142 27)",
+          "oklch(84% 0.142 27)",
+          "oklch(95% 0.085 27)"
+        ]
+      },
+      "sky": {
+        "role": "card-stock",
+        "displayName": "Consult Sky",
+        "canonical": "oklch(90.7% 0.033 245)",
+        "tonalRamp": [
+          "oklch(15% 0.033 245)",
+          "oklch(26% 0.033 245)",
+          "oklch(38% 0.033 245)",
+          "oklch(49% 0.033 245)",
+          "oklch(61% 0.033 245)",
+          "oklch(72% 0.033 245)",
+          "oklch(84% 0.033 245)",
+          "oklch(95% 0.020 245)"
+        ]
+      },
+      "mint": {
+        "role": "card-stock",
+        "displayName": "Dental Mint",
+        "canonical": "oklch(91.3% 0.040 159)",
+        "tonalRamp": [
+          "oklch(15% 0.040 159)",
+          "oklch(26% 0.040 159)",
+          "oklch(38% 0.040 159)",
+          "oklch(49% 0.040 159)",
+          "oklch(61% 0.040 159)",
+          "oklch(72% 0.040 159)",
+          "oklch(84% 0.040 159)",
+          "oklch(95% 0.024 159)"
+        ]
+      },
+      "butter": {
+        "role": "card-stock",
+        "displayName": "Eye Butter",
+        "canonical": "oklch(92.5% 0.082 96)",
+        "tonalRamp": [
+          "oklch(15% 0.082 96)",
+          "oklch(26% 0.082 96)",
+          "oklch(38% 0.082 96)",
+          "oklch(49% 0.082 96)",
+          "oklch(61% 0.082 96)",
+          "oklch(72% 0.082 96)",
+          "oklch(84% 0.082 96)",
+          "oklch(95% 0.049 96)"
+        ]
+      },
+      "lilac": {
+        "role": "card-stock",
+        "displayName": "Mind Lilac",
+        "canonical": "oklch(88.8% 0.038 299)",
+        "tonalRamp": [
+          "oklch(15% 0.038 299)",
+          "oklch(26% 0.038 299)",
+          "oklch(38% 0.038 299)",
+          "oklch(49% 0.038 299)",
+          "oklch(61% 0.038 299)",
+          "oklch(72% 0.038 299)",
+          "oklch(84% 0.038 299)",
+          "oklch(95% 0.023 299)"
+        ]
+      },
+      "blush": {
+        "role": "card-stock",
+        "displayName": "Counsel Blush",
+        "canonical": "oklch(90.0% 0.034 27)",
+        "tonalRamp": [
+          "oklch(15% 0.034 27)",
+          "oklch(26% 0.034 27)",
+          "oklch(38% 0.034 27)",
+          "oklch(49% 0.034 27)",
+          "oklch(61% 0.034 27)",
+          "oklch(72% 0.034 27)",
+          "oklch(84% 0.034 27)",
+          "oklch(95% 0.020 27)"
+        ]
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "Card Paper",
+        "canonical": "oklch(100.0% 0.000 90)",
+        "tonalRamp": [
+          "oklch(15% 0.000 90)",
+          "oklch(26% 0.000 90)",
+          "oklch(38% 0.000 90)",
+          "oklch(49% 0.000 90)",
+          "oklch(61% 0.000 90)",
+          "oklch(72% 0.000 90)",
+          "oklch(84% 0.000 90)",
+          "oklch(95% 0.000 90)"
+        ]
+      },
+      "ground": {
+        "role": "neutral",
+        "displayName": "Waiting-Room Ground",
+        "canonical": "oklch(96.2% 0.005 118)",
+        "tonalRamp": [
+          "oklch(15% 0.005 118)",
+          "oklch(26% 0.005 118)",
+          "oklch(38% 0.005 118)",
+          "oklch(49% 0.005 118)",
+          "oklch(61% 0.005 118)",
+          "oklch(72% 0.005 118)",
+          "oklch(84% 0.005 118)",
+          "oklch(95% 0.005 118)"
+        ]
+      },
+      "ink-body": {
+        "role": "neutral",
+        "displayName": "Ink on Stock",
+        "canonical": "oklch(35.1% 0.084 259)",
+        "tonalRamp": [
+          "#0B2349",
+          "#13305E",
+          "#1E3A66",
+          "#2C4670",
+          "#46597A",
+          "#566884",
+          "#6E7D94",
+          "#C3CBD6"
+        ]
+      },
+      "ink-soft": {
+        "role": "neutral",
+        "displayName": "Soft Ink",
+        "canonical": "oklch(39.4% 0.078 260)",
+        "tonalRamp": [
+          "#0B2349",
+          "#13305E",
+          "#1E3A66",
+          "#2C4670",
+          "#46597A",
+          "#566884",
+          "#6E7D94",
+          "#C3CBD6"
+        ]
+      },
+      "ink-2": {
+        "role": "neutral",
+        "displayName": "Label Ink",
+        "canonical": "oklch(46.2% 0.059 261)",
+        "tonalRamp": [
+          "#0B2349",
+          "#13305E",
+          "#1E3A66",
+          "#2C4670",
+          "#46597A",
+          "#566884",
+          "#6E7D94",
+          "#C3CBD6"
+        ]
+      },
+      "ink-3": {
+        "role": "neutral",
+        "displayName": "Faint Ink",
+        "canonical": "oklch(51.4% 0.050 259)",
+        "tonalRamp": [
+          "#0B2349",
+          "#13305E",
+          "#1E3A66",
+          "#2C4670",
+          "#46597A",
+          "#566884",
+          "#6E7D94",
+          "#C3CBD6"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Pencil Grey",
+        "canonical": "oklch(58.6% 0.040 259)",
+        "tonalRamp": [
+          "#0B2349",
+          "#13305E",
+          "#1E3A66",
+          "#2C4670",
+          "#46597A",
+          "#566884",
+          "#6E7D94",
+          "#C3CBD6"
+        ]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "oklch(91.1% 0.010 253)",
+        "tonalRamp": [
+          "oklch(15% 0.010 253)",
+          "oklch(26% 0.010 253)",
+          "oklch(38% 0.010 253)",
+          "oklch(49% 0.010 253)",
+          "oklch(61% 0.010 253)",
+          "oklch(72% 0.010 253)",
+          "oklch(84% 0.010 253)",
+          "oklch(95% 0.010 253)"
+        ]
+      },
+      "line-strong": {
+        "role": "neutral",
+        "displayName": "Card Edge",
+        "canonical": "oklch(83.9% 0.018 256)",
+        "tonalRamp": [
+          "oklch(15% 0.018 256)",
+          "oklch(26% 0.018 256)",
+          "oklch(38% 0.018 256)",
+          "oklch(49% 0.018 256)",
+          "oklch(61% 0.018 256)",
+          "oklch(72% 0.018 256)",
+          "oklch(84% 0.018 256)",
+          "oklch(95% 0.011 256)"
+        ]
+      },
+      "warn-ink": {
+        "role": "signal",
+        "displayName": "Warning Ink",
+        "canonical": "oklch(43.2% 0.092 73)",
+        "tonalRamp": [
+          "oklch(15% 0.092 73)",
+          "oklch(26% 0.092 73)",
+          "oklch(38% 0.092 73)",
+          "oklch(49% 0.092 73)",
+          "oklch(61% 0.092 73)",
+          "oklch(72% 0.092 73)",
+          "oklch(84% 0.092 73)",
+          "oklch(95% 0.055 73)"
+        ]
+      },
+      "warn-line": {
+        "role": "signal",
+        "displayName": "Warning Edge",
+        "canonical": "oklch(68.0% 0.141 76)",
+        "tonalRamp": [
+          "oklch(15% 0.141 76)",
+          "oklch(26% 0.141 76)",
+          "oklch(38% 0.141 76)",
+          "oklch(49% 0.141 76)",
+          "oklch(61% 0.141 76)",
+          "oklch(72% 0.141 76)",
+          "oklch(84% 0.141 76)",
+          "oklch(95% 0.084 76)"
+        ]
+      },
+      "available": {
+        "role": "signal",
+        "displayName": "Available Green",
+        "canonical": "oklch(56.6% 0.117 155)",
+        "tonalRamp": [
+          "oklch(15% 0.117 155)",
+          "oklch(26% 0.117 155)",
+          "oklch(38% 0.117 155)",
+          "oklch(49% 0.117 155)",
+          "oklch(61% 0.117 155)",
+          "oklch(72% 0.117 155)",
+          "oklch(84% 0.117 155)",
+          "oklch(95% 0.070 155)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Landing headline only; 44px phone, 60px from 640px, 68px from 1024px."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Page and section titles; 30px phone, 36px from 640px."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Card-header names, panel headings, empty-state titles."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Reading text; leads step to 18px."
+      },
+      "body-sm": {
+        "displayName": "Body Small",
+        "purpose": "The Clinic App's working size: table cells, metadata, notices."
+      },
+      "button": {
+        "displayName": "Button",
+        "purpose": "Button labels."
+      },
+      "label": {
+        "displayName": "Field Label",
+        "purpose": "Printed field name above a written-in value; table column heads. Uppercase."
+      },
+      "queue": {
+        "displayName": "Queue Number",
+        "purpose": "Queue numbers, counts, prices, times; 30px rows up to 96px on Now serving."
+      },
+      "stamp": {
+        "displayName": "Stamp",
+        "purpose": "Stamp text, uppercase; 12px rows, 14.5px strips, 20px moments."
+      }
+    },
+    "shadows": [
+      {
+        "name": "modal-lift",
+        "value": "0 24px 60px -20px rgba(19,48,94,0.5)",
+        "purpose": "Modals and dialogs only; the single shadow in the system."
+      },
+      {
+        "name": "tab-baseline",
+        "value": "inset 0 -1px 0 #DDE2E8",
+        "purpose": "Structural hairline under tab strips, not depth."
+      },
+      {
+        "name": "field-focus",
+        "value": "0 0 0 2px #CFE3F5",
+        "purpose": "Sky ring around a focused input, with its border turned ink."
+      },
+      {
+        "name": "focus-ring",
+        "value": "outline: 2px solid #1F56A0; outline-offset: 2px",
+        "purpose": "Global :focus-visible ring (offset 0 on fields)."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "The system easing for entrances, stamps and the profession rack."
+      },
+      {
+        "name": "stamp-press",
+        "value": "420ms ease-out; scale 1.9 > 0.93 > 1.02 > 1, from 9deg further turned to resting tilt, opacity 0 > 1 > 0.78 > 0.94",
+        "purpose": "A status that just changed in place; never on first render."
+      },
+      {
+        "name": "card-deal",
+        "value": "600ms ease-out; from translateY(18px) rotate(1.5deg), opacity 0",
+        "purpose": "Clinic cards, modals and the mobile rail drawer arriving."
+      },
+      {
+        "name": "fade-up",
+        "value": "400ms ease-out; from translateY(8px), opacity 0",
+        "purpose": "Page and module entrance."
+      },
+      {
+        "name": "rack-open",
+        "value": "500ms ease-out on flex-grow and opacity",
+        "purpose": "Profession rack: the focused stock opens while neighbours quiet to 80%."
+      },
+      {
+        "name": "card-lift",
+        "value": "300ms; translateY(-4px) while neighbours drop to 70% opacity",
+        "purpose": "Directory cards on hover or focus."
+      },
+      {
+        "name": "state-colors",
+        "value": "150ms on color, background-color, border-color",
+        "purpose": "Button, nav, pill and tab hovers."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "stamp-press, card-deal and fade-up disabled",
+        "purpose": "prefers-reduced-motion: stamps appear already inked."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "md",
+        "value": "768px"
+      },
+      {
+        "name": "lg",
+        "value": "1024px"
+      },
+      {
+        "name": "container",
+        "value": "1152px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Ink-filled action; the default commit on every surface.",
+      "html": "<button class=\"ds-btn-primary\">Register patient</button>",
+      "css": ".ds-btn-primary { font-family: Archivo, system-ui, sans-serif; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 16px; border: 0; border-radius: 6px; background: var(--ink, #13305e); color: #fff; font-size: 14px; font-weight: 600; line-height: 20px; cursor: pointer; transition: background-color 150ms cubic-bezier(0.4,0,0.2,1); } .ds-btn-primary:hover { background: #0e3f82; } .ds-btn-primary:active { transform: translateY(1px); } .ds-btn-primary:focus-visible { outline: 2px solid var(--link, #1f56a0); outline-offset: 2px; } .ds-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Secondary action: ink outline that inverts to an ink fill on hover.",
+      "html": "<button class=\"ds-btn-ghost\">Book as a patient</button>",
+      "css": ".ds-btn-ghost { font-family: Archivo, system-ui, sans-serif; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 16px; border: 1px solid rgba(19,48,94,0.7); border-radius: 6px; background: transparent; color: var(--ink, #13305e); font-size: 14px; font-weight: 600; line-height: 20px; cursor: pointer; transition: background-color 150ms, color 150ms; } .ds-btn-ghost:hover { background: var(--ink, #13305e); color: #fff; } .ds-btn-ghost:focus-visible { outline: 2px solid var(--link, #1f56a0); outline-offset: 2px; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "White field under a printed field label; focus turns the border ink with a sky ring.",
+      "html": "<label class=\"ds-field\"><span class=\"ds-field-label\">Search doctors</span><input class=\"ds-input\" placeholder=\"Name, specialty or hospital\"></label>",
+      "css": ".ds-field { display: block; font-family: Archivo, system-ui, sans-serif; } .ds-field-label { display: block; margin-bottom: 6px; font-stretch: 80%; font-size: 11.5px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-2, #46597a); } .ds-input { font-family: Archivo, system-ui, sans-serif; width: 100%; padding: 10px 14px; border: 1px solid var(--line-strong, #c3cbd6); border-radius: 6px; background: #fff; color: var(--ink, #13305e); font-size: 16px; transition: border-color 150ms, box-shadow 150ms; } .ds-input::placeholder { color: var(--ink-3, #566884); } .ds-input:focus, .ds-input:focus-visible { outline: none; border-color: var(--ink, #13305e); box-shadow: 0 0 0 2px var(--sky, #cfe3f5); }"
+    },
+    {
+      "name": "Clinic App Rail",
+      "kind": "nav",
+      "refersTo": "rail-item",
+      "description": "The practitioner's card stock as a full-height rail (mint for a dentist); the active module is a white slip.",
+      "html": "<nav class=\"ds-rail\" aria-label=\"Clinic App\"><a class=\"ds-rail-item ds-on\" href=\"#\" aria-current=\"page\"><svg width=\"17\" height=\"17\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"3\" width=\"7\" height=\"9\" rx=\"1\"/><rect x=\"14\" y=\"3\" width=\"7\" height=\"5\" rx=\"1\"/><rect x=\"14\" y=\"12\" width=\"7\" height=\"9\" rx=\"1\"/><rect x=\"3\" y=\"16\" width=\"7\" height=\"5\" rx=\"1\"/></svg>Today</a><a class=\"ds-rail-item\" href=\"#\"><svg width=\"17\" height=\"17\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2\"/><circle cx=\"9\" cy=\"7\" r=\"4\"/></svg>Patients</a><a class=\"ds-rail-item\" href=\"#\"><svg width=\"17\" height=\"17\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"4\" width=\"18\" height=\"18\" rx=\"2\"/><path d=\"M16 2v4M8 2v4M3 10h18\"/></svg>Appointments</a></nav>",
+      "css": ".ds-rail { font-family: Archivo, system-ui, sans-serif; width: 240px; padding: 8px 12px; background: var(--mint, #cdebd9); border-right: 1px solid rgba(19,48,94,0.15); display: flex; flex-direction: column; gap: 2px; } .ds-rail-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 6px; font-size: 15px; color: #1e3a66; text-decoration: none; transition: background-color 150ms, color 150ms; } .ds-rail-item:hover { background: rgba(255,255,255,0.5); color: var(--ink, #13305e); } .ds-rail-item.ds-on { background: #fff; color: var(--ink, #13305e); font-weight: 600; } .ds-rail-item:focus-visible { outline: 2px solid var(--link, #1f56a0); outline-offset: 2px; }"
+    },
+    {
+      "name": "Filter Pill",
+      "kind": "chip",
+      "refersTo": "filter-pill",
+      "description": "Toggle filter; active inverts to ink. Never a status.",
+      "html": "<button class=\"ds-pill\" aria-pressed=\"false\">All specialties</button> <button class=\"ds-pill\" aria-pressed=\"true\">Available now</button>",
+      "css": ".ds-pill { font-family: Archivo, system-ui, sans-serif; padding: 6px 12px; border: 1px solid var(--line-strong, #c3cbd6); border-radius: 6px; background: #fff; color: #2c4670; font-size: 14px; cursor: pointer; transition: border-color 150ms, background-color 150ms; } .ds-pill:hover { border-color: var(--ink, #13305e); } .ds-pill[aria-pressed=\"true\"] { background: var(--ink, #13305e); border-color: var(--ink, #13305e); color: #fff; font-weight: 500; } .ds-pill:focus-visible { outline: 2px solid var(--link, #1f56a0); outline-offset: 2px; }"
+    },
+    {
+      "name": "Stamp",
+      "kind": "custom",
+      "refersTo": "stamp",
+      "description": "Inked state: violet done, blue in progress, ink filed, void red cancelled. Presses only when a status changes.",
+      "html": "<span class=\"ds-stamp\">Paid</span> <span class=\"ds-stamp ds-stamp-link\">With doctor</span> <span class=\"ds-stamp ds-stamp-ink\">Done</span> <span class=\"ds-stamp ds-stamp-void\">Cancelled</span> <span class=\"ds-stamp ds-stamp-lg ds-press\">Checked in</span>",
+      "css": ".ds-stamp { --c: var(--stamp, #5b3fa8); --tilt: -3deg; font-family: Archivo, system-ui, sans-serif; display: inline-flex; align-items: center; margin: 8px; padding: 0.28em 0.6em 0.24em; border: 2px solid var(--c); border-radius: 4px; outline: 1px solid var(--c); outline-offset: 2px; color: var(--c); font-stretch: 70%; font-weight: 800; font-size: 12px; letter-spacing: 0.1em; line-height: 1.1; text-transform: uppercase; white-space: nowrap; transform: rotate(var(--tilt)); mix-blend-mode: multiply; opacity: 0.94; user-select: none; } .ds-stamp-link { --c: var(--link, #1f56a0); } .ds-stamp-ink { --c: var(--ink, #13305e); } .ds-stamp-void { --c: var(--void, #b8322f); } .ds-stamp-lg { font-size: 20px; border-width: 3px; padding: 0.3em 0.7em 0.26em; --tilt: -6deg; } @keyframes ds-stamp-press { 0% { opacity: 0; transform: scale(1.9) rotate(calc(var(--tilt) - 9deg)); } 55% { opacity: 1; transform: scale(0.93) rotate(var(--tilt)); } 72% { opacity: 0.78; transform: scale(1.02) rotate(var(--tilt)); } 100% { opacity: 0.94; transform: scale(1) rotate(var(--tilt)); } } .ds-press { animation: ds-stamp-press 0.42s cubic-bezier(0.16,1,0.3,1) backwards; } .ds-stamp:hover { opacity: 1; } @media (prefers-reduced-motion: reduce) { .ds-press { animation: none; } }"
+    },
+    {
+      "name": "Pending Mark",
+      "kind": "custom",
+      "refersTo": "pending-mark",
+      "description": "A state still waiting on someone: a printed blank, not a stamp.",
+      "html": "<span class=\"ds-pending\">Awaiting payment</span> <span class=\"ds-pending\">Not signed</span>",
+      "css": ".ds-pending { font-family: Archivo, system-ui, sans-serif; display: inline-flex; align-items: center; gap: 0.35em; margin-right: 16px; font-size: 12.5px; font-weight: 500; color: var(--ink-2, #46597a); white-space: nowrap; } .ds-pending::before { content: \"\"; width: 14px; border-bottom: 1.5px dashed currentColor; }"
+    },
+    {
+      "name": "Clinic Card",
+      "kind": "card",
+      "refersTo": "card-stock-header",
+      "description": "The appointment as a card: profession stock header, field labels over write-ins, a stamp, a perforation and the queue-number stub.",
+      "html": "<article class=\"ds-card\"><header class=\"ds-card-head\"><div class=\"ds-card-name\">Dra. Celia Reyes</div><div class=\"ds-card-sub\">Cardiology</div></header><div class=\"ds-card-row\"><div class=\"ds-card-body\"><div class=\"ds-lbl\">Patient</div><div class=\"ds-write\">Maria Lourdes Santos</div><div class=\"ds-lbl\">Schedule</div><div class=\"ds-write\">Sat 18 Oct · 2:45 PM</div><span class=\"ds-card-stamp\">Paid</span></div><div class=\"ds-perf\" aria-hidden=\"true\"></div><div class=\"ds-stub\"><div class=\"ds-lbl\">Queue no.</div><div class=\"ds-qno\">08</div></div></div></article>",
+      "css": ".ds-card { font-family: Archivo, system-ui, sans-serif; width: 380px; max-width: 100%; background: #fff; border: 1px solid rgba(19,48,94,0.2); border-radius: 6px; overflow: hidden; color: var(--ink, #13305e); transition: transform 300ms cubic-bezier(0.16,1,0.3,1); } .ds-card:hover, .ds-card:focus-within { transform: translateY(-4px); } .ds-card-head { background: var(--sky, #cfe3f5); padding: 14px 20px; border-bottom: 1px solid rgba(19,48,94,0.15); } .ds-card-name { font-stretch: 88%; letter-spacing: -0.02em; font-weight: 700; font-size: 18px; } .ds-card-sub { font-size: 14px; color: #1e3a66; } .ds-card-row { display: grid; grid-template-columns: 1fr auto auto; } .ds-card-body { padding: 16px 20px; } .ds-lbl { font-stretch: 80%; font-size: 11.5px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-2, #46597a); } .ds-write { border-bottom: 1px solid var(--ink, #13305e); padding-bottom: 3px; margin: 4px 0 12px; font-size: 16px; } .ds-card-stamp { display: inline-block; margin-top: 4px; padding: 0.28em 0.6em 0.24em; border: 2px solid var(--stamp, #5b3fa8); outline: 1px solid var(--stamp, #5b3fa8); outline-offset: 2px; border-radius: 4px; color: var(--stamp, #5b3fa8); font-stretch: 70%; font-weight: 800; font-size: 14.5px; letter-spacing: 0.1em; text-transform: uppercase; transform: rotate(-4deg); mix-blend-mode: multiply; opacity: 0.94; } .ds-perf { position: relative; width: 0; border-left: 2px dashed var(--line-strong, #c3cbd6); } .ds-perf::before, .ds-perf::after { content: \"\"; position: absolute; left: -9px; width: 16px; height: 16px; border-radius: 50%; background: var(--ground, #f2f3ef); } .ds-perf::before { top: -9px; } .ds-perf::after { bottom: -9px; } .ds-stub { width: 104px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 16px 8px; } .ds-qno { font-stretch: 62%; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; line-height: 0.9; font-size: 64px; margin-top: 4px; }"
+    },
+    {
+      "name": "Underline Tabs",
+      "kind": "nav",
+      "refersTo": "tab-active",
+      "description": "A module's own sections on a full-width hairline; the active tab sits on it in ink.",
+      "html": "<div class=\"ds-tabs\" role=\"tablist\"><button class=\"ds-tab\" role=\"tab\" aria-selected=\"true\">Find a doctor</button><button class=\"ds-tab\" role=\"tab\" aria-selected=\"false\">My appointments</button><button class=\"ds-tab\" role=\"tab\" aria-selected=\"false\">Consent forms</button></div>",
+      "css": ".ds-tabs { font-family: Archivo, system-ui, sans-serif; display: flex; gap: 24px; box-shadow: inset 0 -1px 0 var(--line, #dde2e8); } .ds-tab { font-family: Archivo, system-ui, sans-serif; padding: 4px 0 12px; border: 0; border-bottom: 2px solid transparent; background: none; font-size: 14px; color: var(--ink-2, #46597a); cursor: pointer; transition: color 150ms; } .ds-tab:hover { color: var(--ink, #13305e); } .ds-tab[aria-selected=\"true\"] { border-bottom-color: var(--ink, #13305e); color: var(--ink, #13305e); font-weight: 600; } .ds-tab:focus-visible { outline: 2px solid var(--link, #1f56a0); outline-offset: 2px; }"
+    },
+    {
+      "name": "Notice",
+      "kind": "custom",
+      "refersTo": "panel",
+      "description": "Flat tinted strip: info on sky, warning on butter, error on blush, success on mint.",
+      "html": "<div class=\"ds-notice ds-notice-warn\">Your slot is held until you send proof of payment.</div><div class=\"ds-notice ds-notice-error\">The clinic couldn't verify your payment. Please send it again.</div>",
+      "css": ".ds-notice { font-family: Archivo, system-ui, sans-serif; margin: 6px 0; padding: 12px 16px; border: 1px solid rgba(19,48,94,0.15); border-radius: 6px; font-size: 14px; background: rgba(207,227,245,0.6); color: var(--ink, #13305e); } .ds-notice-warn { background: rgba(246,231,168,0.7); border-color: rgba(201,138,11,0.4); color: #6e4700; } .ds-notice-error { background: rgba(244,214,210,0.7); border-color: rgba(184,50,47,0.3); color: #8e2420; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Clinic Card",
+    "overview": "Every booking is a clinic card: the tinted appointment card and torn-off queue stub a Philippine clinic secretary fills in by hand and rubber-stamps. The whole product, from the landing page to the Clinic App rail to the printed prescription, is built from that card's materials: flat coloured card stock, one navy ink, printed field names with written-in lines beneath them, a dashed perforation where the stub tears off, and a violet stamp-pad impression for every state that has actually happened. The system refuses the white-and-blue rounded-card SaaS dashboard and the dark neon \"futuristic\" medical look; it should never feel cold and sterile, playful, or dense.\n\nDensity is that of a well-kept paper form: generous enough for a patient on a mid-range phone, structured enough that a front desk can scan a day's queue for hours. Hierarchy comes from width and weight of a single grotesque, not from colour or decoration. Each profession has its own card stock (doctor sky, dentist mint, ophthalmologist butter, psychiatrist lilac, psychologist blush), so a dentist's Clinic App rail is mint and a cardiologist's booking card is sky, the way clinics in a medical arts building hand out differently coloured cards.\n\nThe world is light only (`color-scheme: light`). The fixed 4MED logo (blue-and-silver medical cross with a sky ring) is a brand asset and keeps its own gradients; nothing else in the system is modulated.",
+    "keyCharacteristics": [
+      "One navy ink for text, rules, primary buttons and charts; every neutral is that ink at lower strength.",
+      "Flat, unmodulated card-stock tints that own whole regions (card headers, the rail, section bands), keyed to profession.",
+      "State is inked: angled violet stamps for what has happened, a printed blank for what is still waiting.",
+      "Archivo at every size, with the width axis carrying the voice (condensed queue numbers and stamps, wide-open body).",
+      "Hairlines and perforations as the only separators; no gradients, glows or glass.",
+      "One gesture of motion that matters: the stamp coming down, pressing, and the ink settling."
+    ],
+    "rules": [
+      {
+        "name": "The One Ink Rule",
+        "body": "Text, borders, rules and filled buttons are navy ink or ink at lower strength (hue ~259). There is no black and no off-hue grey anywhere in the system.",
+        "section": "colors"
+      },
+      {
+        "name": "The Card Stock Rule",
+        "body": "A tint is a flat, unmodulated field that owns a whole region: a card header, the rail, a section band. The profession-to-tint mapping is fixed (doctor sky, dentist mint, ophthalmologist butter, psychiatrist lilac, psychologist blush) and resolved through one helper, never hand-picked per screen.",
+        "section": "colors"
+      },
+      {
+        "name": "The Stamp-Pad Rule",
+        "body": "Violet is reserved for inked state. It is never a button, link, heading or decorative accent; if it appears, something has happened.",
+        "section": "colors"
+      },
+      {
+        "name": "The One Grotesque Rule",
+        "body": "Archivo only. A new voice is a new width or weight on the same family, never a second typeface.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tabular Figures Rule",
+        "body": "Any number a person compares down a column (times, queue numbers, fees, counts, dates in inputs) is set in tabular figures.",
+        "section": "typography"
+      },
+      {
+        "name": "The Field Name Rule",
+        "body": "Uppercase tracked labels name a field whose value follows (Patient, Schedule, Queue no., table heads). They are never used as decorative eyebrows above headlines.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat Card Stock Rule",
+        "body": "Surfaces at rest carry no shadow. The modal lift is the single shadow in the system; nothing else glows, blurs or floats.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Perforation Rule",
+        "body": "A dashed perforation with notches appears only where a stub genuinely detaches: the queue number, the time, or the action that takes you to the queue. It is never a generic section divider.",
+        "section": "shapes"
+      },
+      {
+        "name": "The Ink-or-Blank Rule",
+        "body": "Every status is either a stamp (an action happened) or a pending mark (still waiting). There are no coloured pill badges. New statuses join the shared vocabulary in one place, never a local style.",
+        "section": "components"
+      },
+      {
+        "name": "The Press-Once Rule",
+        "body": "The stamp-press animation (420ms: comes down from 1.9x and 9 degrees further turned, overshoots to 0.93, ink settles to 94%) plays only when a status changes in place, never on first render. The landing's sample card is the one place it loops, as a demonstration. Reduced motion shows the stamp already inked.",
+        "section": "components"
+      }
+    ],
+    "dos": [
+      "Do set every text, border and filled button in navy ink (#13305E) or one of its lower-strength inks; use Pencil Grey (#6E7D94) for icons only.",
+      "Do give each card a profession card-stock header resolved from the practitioner's profession: doctor sky, dentist mint, ophthalmologist butter, psychiatrist lilac, psychologist blush.",
+      "Do show every status through the shared stamp-or-pending vocabulary, with violet for done, blue for in progress, ink for filed, void red for cancelled or failed.",
+      "Do set queue numbers, times, fees and counts in the condensed (wdth 62) tabular queue figures.",
+      "Do put printed field labels (11.5px, 600, 0.1em, uppercase, wdth 80) above write-in values on any card that records an appointment or a patient.",
+      "Do separate with 1px hairlines (#DDE2E8) and 1px Card Edge borders (#C3CBD6); reserve the notched dashed perforation for stubs.",
+      "Do keep corners at 6px for controls and cards and 4px for stamps.",
+      "Do honour reduced motion: the stamp lands already inked, cards appear without dealing in."
+    ],
+    "donts": [
+      "Don't use gradients, glows, glass or backdrop blur anywhere outside the fixed logo.",
+      "Don't add shadows to resting surfaces; the modal lift (`0 24px 60px -20px rgba(19,48,94,0.5)`) is the only shadow.",
+      "Don't use Stamp-Pad Violet (#5B3FA8) for buttons, links, headings or decoration.",
+      "Don't show status as a coloured pill badge or a coloured dot (the availability dot excepted).",
+      "Don't introduce a second typeface or a monospace font; change Archivo's width or weight instead.",
+      "Don't use uppercase field labels as eyebrows or kickers above headlines.",
+      "Don't set a void-red stamp on lilac or blush stock (4.2–4.35:1); void stamps land on paper.",
+      "Don't add a dark theme or a dark neon \"futuristic\" medical look; the world is light card stock."
+    ]
+  }
+}

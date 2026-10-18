@@ -1,6 +1,6 @@
 # 4MED — Patient Management SaaS (prototype)
 
-A modern, futuristic patient management platform prototype: doctors register and set up a subscription plan during onboarding; patients log in to browse available doctors and book appointments.
+A patient management platform prototype for Philippine private practices: doctors register and set up a subscription plan during onboarding; patients log in to browse available doctors and book appointments. The visual system ("Clinic Card") is documented in DESIGN.md.
 
 ## Run locally
 
@@ -11,6 +11,8 @@ npm run dev
 ```
 
 Then open http://localhost:5173
+
+Without a Supabase project you can still look at the signed-in screens in dev: add `?demo=patient`, `?demo=doctor`, `?demo=secretary` or `?demo=admin` to sign in a fake account, and `&view=patient` or `&view=app` to open that view directly (dev builds only; live data won't load).
 
 ## Connect to Supabase
 
