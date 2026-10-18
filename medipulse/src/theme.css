@@ -170,6 +170,30 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--ink); }
 
 .write-in { border-bottom: 1px solid var(--ink); padding-bottom: 3px; }
 
+/* The same line as a field to fill: a printed blank until written on,
+   then inked. Used where a form is the card itself (registration). */
+.write-in-field {
+  display: block;
+  width: 100%;
+  padding: 8px 2px 6px;
+  border: 0;
+  border-bottom: 1px solid #8794a8;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 18px;
+  line-height: 1.4;
+  transition: border-color 0.15s, box-shadow 0.15s, background-color 0.15s;
+}
+.write-in-field:hover { border-bottom-color: var(--ink-3); }
+.write-in-field:not(:placeholder-shown) { border-bottom-color: var(--ink); }
+.write-in-field:focus {
+  outline: none;
+  border-bottom-color: var(--ink);
+  box-shadow: 0 1px 0 var(--ink);
+  background-color: rgba(207, 227, 245, 0.45);
+}
+
 /* ---------- motion ---------- */
 
 @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }

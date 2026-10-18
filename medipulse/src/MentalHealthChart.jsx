@@ -64,7 +64,7 @@ const gad7Severity = (t) =>
   : t <= 14 ? { label: "Moderate", tone: "text-amber-300" }
   : { label: "Severe", tone: "text-rose-300" };
 
-const INSTRUMENTS = {
+export const INSTRUMENTS = {
   phq9: { label: "PHQ-9 — Depression", items: PHQ9, max: 27, severity: phq9Severity, stem: "Over the last 2 weeks, how often have you been bothered by any of the following problems?" },
   gad7: { label: "GAD-7 — Anxiety", items: GAD7, max: 21, severity: gad7Severity, stem: "Over the last 2 weeks, how often have you been bothered by the following problems?" },
 };

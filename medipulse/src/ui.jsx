@@ -126,6 +126,9 @@ const MARKS = {
   trialing: { pending: "Trial" },
   active: { stamp: "Active" },
   past_due: { stamp: "Past due", tone: "void" },
+  // practitioner signup
+  unregistered: { pending: "Not registered" },
+  registered: { stamp: "Registered" },
 };
 
 export function StatusMark({ status, label, size, className = "" }) {

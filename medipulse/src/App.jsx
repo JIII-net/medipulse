@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   Stethoscope, Calendar, Search, Star, Check, ChevronRight, ChevronLeft,
   Users, Video, X, Clock, Zap, Building2, Lock, LogOut, AlertCircle, Menu, MapPin, ArrowRight,
@@ -11,6 +11,7 @@ import { PROFESSIONS, ALL_SPECIALTIES, professionById } from "./lib/professions"
 import { LogoMark } from "./Logo";
 import { PaymentProofModal } from "./PaymentProof";
 import { ConsentFormsPanel } from "./ConsentForms";
+import { ChartPreview } from "./ChartPreviews";
 import {
   Avatar, Stamp, StatusMark, FieldLabel, Notice, Tabs,
   btn, btnLg, btnGhost, btnGhostLg, btnQuiet, inputCls,
@@ -242,44 +243,61 @@ const PROFESSION_DETAILS = {
   psychologist: { module: "Mental health", lines: ["PHQ-9 and GAD-7, scored, with their trend", "Mental status exam, risk assessment, session notes", "No prescription pad: psychologists don't prescribe"] },
 };
 
+// The open card carries a sample of its profession's own chart, so the
+// rack shows what each consult looks like instead of only listing it.
 function ProfessionRack() {
   const [open, setOpen] = useState("dentist");
   return (
-    <div className="flex flex-col lg:flex-row gap-3 lg:h-[380px]">
+    <div className="flex flex-col lg:flex-row gap-3 lg:h-[484px]">
       {PROFESSIONS.map((p) => {
         const on = open === p.id;
         const d = PROFESSION_DETAILS[p.id];
         return (
-          <button
+          <div
             key={p.id}
-            type="button"
             onMouseEnter={() => setOpen(p.id)}
-            onFocus={() => setOpen(p.id)}
-            onClick={() => setOpen(p.id)}
-            aria-expanded={on}
             className={
-              "group relative text-left rounded-xl border border-ink/15 overflow-hidden transition-[flex-grow,opacity] duration-500 ease-[cubic-bezier(.16,1,.3,1)] " +
+              "relative rounded-xl border border-ink/15 overflow-hidden transition-[flex-grow,opacity] duration-500 ease-[cubic-bezier(.16,1,.3,1)] " +
               tintForProfession(p.id) + " " +
               (on ? "lg:flex-[4] opacity-100" : "lg:flex-[1] lg:opacity-80 hover:opacity-100")
             }
           >
             <div className="p-5 h-full flex flex-col">
               <div className="flex items-start justify-between gap-3">
-                <div className={"font-display font-bold text-ink leading-tight " + (on ? "text-3xl" : "text-xl lg:[writing-mode:vertical-rl] lg:rotate-180")}>{p.label}</div>
-                {on && <Stamp tone="ink" tilt={4}>{d.module}</Stamp>}
+                <h3 className="min-w-0">
+                  <button
+                    type="button"
+                    onFocus={() => setOpen(p.id)}
+                    onClick={() => setOpen(p.id)}
+                    aria-expanded={on}
+                    aria-controls={"rack-" + p.id}
+                    className={
+                      "text-left font-display font-bold text-ink leading-tight rounded-sm " +
+                      (on ? "text-3xl" : "text-xl lg:[writing-mode:vertical-rl] lg:rotate-180 after:absolute after:inset-0")
+                    }
+                  >
+                    {p.label}
+                  </button>
+                </h3>
+                {on && <Stamp tone="ink" tilt={4} className="shrink-0">{d.module}</Stamp>}
               </div>
-              <div className={on ? "pt-5 flex-1 flex flex-col" : "hidden"}>
+              <div id={"rack-" + p.id} className={on ? "pt-5 flex-1 flex flex-col" : "hidden"}>
                 <ul className="space-y-2">
                   {d.lines.map((l) => (
                     <li key={l} className="flex items-start gap-2.5 font-body text-ink"><Check size={16} className="mt-1 shrink-0" />{l}</li>
                   ))}
                 </ul>
-                <div className="mt-auto pt-4 border-t border-ink/20 text-sm font-body text-slate-300">
-                  {p.specialties.join(" · ")}
+                <div className="mt-5">
+                  <ChartPreview profession={p.id} />
+                </div>
+                <div className="mt-auto pt-4">
+                  <div className="pt-4 border-t border-ink/20 text-sm font-body text-slate-300">
+                    {p.specialties.join(" · ")}
+                  </div>
                 </div>
               </div>
             </div>
-          </button>
+          </div>
         );
       })}
     </div>
@@ -529,7 +547,7 @@ function DoctorSignup({ go }) {
     });
     setSubmitting(false);
     if (error) {
-      setError(error.message);
+      setError(/failed to fetch|network/i.test(error.message) ? "We couldn't reach 4MED. Check your connection and try again." : error.message);
       return;
     }
     if (inviteStatus === "valid" && inviteCode.trim()) {
@@ -538,173 +556,217 @@ function DoctorSignup({ go }) {
     setDone(true);
   };
 
-  if (done)
-    return (
-      <div className="max-w-xl mx-auto px-5 sm:px-6 py-16 fade-up">
-        <div className="rounded-xl border border-ink/20 overflow-hidden bg-white">
-          <div className={"px-6 py-5 border-b border-ink/15 flex items-start justify-between gap-4 " + tintForProfession(form.professionType)}>
-            <div>
-              <FieldLabel>Practitioner card</FieldLabel>
-              <h2 className="font-display text-3xl font-bold text-ink mt-1">Welcome, {form.name || "Doctor"}.</h2>
-            </div>
-            <Stamp press size="lg" tilt={-6}>Trial active</Stamp>
-          </div>
-          <div className="px-6 py-5 space-y-4 font-body">
-            <p className="text-slate-200">
-              Your {plan.name} trial runs for 14 days. Your Clinic App is ready now; patients can book you once an administrator has checked your PRC license.
-            </p>
-            <div className="grid grid-cols-2 gap-4 pt-1">
-              <div><FieldLabel>Plan</FieldLabel><div className="write-in text-ink mt-1">{plan.name} · {peso(price)}/mo</div></div>
-              <div><FieldLabel>Billing</FieldLabel><div className="write-in text-ink mt-1">{form.annual ? "Yearly" : "Monthly"}, after the trial</div></div>
-            </div>
-          </div>
-          <div className="px-6 py-4 border-t border-slate-800 flex flex-wrap gap-3">
-            <button onClick={() => go("app")} className={btn}>Open the Clinic App <ArrowRight size={16} /></button>
-            <button onClick={() => go("patient")} className={btnGhost}>See what patients see</button>
-          </div>
-        </div>
-      </div>
-    );
+  // A new step (or the finish) starts at the top of the card, not
+  // wherever the last step's Continue button left the page.
+  const cardRef = useRef(null);
+  useEffect(() => {
+    const el = cardRef.current;
+    if (!el || el.getBoundingClientRect().top >= 72) return;
+    const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 88, behavior: reduced ? "auto" : "smooth" });
+  }, [step, done]);
 
+  const prof = professionById(form.professionType);
+  const writtenName = form.name.trim();
+  const hint =
+    !stepValid && step === 0 ? "Fill in your name, email and a password of 6+ characters to continue." :
+    !stepValid && step === 1 ? "Pick a specialty and enter your PRC license number to continue." :
+    null;
+  const writeIn = (k, v) => (
+    <div key={k} className="min-w-0">
+      <FieldLabel>{k}</FieldLabel>
+      <div className="write-in font-body text-ink mt-1 break-words">{v}</div>
+    </div>
+  );
+
+  // One card from the first field to the finish: the header takes the
+  // chosen profession's card stock as it is picked, and the Registered
+  // stamp comes down on the same card the practitioner filled in.
   return (
-    <div className="max-w-3xl mx-auto px-5 sm:px-6 py-10 sm:py-14 fade-up">
-      <h1 className="font-display text-3xl sm:text-4xl font-bold text-ink">Register your practice</h1>
-      <p className="font-body text-slate-300 mt-2">Four short steps. Nothing is charged during the 14-day trial.</p>
-
-      {/* stepper: the card's numbered sections */}
-      <ol className="grid grid-cols-4 mt-8 mb-8 border-t-2 border-slate-800" aria-label="Signup steps">
-        {steps.map((s, i) => (
-          <li key={s} className={"pt-3 -mt-0.5 border-t-2 " + (i <= step ? "border-ink" : "border-transparent")} aria-current={i === step ? "step" : undefined}>
-            <div className={"flex items-center gap-2 text-sm font-body " + (i === step ? "text-ink font-semibold" : i < step ? "text-slate-200" : "text-slate-400")}>
-              <span className="tnum font-semibold">{i < step ? <Check size={15} /> : i + 1}</span>
-              <span className="hidden sm:inline">{s}</span>
-            </div>
-          </li>
-        ))}
-      </ol>
-
-      {step === 0 && (
-        <div className="space-y-4">
-          <h2 className="font-display text-2xl font-bold text-ink">About you</h2>
-          <label className="block"><FieldLabel>Full name</FieldLabel><input className={inputCls + " mt-1.5"} placeholder="e.g. Dra. Ana Reyes" value={form.name} onChange={(e) => set("name", e.target.value)} /></label>
-          <label className="block"><FieldLabel>Work email</FieldLabel><input className={inputCls + " mt-1.5"} type="email" placeholder="you@clinic.ph" value={form.email} onChange={(e) => set("email", e.target.value)} /></label>
-          <label className="block"><FieldLabel>Password</FieldLabel><input className={inputCls + " mt-1.5"} type="password" placeholder="At least 6 characters" value={form.password} onChange={(e) => set("password", e.target.value)} /></label>
-          <label className="block">
-            <FieldLabel>Invite code (optional)</FieldLabel>
-            <input className={inputCls + " mt-1.5"} placeholder="If 4MED gave you one" value={inviteCode} onChange={(e) => checkInvite(e.target.value)} />
-            {inviteStatus === "checking" && <p className="text-sm text-slate-400 font-body mt-1.5">Checking…</p>}
-            {inviteStatus === "valid" && (
-              <p className="text-sm text-ink font-body mt-1.5 flex items-center gap-1.5"><Check size={14} /> Invite accepted{invitePreassignedPlan ? ", plan chosen for you" : ""}</p>
-            )}
-            {inviteStatus === "invalid" && <p className="text-sm text-rose-300 font-body mt-1.5">We couldn't find that code, or it has expired.</p>}
-          </label>
-          <p className="text-sm text-slate-400 font-body pt-2">Clinic secretary? <button type="button" onClick={() => go("staffjoin")} className={btnQuiet}>Join your doctor's practice with an invite code</button></p>
-        </div>
-      )}
-
-      {step === 1 && (
-        <div className="space-y-6">
-          <h2 className="font-display text-2xl font-bold text-ink">Your profession</h2>
-
-          <div>
-            <FieldLabel as="span" className="block mb-2">I am a</FieldLabel>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {PROFESSIONS.map(({ id, label, defaultSpecialty }) => {
-                const on = form.professionType === id;
-                return (
-                  <button
-                    key={id}
-                    type="button"
-                    aria-pressed={on}
-                    onClick={() => setForm((f) => ({ ...f, professionType: id, specialties: [defaultSpecialty] }))}
-                    className={
-                      "relative px-4 py-4 rounded-lg border text-left font-body transition-[transform,box-shadow] " +
-                      tintForProfession(id) + " " +
-                      (on ? "border-ink ring-2 ring-ink -translate-y-0.5" : "border-ink/15 hover:border-ink/50")
-                    }
-                  >
-                    <span className="font-semibold text-ink">{label}</span>
-                    {on && <Check size={16} className="absolute top-3 right-3 text-ink" />}
-                  </button>
-                );
-              })}
-            </div>
-            <p className="text-sm text-slate-400 font-body mt-2">This sets the colour of your clinic card and the chart you consult with.</p>
-          </div>
-
-          <div>
-            <FieldLabel as="span" className="block mb-2">Specialties · pick all that apply</FieldLabel>
-            <div className="flex flex-wrap gap-2">
-              {(liveSpecialties.length > 0
-                ? liveSpecialties.filter((s) => s.profession_type === form.professionType).map((s) => s.name)
-                : professionById(form.professionType).specialties
-              ).map((s) => {
-                const active = form.specialties.includes(s);
-                return (
-                  <Pill key={s} active={active} onClick={() => set("specialties", active ? form.specialties.filter((x) => x !== s) : [...form.specialties, s])}>
-                    {s}
-                  </Pill>
-                );
-              })}
-            </div>
-            {form.specialties.length === 0 && <p className="text-sm text-amber-300 font-body mt-2">Pick at least one specialty.</p>}
-          </div>
-
-          <label className="block">
-            <FieldLabel>PRC license number</FieldLabel>
-            <input className={inputCls + " mt-1.5 tnum"} placeholder="7 digits" value={form.license} onChange={(e) => set("license", e.target.value)} />
-            <p className="text-sm text-slate-400 font-body mt-1.5">We check it against the PRC registry before patients can book you.</p>
-          </label>
-        </div>
-      )}
-
-      {step === 2 && (
-        <div>
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-            <h2 className="font-display text-2xl font-bold text-ink">Choose a plan</h2>
-            <label className="flex items-center gap-2 text-sm font-body text-slate-200 cursor-pointer">
-              <input type="checkbox" checked={form.annual} onChange={(e) => set("annual", e.target.checked)} />
-              Pay yearly and save 20%
-            </label>
-          </div>
-          <PricingCards annual={form.annual} selected={form.plan} onSelect={(id) => set("plan", id)} plans={livePlans} />
-        </div>
-      )}
-
-      {step === 3 && (
-        <div className="space-y-4">
-          <h2 className="font-display text-2xl font-bold text-ink">Check and start your trial</h2>
-          <dl className="rounded-xl border border-slate-700 bg-white">
-            {[
-              ["Name", form.name || "—"],
-              ["Email", form.email || "—"],
-              ["Profession", professionById(form.professionType).label],
-              ["Specialties", form.specialties.join(", ")],
-              ["PRC license", form.license || "—"],
-              ["Plan", `${plan.name} · ${peso(price)}/mo, billed ${form.annual ? "yearly" : "monthly"}`],
-              ["Trial", "14 days free, no charge until it ends"],
-            ].map(([k, v]) => (
-              <div key={k} className="grid grid-cols-[9rem_1fr] gap-4 px-5 py-3 text-sm font-body border-b border-slate-800 last:border-0">
-                <dt className="text-slate-400">{k}</dt>
-                <dd className="text-ink">{v}</dd>
-              </div>
-            ))}
-          </dl>
-          <p className="text-sm text-slate-400 font-body">By starting the trial you agree to the Terms of Service and to 4MED processing health data under the Data Privacy Act of 2012.</p>
-          {error && <Notice tone="error" icon={AlertCircle}>{error}</Notice>}
-        </div>
-      )}
-
-      <div className="flex justify-between items-center mt-10 pt-6 border-t border-slate-800">
-        <button onClick={() => (step === 0 ? go("landing") : setStep(step - 1))} className={btnGhost}>
-          <ChevronLeft size={16} /> Back
-        </button>
-        <button disabled={submitting || !stepValid} onClick={() => (step === 3 ? submit() : setStep(step + 1))} className={btn}>
-          {step === 3 ? (submitting ? "Creating your account…" : "Start free trial") : "Continue"} <ChevronRight size={16} />
-        </button>
+    <div className="max-w-3xl mx-auto px-5 sm:px-6 py-10 sm:py-14">
+      <div className="fade-up">
+        <h1 className="font-display text-3xl sm:text-4xl font-bold text-ink">{done ? "Your practice is registered" : "Register your practice"}</h1>
+        <p className="font-body text-slate-300 mt-2">
+          {done ? `Your ${plan.name} trial runs for 14 days. Nothing is charged until it ends.` : "Four short steps. Nothing is charged during the 14-day trial."}
+        </p>
       </div>
-      {!stepValid && step === 0 && <p className="text-right text-sm text-slate-400 font-body mt-2">Fill in your name, email and a password of 6+ characters to continue.</p>}
-      {!stepValid && step === 1 && <p className="text-right text-sm text-slate-400 font-body mt-2">Pick a specialty and enter your PRC license number to continue.</p>}
+
+      <section ref={cardRef} aria-label="Practitioner registration card" className="mt-8 rounded-xl bg-white border border-ink/20 overflow-hidden card-deal" style={{ animationDelay: "80ms" }}>
+        <header className={"relative px-5 sm:px-6 py-4 border-b border-ink/15 flex flex-wrap items-center justify-between gap-x-4 gap-y-3 transition-colors duration-300 " + tintForProfession(form.professionType)}>
+          <div className="flex items-center gap-3 flex-1 min-w-[11rem]">
+            <span className="shrink-0"><LogoMark size={30} /></span>
+            <div className="min-w-0 flex-1">
+              <div className="font-display text-xl font-bold text-ink leading-tight [overflow-wrap:anywhere]">{writtenName || "New practitioner"}</div>
+              <div className="text-sm text-slate-200 font-body mt-0.5">
+                {step === 0 && !done ? "Practitioner registration card" : `${prof.label}${form.specialties.length ? " · " + form.specialties.join(", ") : ""}`}
+              </div>
+            </div>
+          </div>
+          <StatusMark status={done ? "registered" : "unregistered"} size="lg" className="shrink-0" />
+        </header>
+
+        {!done && (
+          <ol className="grid grid-cols-4 border-b border-slate-800" aria-label="Signup steps">
+            {steps.map((s, i) => (
+              <li
+                key={s}
+                aria-current={i === step ? "step" : undefined}
+                className={"px-3 sm:px-5 py-3 -mb-px border-b-2 " + (i <= step ? "border-ink" : "border-transparent")}
+              >
+                <div className={"flex items-center gap-2 text-sm font-body " + (i === step ? "text-ink font-semibold" : i < step ? "text-slate-200" : "text-slate-400")}>
+                  <span className="tnum font-semibold">{i < step ? <Check size={15} aria-label="Done" /> : i + 1}</span>
+                  <span className="sr-only sm:not-sr-only">{s}</span>
+                </div>
+              </li>
+            ))}
+          </ol>
+        )}
+
+        <div key={done ? "done" : step} className="px-5 sm:px-6 py-6 sm:py-7 fade-up">
+          {done && (
+            <div className="space-y-5 font-body">
+              <h2 className="font-display text-2xl font-bold text-ink">Welcome, {writtenName || "Doctor"}.</h2>
+              <p className="text-slate-200 max-w-xl">
+                Your Clinic App is ready now. Patients can book you once an administrator has checked your PRC license.
+              </p>
+              <div className="grid sm:grid-cols-2 gap-x-6 gap-y-5">
+                {writeIn("Plan", `${plan.name} · ${peso(price)}/mo`)}
+                {writeIn("Billing", `${form.annual ? "Yearly" : "Monthly"}, after the trial`)}
+                {writeIn("PRC license", form.license || "—")}
+                {writeIn("Email", form.email || "—")}
+              </div>
+            </div>
+          )}
+
+          {!done && step === 0 && (
+            <div>
+              <h2 className="font-display text-2xl font-bold text-ink">About you</h2>
+              <div className="grid sm:grid-cols-2 gap-x-6 gap-y-6 mt-5">
+                <label className="block sm:col-span-2"><FieldLabel>Full name</FieldLabel><input className="write-in-field mt-1" autoComplete="name" placeholder="e.g. Dra. Ana Reyes" value={form.name} onChange={(e) => set("name", e.target.value)} /></label>
+                <label className="block"><FieldLabel>Work email</FieldLabel><input className="write-in-field mt-1" type="email" autoComplete="email" placeholder="you@clinic.ph" value={form.email} onChange={(e) => set("email", e.target.value)} /></label>
+                <label className="block"><FieldLabel>Password</FieldLabel><input className="write-in-field mt-1" type="password" autoComplete="new-password" placeholder="At least 6 characters" value={form.password} onChange={(e) => set("password", e.target.value)} /></label>
+                <label className="block sm:col-span-2">
+                  <FieldLabel>Invite code (optional)</FieldLabel>
+                  <input className="write-in-field mt-1 sm:max-w-[calc(50%-12px)]" placeholder="If 4MED gave you one" value={inviteCode} onChange={(e) => checkInvite(e.target.value)} />
+                  {inviteStatus === "checking" && <p className="text-sm text-slate-400 font-body mt-1.5">Checking…</p>}
+                  {inviteStatus === "valid" && (
+                    <p className="text-sm text-ink font-body mt-1.5 flex items-center gap-1.5"><Check size={14} /> Invite accepted{invitePreassignedPlan ? ", plan chosen for you" : ""}</p>
+                  )}
+                  {inviteStatus === "invalid" && <p className="text-sm text-rose-300 font-body mt-1.5">We couldn't find that code, or it has expired.</p>}
+                </label>
+              </div>
+              <p className="text-sm text-slate-400 font-body mt-6">Clinic secretary? <button type="button" onClick={() => go("staffjoin")} className={btnQuiet}>Join your doctor's practice with an invite code</button></p>
+            </div>
+          )}
+
+          {!done && step === 1 && (
+            <div className="space-y-7">
+              <h2 className="font-display text-2xl font-bold text-ink">Your profession</h2>
+
+              <div>
+                <FieldLabel as="span" className="block mb-2">I am a</FieldLabel>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {PROFESSIONS.map(({ id, label, defaultSpecialty }) => {
+                    const on = form.professionType === id;
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        aria-pressed={on}
+                        onClick={() => setForm((f) => ({ ...f, professionType: id, specialties: [defaultSpecialty] }))}
+                        className={
+                          "relative px-4 py-4 rounded-lg border text-left font-body transition-[transform,box-shadow] " +
+                          tintForProfession(id) + " " +
+                          (on ? "border-ink ring-2 ring-ink -translate-y-0.5" : "border-ink/15 hover:border-ink/50")
+                        }
+                      >
+                        <span className="font-semibold text-ink pr-5 block">{label}</span>
+                        {on && <Check size={16} className="absolute top-3 right-3 text-ink" />}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-sm text-slate-400 font-body mt-2">This sets the colour of your clinic card and the chart you consult with.</p>
+              </div>
+
+              <div>
+                <FieldLabel as="span" className="block mb-2">Specialties · pick all that apply</FieldLabel>
+                <div className="flex flex-wrap gap-2">
+                  {(liveSpecialties.length > 0
+                    ? liveSpecialties.filter((s) => s.profession_type === form.professionType).map((s) => s.name)
+                    : prof.specialties
+                  ).map((s) => {
+                    const active = form.specialties.includes(s);
+                    return (
+                      <Pill key={s} active={active} onClick={() => set("specialties", active ? form.specialties.filter((x) => x !== s) : [...form.specialties, s])}>
+                        {s}
+                      </Pill>
+                    );
+                  })}
+                </div>
+                {form.specialties.length === 0 && <p className="text-sm text-amber-300 font-body mt-2">Pick at least one specialty.</p>}
+              </div>
+
+              <label className="block sm:max-w-xs">
+                <FieldLabel>PRC license number</FieldLabel>
+                <input className="write-in-field mt-1 tnum" inputMode="numeric" placeholder="7 digits" value={form.license} onChange={(e) => set("license", e.target.value)} />
+                <p className="text-sm text-slate-400 font-body mt-2">We check it against the PRC registry before patients can book you.</p>
+              </label>
+            </div>
+          )}
+
+          {!done && step === 2 && (
+            <div>
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+                <h2 className="font-display text-2xl font-bold text-ink">Choose a plan</h2>
+                <label className="flex items-center gap-2 text-sm font-body text-slate-200 cursor-pointer">
+                  <input type="checkbox" checked={form.annual} onChange={(e) => set("annual", e.target.checked)} />
+                  Pay yearly and save 20%
+                </label>
+              </div>
+              <PricingCards annual={form.annual} selected={form.plan} onSelect={(id) => set("plan", id)} plans={livePlans} />
+            </div>
+          )}
+
+          {!done && step === 3 && (
+            <div className="space-y-6">
+              <h2 className="font-display text-2xl font-bold text-ink">Check and start your trial</h2>
+              <div className="grid sm:grid-cols-2 gap-x-6 gap-y-5">
+                {writeIn("Name", form.name || "—")}
+                {writeIn("Email", form.email || "—")}
+                {writeIn("Profession", prof.label)}
+                {writeIn("Specialties", form.specialties.join(", "))}
+                {writeIn("PRC license", form.license || "—")}
+                {writeIn("Plan", `${plan.name} · ${peso(price)}/mo, billed ${form.annual ? "yearly" : "monthly"}`)}
+                {writeIn("Trial", "14 days free, no charge until it ends")}
+              </div>
+              <p className="text-sm text-slate-400 font-body">By starting the trial you agree to the Terms of Service and to 4MED processing health data under the Data Privacy Act of 2012.</p>
+              {error && <Notice tone="error" icon={AlertCircle}>{error}</Notice>}
+            </div>
+          )}
+        </div>
+
+        <div className="px-5 sm:px-6 py-4 border-t border-slate-800">
+          {done ? (
+            <div className="flex flex-wrap gap-3">
+              <button onClick={() => go("app")} className={btn}>Open the Clinic App <ArrowRight size={16} /></button>
+              <button onClick={() => go("patient")} className={btnGhost}>See what patients see</button>
+            </div>
+          ) : (
+            <>
+              <div className="flex justify-between items-center gap-3">
+                <button onClick={() => (step === 0 ? go("landing") : setStep(step - 1))} className={btnGhost}>
+                  <ChevronLeft size={16} /> Back
+                </button>
+                <button disabled={submitting || !stepValid} onClick={() => (step === 3 ? submit() : setStep(step + 1))} className={btn}>
+                  {step === 3 ? (submitting ? "Creating your account…" : "Start free trial") : "Continue"} <ChevronRight size={16} />
+                </button>
+              </div>
+              {hint && <p className="text-right text-sm text-slate-400 font-body mt-2">{hint}</p>}
+            </>
+          )}
+        </div>
+      </section>
     </div>
   );
 }
