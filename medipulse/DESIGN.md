@@ -22,6 +22,7 @@ colors:
   muted: "#6E7D94"
   line: "#DDE2E8"
   line-strong: "#C3CBD6"
+  blank-line: "#8794A8"
   warn-ink: "#6E4700"
   warn-line: "#C98A0B"
   available: "#2F8A57"
@@ -232,7 +233,7 @@ One navy ink on white paper and a warm off-white ground, five flat card stocks, 
 - **Ballpoint Blue** (#1F56A0): links and quiet text buttons, the focus ring, the caret, and the "With doctor" / "Called" / "Part paid" stamp tone (in-progress states that are not yet complete).
 
 ### Secondary
-- **Stamp-Pad Violet** (#5B3FA8): inked state only. Paid, Confirmed, Checked in, Signed, Active stamps, and the printed document's approval stamp. Also the violet-family entry in chart condition palettes.
+- **Stamp-Pad Violet** (#5B3FA8): inked state only. Paid, Confirmed, Checked in, Signed, Active, Registered stamps, and the printed document's approval stamp. Also the violet-family entry in chart condition palettes.
 
 ### Tertiary
 - **Void Red** (#B8322F): Cancelled, No-show, Skipped, Void, Failed, Payment rejected, Past due stamps; destructive text actions ("Cancel visit"); the IOP alert line on the eye chart.
@@ -255,6 +256,7 @@ One navy ink on white paper and a warm off-white ground, five flat card stocks, 
 - **Pencil Grey** (#6E7D94): icons and chevrons only; at 4.18:1 on paper it is not a text colour.
 - **Hairline** (#DDE2E8): row dividers, header rules, tab baselines.
 - **Card Edge** (#C3CBD6): panel and input borders, perforation dashes, scrollbar thumb, empty-state dashed outlines.
+- **Blank Line** (#8794A8): the printed line of a write-in field not yet filled in (3.1:1 on paper, so the field still reads as a control), and the outline of a healthy tooth or normal eye in the charts. Never text.
 
 ### Signal
 - **Warning Ink** (#6E4700) on butter with a **Warning Edge** (#C98A0B) border at 40%: payment-held and warning notices.
@@ -348,6 +350,10 @@ Confident ink on paper, like a stamped form's submit box.
 - **Focus:** border turns ink and a 2px Consult Sky ring appears; no outline offset.
 - **Error / Disabled:** disabled fields fade to 60% on the ground fill. Errors surface as a notice beside the field rather than a red field.
 - **Labels:** the printed field-name label, 6px above the field.
+- **Write-in field** (`.write-in-field`): where the form is the card itself (practitioner registration), a field is just the printed line: transparent, 18px ink text, a 1px Blank Line underline that turns ink once written on. Focus doubles the line to 2px ink over a Consult Sky wash at 45%. Read-back values on the same card use the plain `.write-in` underline.
+
+### Registration Card
+Practitioner signup is one clinic card from the first field to the finish: a header in the chosen profession's card stock (it changes as the profession is picked, with the written-in name and specialties), the numbered steps as a ruled strip under it, write-in fields in the body, and Back / Continue in a hairline-ruled footer. The header carries a "Not registered" pending mark until signup completes; then a large Registered stamp presses onto the same card.
 
 ### Navigation
 - **Site nav:** a 64px sticky bar on the ground with a hairline base; links are 14px Soft Ink, and the current page sits on a 2px ink underline in semibold.
@@ -372,6 +378,8 @@ A fixed-column table ranked by time: large queue numbers left (unassigned shown 
 
 ### Profession Charts
 Dental and eye-exam charts use a fixed light condition palette: each condition is a pale fill, a saturated border in the same hue, and deep text in that hue (for example caries: blush fill, void border, deep-void text). The selected tooth or eye is outlined in ink. Charts keep a fixed scale across visits so history compares honestly.
+
+On the landing's profession rack, the open card carries a **sample slip**: a white paper slip with the chart's name and a "Sample" mark, drawing that profession's real chart from the same shapes, palette and scoring (`src/ChartPreviews.jsx`): the FDI odontogram for dentists, the IOP trend on a fixed 10–30 mmHg axis with the 21 mmHg alert line for ophthalmologists, PHQ-9 (0–27) for psychiatrists and GAD-7 (0–21) for psychologists, and a SOAP / e-Rx snippet with the allergy flag for doctors. Every value on a slip is a made-up sample patient.
 
 ### Printed Documents
 Prescriptions, certificates, consent forms and receipts share one stylesheet: Archivo in ink on a 680px page, letterhead with the logo mark, a double ink rule, uppercase field labels, hairline table rows with tabular figures, an "Rx" marker per item, a signature line, and a violet approval stamp at -6 degrees.

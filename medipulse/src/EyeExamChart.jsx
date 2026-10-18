@@ -32,7 +32,7 @@ const CONDITION_META = {
 // +2.00 / -0.75 style — plus lenses conventionally carry an explicit sign
 const fmtDiopter = (v) => (v == null || v === "" ? "—" : (Number(v) > 0 ? "+" : "") + Number(v).toFixed(2));
 
-const IOP_ALERT = 21; // mmHg — conventional upper limit of normal
+export const IOP_ALERT = 21; // mmHg — conventional upper limit of normal
 
 const inputCls = selectCls + " placeholder-slate-500 w-full";
 

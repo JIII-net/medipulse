@@ -13,7 +13,7 @@ const UPPER_LEFT = [21, 22, 23, 24, 25, 26, 27, 28];
 const LOWER_LEFT = [38, 37, 36, 35, 34, 33, 32, 31];
 const LOWER_RIGHT = [41, 42, 43, 44, 45, 46, 47, 48];
 
-const STATUS_META = {
+export const STATUS_META = {
   healthy: { label: "Healthy", color: "#FFFFFF", border: "#8794A8", text: "#46597A" },
   caries: { label: "Caries", color: "#F6D3D0", border: "#B8322F", text: "#8E2420" },
   filled: { label: "Filled", color: "#CFE3F5", border: "#1F56A0", text: "#0B2C5E" },
@@ -29,7 +29,7 @@ const STATUS_META = {
 };
 
 // Tooth type by FDI position digit: 1-2 incisor, 3 canine, 4-5 premolar, 6-8 molar
-function toothType(n) {
+export function toothType(n) {
   const pos = n % 10;
   if (pos <= 2) return "incisor";
   if (pos === 3) return "canine";
@@ -42,7 +42,7 @@ const isUpper = (n) => n <= 28;
 // the gumline at the top of a 24×34 box); lower teeth reuse the same
 // path flipped vertically, so the biting edges meet in the middle like
 // a real mouth diagram.
-const TOOTH_PATHS = {
+export const TOOTH_PATHS = {
   incisor: "M7 2 H17 Q18 2 18 4 L16.5 24 Q16 27 12 27 Q8 27 7.5 24 L6 4 Q6 2 7 2 Z",
   canine: "M8 2 H16 Q17 2 17 4 L15.5 20 Q15 24 12 29 Q9 24 8.5 20 L7 4 Q7 2 8 2 Z",
   premolar: "M6 2 H18 Q19 2 19 4 L18 20 Q17.5 23 15 24 Q13.5 22.5 12 22.5 Q10.5 22.5 9 24 Q6.5 23 6 20 L5 4 Q5 2 6 2 Z",
