@@ -2,15 +2,12 @@ import React, { useState, useEffect } from "react";
 import { CreditCard, MapPin, Users, Plus, Trash2, Copy, Check, AlertCircle, FileText, Pencil, X } from "lucide-react";
 import { useAuth } from "./lib/AuthContext";
 import { supabase } from "./lib/supabaseClient";
+import { inputSm as inputCls, btnSm as btnPrimary, btnGhostSm as btnGhost, panel as card, StatusMark } from "./ui";
 
 /* ------------------------------------------------------------------ */
 /*  Practice settings — for doctors: subscription, locations, team     */
 /* ------------------------------------------------------------------ */
 
-const inputCls = "w-full rounded-2xl bg-slate-900 border border-slate-700 px-4 py-2.5 text-slate-100 font-body placeholder-slate-500 focus:outline-none focus:border-teal-400 text-sm";
-const btnPrimary = "px-4 py-2 rounded-xl bg-teal-400 text-slate-950 text-sm font-body font-semibold hover:bg-teal-300 transition-colors disabled:opacity-60";
-const btnGhost = "px-4 py-2 rounded-xl border border-slate-700 text-slate-300 text-sm font-body hover:border-slate-500 transition-colors";
-const card = "rounded-3xl border border-slate-800 bg-slate-900 p-5";
 const peso = (n) => "₱" + Number(n).toLocaleString();
 
 export default function PracticeSettings() {
@@ -96,8 +93,7 @@ export default function PracticeSettings() {
   return (
     <div className="max-w-4xl mx-auto px-6 py-10 fade-up">
       <div className="mb-6">
-        <div className="font-mono2 text-xs text-teal-300 mb-1">PRACTICE SETTINGS</div>
-        <h2 className="font-display text-3xl font-bold text-slate-50">My practice</h2>
+        <h1 className="font-display text-3xl sm:text-4xl font-bold text-ink">My practice</h1>
       </div>
 
       {error && (
@@ -123,9 +119,7 @@ export default function PracticeSettings() {
                   {sub.status === "trialing" && trialDays != null && ` · ${trialDays} day${trialDays === 1 ? "" : "s"} left in trial`}
                 </div>
               </div>
-              <span className={"px-3 py-1 rounded-full border text-sm font-body " + (statusColor[sub.status] || statusColor.canceled)}>
-                {sub.status}
-              </span>
+              <StatusMark status={sub.status} size="lg" />
             </div>
           )}
           <p className="text-xs text-slate-500 font-body mt-3">To change plans or billing, contact support — self-serve plan changes arrive with the billing integration.</p>
@@ -317,7 +311,7 @@ function BookingRulesCard({ doctorId }) {
         <button onClick={save} disabled={busy} className={btnPrimary + " flex items-center gap-1.5"}>
           <Check size={14} /> {busy ? "Saving…" : "Save"}
         </button>
-        {saved && <span className="text-xs text-teal-300 font-body">Saved ✓</span>}
+        {saved && <span className="text-xs text-teal-300 font-body">Saved</span>}
       </div>
     </div>
   );
@@ -408,8 +402,8 @@ function ConsentDocsCard({ doctorId }) {
       </button>
 
       {editing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80" onClick={() => setEditing(null)}>
-          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl border border-slate-700 bg-slate-900 p-6 fade-up" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40" onClick={() => setEditing(null)}>
+          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl bg-white p-6 card-deal shadow-[0_24px_60px_-20px_rgba(19,48,94,0.5)]" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-display text-lg font-bold text-slate-50">{editing.id ? "Edit form" : "New form"}</h3>
               <button onClick={() => setEditing(null)} className="text-slate-500 hover:text-slate-300"><X size={18} /></button>
@@ -531,8 +525,8 @@ function TemplatesCard({ doctorId }) {
       )}
 
       {editing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80" onClick={() => setEditing(null)}>
-          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-3xl border border-slate-700 bg-slate-900 p-6 fade-up" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40" onClick={() => setEditing(null)}>
+          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl bg-white p-6 card-deal shadow-[0_24px_60px_-20px_rgba(19,48,94,0.5)]" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-display text-lg font-bold text-slate-50">{editing.id ? "Edit template" : "New template"}</h3>
               <button onClick={() => setEditing(null)} className="text-slate-500 hover:text-slate-300"><X size={18} /></button>

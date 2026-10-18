@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   LayoutDashboard, Users, Calendar, Stethoscope, Shield, Search, LogOut, Settings, Receipt,
-  Activity, Clock, ClipboardList, ChevronRight, X, Menu as MenuIcon,
+  ChevronRight, X, Menu as MenuIcon, UserPlus, QrCode,
 } from "lucide-react";
 import { useAuth } from "./lib/AuthContext";
 import { supabase } from "./lib/supabaseClient";
@@ -12,6 +12,7 @@ import DoctorPortal from "./DoctorPortal";
 import PracticeSettings from "./PracticeSettings";
 import BillingModule from "./BillingModule";
 import { LogoMark } from "./Logo";
+import { StatusMark, FieldLabel, btnSm, btnGhostSm, btnQuiet, tintForProfession } from "./ui";
 
 /* ------------------------------------------------------------------ */
 /*  StaffApp — the unified clinic application shell                    */
@@ -70,8 +71,9 @@ function GlobalSearch({ onOpenPatient }) {
         value={q}
         onChange={(e) => { setQ(e.target.value); search(e.target.value); }}
         onFocus={() => q && setOpen(true)}
-        placeholder="Search patients…  (Ctrl+K)"
-        className="w-full rounded-xl bg-slate-900 border border-slate-800 pl-10 pr-9 py-2 text-sm text-slate-100 font-body placeholder-slate-500 focus:outline-none focus:border-teal-400"
+        placeholder="Search patients (Ctrl+K)"
+        aria-label="Search patients"
+        className="w-full rounded-md bg-white border border-slate-700 pl-10 pr-9 py-2 text-sm text-ink font-body placeholder-slate-500 focus:outline-none focus:border-ink focus:ring-2 focus:ring-sky"
       />
       {q && (
         <button onClick={() => { setQ(""); setResults([]); setOpen(false); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300">
@@ -79,7 +81,7 @@ function GlobalSearch({ onOpenPatient }) {
         </button>
       )}
       {open && results.length > 0 && (
-        <div className="absolute top-full mt-2 w-full rounded-2xl border border-slate-700 bg-slate-900 shadow-xl shadow-slate-950/60 overflow-hidden z-50">
+        <div className="absolute top-full mt-2 w-full rounded-lg border border-slate-700 bg-white shadow-[0_14px_30px_-12px_rgba(19,48,94,0.35)] overflow-hidden z-50">
           {results.map((p) => (
             <button
               key={p.id}
@@ -96,70 +98,180 @@ function GlobalSearch({ onOpenPatient }) {
   );
 }
 
-function DashboardHome({ go }) {
+function DashboardHome({ go, clinic }) {
   const { profile } = useAuth();
   const [stats, setStats] = useState({ patients: null, appts: null, waiting: null, open: null });
+  const [today, setToday] = useState(null); // null = loading
+  const [serving, setServing] = useState(null);
+  const [tickets, setTickets] = useState({}); // appointment_id -> queue number
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     (async () => {
-      const from = todayStr() + "T00:00:00";
-      const [p, a, w, o] = await Promise.all([
-        supabase.from("patients").select("id", { count: "exact", head: true }).is("deleted_at", null),
-        supabase.from("appointments").select("id", { count: "exact", head: true }).gte("starts_at", from).lt("starts_at", todayStr() + "T23:59:59").neq("status", "canceled"),
-        supabase.from("queue_tickets").select("id", { count: "exact", head: true }).gte("created_at", from).in("status", ["waiting", "called"]),
-        supabase.from("encounters").select("id", { count: "exact", head: true }).is("ended_at", null),
-      ]);
-      setStats({ patients: p.count ?? 0, appts: a.count ?? 0, waiting: w.count ?? 0, open: o.count ?? 0 });
+      try {
+        const from = todayStr() + "T00:00:00";
+        const to = todayStr() + "T23:59:59";
+        const [p, a, w, o, list, now, tk] = await Promise.all([
+          supabase.from("patients").select("id", { count: "exact", head: true }).is("deleted_at", null),
+          supabase.from("appointments").select("id", { count: "exact", head: true }).gte("starts_at", from).lt("starts_at", to).neq("status", "canceled"),
+          supabase.from("queue_tickets").select("id", { count: "exact", head: true }).gte("created_at", from).in("status", ["waiting", "called"]),
+          supabase.from("encounters").select("id", { count: "exact", head: true }).is("ended_at", null),
+          supabase.from("appointments")
+            .select("id, starts_at, status, type, mode, payment_status, patient_rec:patient_record_id(first_name, last_name), portal:patient_id(full_name), doctor:doctor_id(profiles(full_name))")
+            .gte("starts_at", from).lt("starts_at", to).order("starts_at"),
+          supabase.from("queue_tickets")
+            .select("id, number, station, status, patient:patient_record_id(first_name, last_name)")
+            .gte("created_at", from).in("status", ["called", "serving"]).order("called_at", { ascending: false }).limit(1),
+          supabase.from("queue_tickets").select("appointment_id, number").gte("created_at", from).not("appointment_id", "is", null),
+        ]);
+        // A count whose query failed shows a dash, never a made-up zero.
+        const n = (r) => (r.error ? null : r.count ?? 0);
+        setStats({ patients: n(p), appts: n(a), waiting: n(w), open: n(o) });
+        if (list.error) setError(true);
+        setToday(list.error ? [] : list.data || []);
+        setServing(now.data?.[0] || null);
+        setTickets(Object.fromEntries((tk.data || []).map((t) => [t.appointment_id, t.number])));
+      } catch {
+        setError(true);
+        setToday([]);
+      }
     })();
   }, []);
 
-  const cards = [
-    { label: "Registered patients", value: stats.patients, icon: Users, mod: "patients" },
-    { label: "Appointments today", value: stats.appts, icon: Clock, mod: "appointments" },
-    { label: "Waiting in queue", value: stats.waiting, icon: Activity, mod: "appointments" },
-    { label: "Open consultations", value: stats.open, icon: ClipboardList, mod: "doctor" },
+  const counts = [
+    { label: "Booked today", value: stats.appts, mod: "appointments" },
+    { label: "Waiting in the queue", value: stats.waiting, mod: "appointments" },
+    { label: "Open consultations", value: stats.open, mod: "doctor" },
+    { label: "Registered patients", value: stats.patients, mod: "patients" },
   ];
 
   const shortcuts = [
-    { label: "Register a new patient", desc: "Search-first registration with duplicate detection", mod: "patients", icon: Users },
-    { label: "Book an appointment", desc: "Calendar with day and week views", mod: "appointments", icon: Calendar },
-    { label: "Start a consultation", desc: "SOAP notes, e-Rx, med certs", mod: "doctor", icon: Stethoscope },
+    { label: "Register a patient", desc: "Search first, so nobody gets two records", mod: "patients", icon: UserPlus },
+    { label: "Book an appointment", desc: "Day and week calendar, walk-ins too", mod: "appointments", icon: Calendar },
+    { label: "Start a consultation", desc: "SOAP notes, e-Rx, med certificates", mod: "doctor", icon: Stethoscope },
+    { label: "Take a payment", desc: "Invoices and official receipts", mod: "billing", icon: Receipt },
   ];
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+  const name = (r) => (r.patient_rec ? `${r.patient_rec.first_name} ${r.patient_rec.last_name}` : r.portal?.full_name || "Unnamed patient");
+  const time = (iso) => new Date(iso).toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" });
 
   return (
     <div className="fade-up">
-      <div className="mb-8">
-        <div className="font-mono2 text-xs text-teal-300 mb-1">
-          {new Date().toLocaleDateString("en-PH", { weekday: "long", month: "long", day: "numeric" }).toUpperCase()}
+      <header className="flex flex-wrap items-end justify-between gap-4 pb-5 mb-6 border-b border-slate-800">
+        <div>
+          <p className="font-body text-slate-300">
+            {new Date().toLocaleDateString("en-PH", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
+            {clinic?.hours && <> · Clinic hours {clinic.hours}</>}
+            {clinic?.name && <> · {clinic.name}</>}
+          </p>
+          <h1 className="font-display text-3xl sm:text-4xl font-bold text-ink mt-1">{greeting}, {profile?.full_name?.split(" ").slice(0, 2).join(" ")}.</h1>
         </div>
-        <h2 className="font-display text-3xl font-bold text-slate-50">{greeting}, {profile?.full_name}.</h2>
-      </div>
+        <div className="flex flex-wrap gap-2">
+          <button onClick={() => go("appointments")} className={btnGhostSm}><QrCode size={15} /> Queue and check-in</button>
+          <button onClick={() => go("patients")} className={btnSm}><UserPlus size={15} /> Register patient</button>
+        </div>
+      </header>
 
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {cards.map(({ label, value, icon: Icon, mod }) => (
-          <button key={label} onClick={() => go(mod)} className="rounded-3xl border border-slate-800 bg-slate-900 p-5 text-left hover:border-teal-500/50 transition-colors">
-            <Icon size={18} className="text-teal-300 mb-3" />
-            <div className="font-display text-3xl font-bold text-slate-50">{value === null ? "—" : value}</div>
-            <div className="text-xs text-slate-500 font-body mt-1">{label}</div>
+      {/* the day in four counts, one ruled strip */}
+      <dl className="flex flex-wrap gap-x-8 gap-y-2 pb-5 mb-6 border-b border-slate-800 font-body">
+        {counts.map(({ label, value, mod }) => (
+          <button key={label} onClick={() => go(mod)} className="group flex items-baseline gap-2 text-left">
+            <dd className="queue-no text-3xl text-ink">{value === null ? "–" : value}</dd>
+            <dt className="text-sm text-slate-300 group-hover:text-ink group-hover:underline underline-offset-4">{label}</dt>
           </button>
         ))}
-      </div>
+      </dl>
 
-      <div className="font-display font-semibold text-slate-100 mb-3">Quick actions</div>
-      <div className="grid md:grid-cols-3 gap-4">
-        {shortcuts.map(({ label, desc, mod, icon: Icon }) => (
-          <button key={label} onClick={() => go(mod)} className="rounded-3xl border border-slate-800 bg-slate-900 p-5 text-left hover:border-teal-500/50 transition-colors group">
-            <div className="flex items-start justify-between">
-              <Icon size={18} className="text-teal-300 mb-3" />
-              <ChevronRight size={16} className="text-slate-600 group-hover:text-teal-300 transition-colors" />
+      <div className="grid lg:grid-cols-[1fr_320px] gap-6 items-start">
+        {/* today's board: ranked by time, states stamped in place */}
+        <section className="rounded-xl border border-slate-700 bg-white overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-3 border-b border-slate-800">
+            <h2 className="font-display text-lg font-bold text-ink">Today's appointments</h2>
+            <button onClick={() => go("appointments")} className={btnQuiet}>Open calendar <ChevronRight size={15} /></button>
+          </div>
+          {error ? (
+            <div className="px-5 py-12 text-center font-body">
+              <div className="font-display text-xl font-bold text-ink">Couldn't reach 4MED</div>
+              <p className="text-slate-300 mt-1.5">Today's appointments didn't load. Check the internet connection, then reload the page.</p>
             </div>
-            <div className="font-body text-sm text-slate-100 font-semibold">{label}</div>
-            <div className="text-xs text-slate-500 font-body mt-0.5">{desc}</div>
-          </button>
-        ))}
+          ) : today === null ? (
+            <div className="px-5 py-12 text-center text-slate-400 font-body">Loading today's list…</div>
+          ) : today.length === 0 ? (
+            <div className="px-5 py-12 text-center font-body">
+              <div className="font-display text-xl font-bold text-ink">No appointments today</div>
+              <p className="text-slate-300 mt-1.5">Bookings from the patient portal and the front desk show up here.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[620px] text-left font-body">
+                <thead>
+                  <tr className="border-b border-slate-800">
+                    {["No.", "Patient", "Payment", "Status"].map((h, i) => (
+                      <th key={h} className={"field-label font-semibold px-5 py-2.5 " + (i > 1 ? "text-right" : "")}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {today.map((r) => (
+                    <tr key={r.id} className={"border-b border-slate-800 last:border-0 " + (r.status === "in_progress" ? "bg-sky/40" : r.status === "canceled" ? "opacity-60" : "")}>
+                      <td className="px-5 py-3 w-20"><span className={"queue-no text-[40px] " + (tickets[r.id] ? "text-ink" : "text-slate-700")}>{tickets[r.id] || "–"}</span></td>
+                      <td className="px-5 py-3">
+                        <div className="text-ink font-semibold">{name(r)}</div>
+                        <div className="text-sm text-slate-400"><span className="tnum">{time(r.starts_at)}</span> · {r.type?.replace("_", " ")}{r.mode === "video" ? " · video" : ""}{r.doctor?.profiles?.full_name ? ` · ${r.doctor.profiles.full_name}` : ""}</div>
+                      </td>
+                      <td className="px-5 py-3 text-right"><StatusMark status={r.payment_status} /></td>
+                      <td className="px-5 py-3 text-right"><StatusMark status={r.status} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+
+        <aside className="space-y-6">
+          {/* now serving: the stub torn off the current ticket */}
+          <section className="rounded-xl border border-ink/20 bg-mint overflow-hidden">
+            <div className="px-5 pt-4 pb-5">
+              <div className="flex items-center justify-between">
+                <FieldLabel>Now serving</FieldLabel>
+                {serving && <span className="text-xs font-body text-slate-200">{serving.station}</span>}
+              </div>
+              {serving ? (
+                <>
+                  <div className="queue-no text-[96px] text-ink mt-2">{serving.number}</div>
+                  <div className="write-in font-body text-ink mt-2">{serving.patient ? `${serving.patient.first_name} ${serving.patient.last_name}` : "Walk-in"}</div>
+                </>
+              ) : (
+                <p className="font-body text-slate-200 mt-3">Nobody has been called yet. Call the next number from the queue.</p>
+              )}
+            </div>
+            <div className="perf" style={{ borderColor: "rgba(19,48,94,0.3)" }} aria-hidden="true" />
+            <button onClick={() => go("appointments")} className="w-full flex items-center justify-between px-5 py-3 font-body text-sm font-semibold text-ink hover:bg-white/50 transition-colors">
+              Open the queue <ChevronRight size={16} />
+            </button>
+          </section>
+
+          <section>
+            <h2 className="font-display text-lg font-bold text-ink mb-2">Shortcuts</h2>
+            <ul className="rounded-xl border border-slate-700 bg-white">
+              {shortcuts.map(({ label, desc, mod, icon: Icon }) => (
+                <li key={label} className="border-b border-slate-800 last:border-0">
+                  <button onClick={() => go(mod)} className="group w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-ground transition-colors">
+                    <Icon size={18} className="text-ink shrink-0" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-semibold text-ink">{label}</span>
+                      <span className="block text-xs text-slate-400">{desc}</span>
+                    </span>
+                    <ChevronRight size={16} className="text-slate-600 group-hover:text-ink transition-colors" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        </aside>
       </div>
     </div>
   );
@@ -170,6 +282,42 @@ function StaffAppInner({ AdminPortal, onExitToSite }) {
   const [mod, setMod] = useState("home");
   const [openPatientId, setOpenPatientId] = useState(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [professionType, setProfessionType] = useState(null);
+
+  // The rail is the practitioner's card stock: a dentist's clinic app is
+  // mint, an ophthalmologist's butter. Secretaries and admins take the
+  // default sky until we know whose practice they're in.
+  useEffect(() => {
+    if (profile?.role !== "doctor") return;
+    supabase.from("doctors").select("profession_type").eq("id", profile.id).maybeSingle()
+      .then(({ data }) => setProfessionType(data?.profession_type || null));
+  }, [profile?.id, profile?.role]);
+  const railTint = tintForProfession(professionType);
+
+  const [clinic, setClinic] = useState(null); // { name, hours }
+  // The clinic this app belongs to: a doctor's own, a secretary's
+  // assigned doctor's. Name from the first clinic location, hours from
+  // today's schedule rule.
+  useEffect(() => {
+    (async () => {
+      try {
+        let doctorId = profile?.role === "doctor" ? profile.id : null;
+        if (profile?.role === "secretary") {
+          const { data } = await supabase.from("staff_assignments").select("doctor_id").eq("secretary_id", profile.id).limit(1);
+          doctorId = data?.[0]?.doctor_id || null;
+        }
+        if (!doctorId) return;
+        const [loc, sch] = await Promise.all([
+          supabase.from("clinic_locations").select("name").eq("doctor_id", doctorId).limit(1),
+          supabase.from("schedules").select("start_time, end_time").eq("resource_type", "doctor").eq("resource_id", doctorId).eq("weekday", new Date().getDay()).limit(1),
+        ]);
+        const h12 = (t) => { const [hh, mm] = t.slice(0, 5).split(":").map(Number); return `${((hh + 11) % 12) + 1}${mm ? ":" + String(mm).padStart(2, "0") : ""} ${hh >= 12 ? "PM" : "AM"}`; };
+        const rule = sch.data?.[0];
+        setClinic({ name: loc.data?.[0]?.name || null, hours: rule ? `${h12(rule.start_time)} – ${h12(rule.end_time)}` : null });
+      } catch { /* the header simply leaves the clinic out */ }
+    })();
+  }, [profile?.id, profile?.role]);
+
 
   const openPatient = (id) => {
     setOpenPatientId(id);
@@ -178,11 +326,11 @@ function StaffAppInner({ AdminPortal, onExitToSite }) {
   };
 
   const items = [
-    { id: "home", label: "Dashboard", icon: LayoutDashboard },
+    { id: "home", label: "Today", icon: LayoutDashboard },
     { id: "patients", label: "Patients", icon: Users },
     { id: "appointments", label: "Appointments", icon: Calendar },
     { id: "billing", label: "Billing", icon: Receipt },
-    ...(profile?.role !== "secretary" ? [{ id: "doctor", label: "Doctor Portal", icon: Stethoscope }] : []),
+    ...(profile?.role !== "secretary" ? [{ id: "doctor", label: "Consultations", icon: Stethoscope }] : []),
     ...(profile?.role === "doctor" ? [{ id: "practice", label: "Practice", icon: Settings }] : []),
     ...(profile?.role === "admin" ? [{ id: "admin", label: "Admin", icon: Shield }] : []),
   ];
@@ -191,34 +339,40 @@ function StaffAppInner({ AdminPortal, onExitToSite }) {
     setMod(id);
     if (id !== "patients") setOpenPatientId(null);
     setDrawerOpen(false);
+    window.scrollTo({ top: 0 });
   };
 
   const SidebarContent = () => (
     <>
-      <button onClick={onExitToSite} className="flex items-center gap-2.5 px-5 h-16 border-b border-slate-800 shrink-0">
-        <LogoMark size={32} />
-        <span className="font-display font-bold text-lg tracking-tight text-slate-50">4MED</span>
+      <button onClick={onExitToSite} className="flex items-center gap-2.5 px-5 h-16 shrink-0" aria-label="4MED home">
+        <LogoMark size={30} />
+        <span className="font-display font-extrabold text-xl text-ink">4MED</span>
       </button>
-      <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-        {items.map(({ id, label, icon: Icon }) => (
-          <button
-            key={id}
-            onClick={() => goMod(id)}
-            className={
-              "w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-body transition-colors " +
-              (mod === id ? "bg-teal-400/10 text-teal-300 border border-teal-400/30" : "text-slate-400 hover:text-slate-100 hover:bg-slate-900 border border-transparent")
-            }
-          >
-            <Icon size={16} /> {label}
-          </button>
-        ))}
+      {clinic?.name && <div className="px-5 -mt-2 mb-3 field-label truncate" title={clinic.name}>{clinic.name}</div>}
+      <nav className="flex-1 px-3 py-2 space-y-0.5 overflow-y-auto" aria-label="Clinic App">
+        {items.map(({ id, label, icon: Icon }) => {
+          const on = mod === id;
+          return (
+            <button
+              key={id}
+              onClick={() => goMod(id)}
+              aria-current={on ? "page" : undefined}
+              className={
+                "w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-[15px] font-body transition-colors " +
+                (on ? "bg-white text-ink font-semibold" : "text-slate-200 hover:bg-white/50 hover:text-ink")
+              }
+            >
+              <Icon size={17} /> {label}
+            </button>
+          );
+        })}
       </nav>
-      <div className="p-3 border-t border-slate-800 shrink-0">
-        <div className="px-3.5 py-2 mb-1">
-          <div className="text-sm text-slate-100 font-body truncate">{profile?.full_name}</div>
-          <div className="font-mono2 text-xs text-slate-500 capitalize">{profile?.role}</div>
+      <div className="mx-3 mb-3 pt-3 border-t border-dashed border-ink/40 shrink-0">
+        <div className="px-3 py-2">
+          <div className="text-sm text-ink font-semibold truncate">{profile?.full_name}</div>
+          <div className="text-xs text-slate-200 capitalize">{profile?.role}</div>
         </div>
-        <button onClick={signOut} className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-body text-slate-400 hover:text-slate-100 hover:bg-slate-900 transition-colors">
+        <button onClick={signOut} className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-body text-slate-200 hover:bg-white/50 hover:text-ink transition-colors">
           <LogOut size={16} /> Log out
         </button>
       </div>
@@ -226,17 +380,17 @@ function StaffAppInner({ AdminPortal, onExitToSite }) {
   );
 
   return (
-    <div className="flex min-h-screen bg-slate-950">
-      {/* desktop sidebar — always visible from md up */}
-      <aside className="hidden md:flex w-56 shrink-0 border-r border-slate-800 bg-slate-950 flex-col sticky top-0 h-screen">
+    <div className="flex min-h-screen bg-ground">
+      {/* desktop rail — always visible from md up */}
+      <aside className={"hidden md:flex w-60 shrink-0 border-r border-ink/15 flex-col sticky top-0 h-screen " + railTint}>
         <SidebarContent />
       </aside>
 
       {/* mobile drawer — off-canvas, toggled by header hamburger */}
       {drawerOpen && (
         <div className="md:hidden fixed inset-0 z-50 flex">
-          <div className="absolute inset-0 bg-slate-950/80" onClick={() => setDrawerOpen(false)} />
-          <aside className="relative w-64 h-full bg-slate-950 border-r border-slate-800 flex flex-col fade-up">
+          <div className="absolute inset-0 bg-ink/40" onClick={() => setDrawerOpen(false)} />
+          <aside className={"relative w-72 h-full border-r border-ink/15 flex flex-col card-deal " + railTint}>
             <SidebarContent />
           </aside>
         </div>
@@ -244,18 +398,18 @@ function StaffAppInner({ AdminPortal, onExitToSite }) {
 
       {/* main */}
       <div className="flex-1 min-w-0 flex flex-col">
-        <header className="h-16 border-b border-slate-800 bg-slate-950/90 backdrop-blur sticky top-0 z-40 flex items-center gap-3 px-4 sm:px-6">
+        <header className="h-16 border-b border-slate-800 bg-ground/95 sticky top-0 z-40 flex items-center gap-3 px-4 sm:px-6">
           <button
             onClick={() => setDrawerOpen(true)}
-            className="md:hidden w-10 h-10 shrink-0 rounded-xl border border-slate-800 bg-slate-900 flex items-center justify-center text-slate-300"
+            className="md:hidden w-11 h-11 -ml-2 shrink-0 rounded-md flex items-center justify-center text-ink"
             aria-label="Open menu"
           >
-            <MenuIcon size={18} />
+            <MenuIcon size={22} />
           </button>
           <GlobalSearch onOpenPatient={openPatient} />
         </header>
         <main className="flex-1">
-          {mod === "home" && <div className="max-w-6xl mx-auto px-6 py-10"><DashboardHome go={setMod} /></div>}
+          {mod === "home" && <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8"><DashboardHome go={goMod} clinic={clinic} /></div>}
           {mod === "patients" && <PatientRecords openPatientId={openPatientId} />}
           {mod === "appointments" && <AppointmentsModule />}
           {mod === "doctor" && <DoctorPortal />}

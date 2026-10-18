@@ -2,16 +2,13 @@ import React, { useState, useEffect } from "react";
 import { Plus, Trash2, Copy, Check, X, AlertCircle, Pencil, Star } from "lucide-react";
 import { supabase } from "./lib/supabaseClient";
 import { PROFESSIONS } from "./lib/professions";
+import { inputSm as inputCls, btnSm as btnPrimary, btnGhostSm as btnGhost, panel as card } from "./ui";
 
 /* ------------------------------------------------------------------ */
 /*  Admin setup — Plans, Invites, Specialties                          */
 /*  Rendered as extra tabs inside AdminDashboard (App.jsx)             */
 /* ------------------------------------------------------------------ */
 
-const inputCls = "w-full rounded-2xl bg-slate-900 border border-slate-700 px-4 py-2.5 text-slate-100 font-body placeholder-slate-500 focus:outline-none focus:border-teal-400 text-sm";
-const btnPrimary = "px-4 py-2 rounded-xl bg-teal-400 text-slate-950 text-sm font-body font-semibold hover:bg-teal-300 transition-colors disabled:opacity-60";
-const btnGhost = "px-4 py-2 rounded-xl border border-slate-700 text-slate-300 text-sm font-body hover:border-slate-500 transition-colors";
-const card = "rounded-3xl border border-slate-800 bg-slate-900 p-5";
 const peso = (n) => "₱" + Number(n || 0).toLocaleString();
 
 function ErrorBanner({ msg }) {
@@ -105,8 +102,8 @@ export function PlansTab() {
       </div>
 
       {editing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80" onClick={() => setEditing(null)}>
-          <div className="w-full max-w-md rounded-3xl border border-slate-700 bg-slate-900 p-6 fade-up max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40" onClick={() => setEditing(null)}>
+          <div className="w-full max-w-md rounded-xl bg-white p-6 card-deal shadow-[0_24px_60px_-20px_rgba(19,48,94,0.5)] max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-display text-lg font-bold text-slate-50">{editing.isNew ? "New plan" : "Edit plan"}</h3>
               <button onClick={() => setEditing(null)} className="text-slate-500 hover:text-slate-300"><X size={18} /></button>

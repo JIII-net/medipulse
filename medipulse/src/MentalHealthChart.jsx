@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Check, Brain, ClipboardList, AlertTriangle, Activity, NotebookPen } from "lucide-react";
 import { supabase } from "./lib/supabaseClient";
+import { selectSm as selectCls } from "./ui";
 
 /* ------------------------------------------------------------------ */
 /*  Mental Health — PHQ-9 / GAD-7 screeners with trend, mental status  */
@@ -8,10 +9,9 @@ import { supabase } from "./lib/supabaseClient";
 /*  consult workspace for psychiatrists and psychologists.             */
 /* ------------------------------------------------------------------ */
 
-const selectCls = "rounded-xl bg-slate-900 border border-slate-700 px-3 py-2 text-sm text-slate-100 font-body focus:outline-none focus:border-teal-400 disabled:opacity-50";
 const inputCls = selectCls + " placeholder-slate-500 w-full";
 const areaCls = inputCls + " min-h-20 resize-y";
-const cardCls = "rounded-3xl border border-slate-800 bg-slate-900 p-5 mb-5";
+const cardCls = "rounded-xl border border-slate-700 bg-white p-5 mb-5";
 
 /* ----------------------------- screeners --------------------------- */
 
@@ -136,9 +136,9 @@ function ScoreTrend({ rows, instrument, encounterId }) {
       <div className="text-xs font-mono2 text-slate-500 mb-1">TREND</div>
       {pts.length > 1 && (
         <svg width={W} height={H} className="overflow-visible">
-          <polyline points={pts.map((r, i) => `${x(i)},${y(r.total)}`).join(" ")} fill="none" stroke="#2dd4bf" strokeWidth="1.5" />
+          <polyline points={pts.map((r, i) => `${x(i)},${y(r.total)}`).join(" ")} fill="none" stroke="#13305E" strokeWidth="1.5" />
           {pts.map((r, i) => (
-            <circle key={r.id} cx={x(i)} cy={y(r.total)} r={r.encounter_id === encounterId ? 3.5 : 2.5} fill="#2dd4bf" />
+            <circle key={r.id} cx={x(i)} cy={y(r.total)} r={r.encounter_id === encounterId ? 3.5 : 2.5} fill="#13305E" />
           ))}
         </svg>
       )}
@@ -325,7 +325,7 @@ export default function MentalHealthChart({ patient, encounterId, me, signed, is
           <div className="font-display font-semibold text-slate-100 flex items-center gap-2">
             <AlertTriangle size={15} className={riskElevated ? "text-rose-300" : "text-teal-300"} /> Risk assessment
           </div>
-          <span className={"px-3 py-1 rounded-full border text-xs font-body " + risk.chip}>{risk.label} risk</span>
+          <span className={"px-2.5 py-1 rounded-md border text-xs font-body font-semibold " + risk.chip}>{risk.label} risk</span>
         </div>
 
         <div className="grid sm:grid-cols-2 gap-3 mb-3">
@@ -401,7 +401,7 @@ export default function MentalHealthChart({ patient, encounterId, me, signed, is
           <button onClick={saveAssessment} disabled={busy} className="px-4 py-2 rounded-xl bg-teal-400 text-slate-950 text-sm font-body font-semibold hover:bg-teal-300 transition-colors disabled:opacity-60 flex items-center gap-1.5">
             <Check size={14} /> {busy ? "Saving…" : "Save mental health assessment"}
           </button>
-          {saved && <span className="text-xs text-teal-300 font-body">Saved ✓</span>}
+          {saved && <span className="text-xs text-teal-300 font-body">Saved</span>}
           <span className="text-xs text-slate-500 font-body flex items-center gap-1.5">
             <Activity size={12} /> Screener scores save separately, as each one is administered.
           </span>

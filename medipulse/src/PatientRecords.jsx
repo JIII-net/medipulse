@@ -8,17 +8,13 @@ import { PatientConsentTab } from "./ConsentForms";
 import { useAuth } from "./lib/AuthContext";
 import { StaffGate } from "./lib/StaffGate";
 import { supabase } from "./lib/supabaseClient";
+import { inputSm as inputCls, btnSm as btnPrimary, btnGhostSm as btnGhost, panel as card, labelCls, Tabs, Avatar } from "./ui";
 
 /* ------------------------------------------------------------------ */
 /*  Patient Master Records — staff module (doctor / admin)             */
 /*  Search → Register (with duplicate detection) → Master record       */
 /* ------------------------------------------------------------------ */
 
-const inputCls = "w-full rounded-2xl bg-slate-900 border border-slate-700 px-4 py-2.5 text-slate-100 font-body placeholder-slate-500 focus:outline-none focus:border-teal-400 text-sm";
-const labelCls = "text-xs font-mono2 text-slate-500 mb-1 block";
-const btnPrimary = "px-4 py-2 rounded-xl bg-teal-400 text-slate-950 text-sm font-body font-semibold hover:bg-teal-300 transition-colors disabled:opacity-60";
-const btnGhost = "px-4 py-2 rounded-xl border border-slate-700 text-slate-300 text-sm font-body hover:border-slate-500 transition-colors";
-const card = "rounded-3xl border border-slate-800 bg-slate-900 p-5";
 
 const calcAge = (birthdate) => {
   if (!birthdate) return null; // provisional records may not have one yet
@@ -481,21 +477,19 @@ function DetailView({ patientId, onBack, onOpen }) {
       </button>
 
       {/* patient context banner — always visible */}
-      <div className="rounded-3xl border border-slate-700 bg-slate-900 p-5 mb-6 flex flex-wrap items-center gap-5">
-        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-teal-500 to-cyan-700 flex items-center justify-center font-display font-bold text-xl text-slate-950">
-          {p.first_name[0]}{p.last_name[0]}
-        </div>
+      <div className="rounded-xl border border-ink/20 bg-sky p-5 mb-6 flex flex-wrap items-center gap-5">
+        <Avatar name={fullName(p)} tint="bg-white" size={56} />
         <div className="min-w-0 flex-1">
-          <div className="font-display text-xl font-bold text-slate-50 truncate">{fullName(p)}</div>
-          <div className="font-mono2 text-xs text-teal-300">{p.mrn}{calcAge(p.birthdate) != null ? ` · ${calcAge(p.birthdate)}y` : ""}{p.sex !== "unknown" ? ` ${p.sex}` : ""}{p.birthdate ? ` · ${fmtDate(p.birthdate)}` : ""}</div>
+          <div className="font-display text-2xl font-bold text-ink truncate">{fullName(p)}</div>
+          <div className="font-mono2 text-sm text-slate-200">{p.mrn}{calcAge(p.birthdate) != null ? ` · ${calcAge(p.birthdate)}y` : ""}{p.sex !== "unknown" ? ` ${p.sex}` : ""}{p.birthdate ? ` · ${fmtDate(p.birthdate)}` : ""}</div>
           <div className="flex flex-wrap gap-1.5 mt-2">
             {allergies.map((a) => (
-              <span key={a.id} className="px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-300 border border-rose-500/40 text-xs font-body">⚠ {a.substance}</span>
+              <span key={a.id} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white text-rose-300 border border-rose-500/50 text-xs font-body font-semibold"><AlertTriangle size={12} /> Allergy: {a.substance}</span>
             ))}
-            {isSenior && <span className="px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 text-xs font-body">Senior</span>}
-            {p.pwd_id && <span className="px-2 py-0.5 rounded-full bg-violet-500/15 text-violet-300 border border-violet-500/30 text-xs font-body">PWD</span>}
-            {p.blood_type && <span className="px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-600 text-xs font-body flex items-center gap-1"><Droplet size={10} /> {p.blood_type}</span>}
-            {!p.birthdate && <span className="px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 text-xs font-body">Provisional — details incomplete</span>}
+            {isSenior && <span className="px-2 py-0.5 rounded-md bg-butter text-amber-200 border border-amber-500/50 text-xs font-body font-semibold">Senior citizen</span>}
+            {p.pwd_id && <span className="px-2 py-0.5 rounded-md bg-lilac text-violet-200 border border-violet-500/40 text-xs font-body font-semibold">PWD</span>}
+            {p.blood_type && <span className="px-2 py-0.5 rounded-md bg-white text-ink border border-slate-700 text-xs font-body font-semibold flex items-center gap-1"><Droplet size={11} /> {p.blood_type}</span>}
+            {!p.birthdate && <span className="pending-mark">Provisional record, details missing</span>}
           </div>
         </div>
         <div className="flex gap-2">
@@ -503,7 +497,7 @@ function DetailView({ patientId, onBack, onOpen }) {
             <Pencil size={15} /> Edit
           </button>
           <button onClick={() => setShowQR(true)} className={btnGhost + " flex items-center gap-1.5"}>
-            <QrCode size={15} /> ID card
+            <QrCode size={15} /> Patient card
           </button>
         </div>
       </div>
@@ -514,13 +508,7 @@ function DetailView({ patientId, onBack, onOpen }) {
           This is a provisional record from an online booking — name only. Click <strong>Edit</strong> to confirm the patient's name and add their birthdate, sex, and other details now that they're here.
         </div>
       )}
-      <div className="flex gap-1.5 rounded-2xl border border-slate-800 bg-slate-900 p-1 text-sm w-fit mb-6">
-        {[["overview", "Overview"], ["medical", "Medical"], ["family", "Family"], ["timeline", "Timeline"], ["documents", "Documents"]].map(([id, label]) => (
-          <button key={id} onClick={() => setTab(id)} className={"px-3.5 py-1.5 rounded-xl font-body transition-colors " + (tab === id ? "bg-teal-400 text-slate-950 font-medium" : "text-slate-400 hover:text-slate-100")}>
-            {label}
-          </button>
-        ))}
-      </div>
+      <Tabs className="mb-6" tabs={[["overview", "Overview"], ["medical", "Medical"], ["family", "Family"], ["timeline", "Timeline"], ["documents", "Documents"]]} value={tab} onChange={setTab} />
 
       {tab === "overview" && (
         <div className="grid lg:grid-cols-2 gap-5">
@@ -698,15 +686,22 @@ function DetailView({ patientId, onBack, onOpen }) {
 
       {/* QR ID card modal */}
       {showQR && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80" onClick={() => setShowQR(false)}>
-          <div className="rounded-3xl border border-slate-700 bg-slate-900 p-8 text-center fade-up" onClick={(e) => e.stopPropagation()}>
-            <div className="bg-white rounded-2xl p-4 inline-block">
-              <QRCodeSVG value={JSON.stringify({ mrn: p.mrn, t: p.qr_token })} size={180} />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40" onClick={() => setShowQR(false)}>
+          <div className="w-full max-w-sm rounded-xl bg-white overflow-hidden card-deal shadow-[0_24px_60px_-20px_rgba(19,48,94,0.5)]" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-sky px-6 py-4 border-b border-ink/15 flex items-center justify-between">
+              <span className="font-display font-bold text-ink">Patient card</span>
+              <span className="font-mono2 text-sm text-slate-200">{p.mrn}</span>
             </div>
-            <div className="font-display font-bold text-slate-50 mt-4">{fullName(p)}</div>
-            <div className="font-mono2 text-sm text-teal-300">{p.mrn}</div>
-            <p className="text-xs text-slate-500 font-body mt-2 max-w-56 mx-auto">Scan at check-in to identify this patient instantly.</p>
-            <button onClick={() => setShowQR(false)} className={btnGhost + " mt-5"}>Close</button>
+            <div className="px-6 py-6 text-center">
+              <div className="inline-block p-3 border border-slate-700 rounded-lg bg-white">
+                <QRCodeSVG value={JSON.stringify({ mrn: p.mrn, t: p.qr_token })} size={180} fgColor="#13305E" />
+              </div>
+              <div className="font-display text-2xl font-bold text-ink mt-4">{fullName(p)}</div>
+              <p className="text-sm text-slate-300 font-body mt-1.5 max-w-60 mx-auto">Show this at the front desk. Scanning it checks the patient in and gives them a queue number.</p>
+            </div>
+            <div className="px-6 py-3 border-t border-slate-800 flex justify-end">
+              <button onClick={() => setShowQR(false)} className={btnGhost}>Close</button>
+            </div>
           </div>
         </div>
       )}
@@ -753,8 +748,8 @@ function EditDemographicsModal({ patient, onClose, onSaved }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80" onClick={onClose}>
-      <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl border border-slate-700 bg-slate-900 p-6 fade-up" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40" onClick={onClose}>
+      <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl bg-white p-6 card-deal shadow-[0_24px_60px_-20px_rgba(19,48,94,0.5)]" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-display text-lg font-bold text-slate-50">Edit patient details</h3>
           <button onClick={onClose} className="text-slate-500 hover:text-slate-300"><X size={18} /></button>
@@ -902,8 +897,7 @@ export default function PatientRecords({ openPatientId = null }) {
     <StaffGate>
       <div className="max-w-6xl mx-auto px-6 py-10">
         <div className="mb-6">
-          <div className="font-mono2 text-xs text-teal-300 mb-1">STAFF · PATIENT MASTER RECORDS</div>
-          <h2 className="font-display text-3xl font-bold text-slate-50">Patient records</h2>
+          <h1 className="font-display text-3xl sm:text-4xl font-bold text-ink">Patient records</h1>
         </div>
         {view.name === "search" && <SearchView onOpen={(id) => setView({ name: "detail", id })} onRegister={() => setView({ name: "register" })} />}
         {view.name === "register" && <RegisterView onBack={() => setView({ name: "search" })} onDone={(id) => setView({ name: "detail", id })} />}

@@ -4,16 +4,13 @@ import {
 } from "lucide-react";
 import { useAuth } from "./lib/AuthContext";
 import { supabase } from "./lib/supabaseClient";
-import { letterhead } from "./lib/print";
+import { letterhead, PRINT_CSS } from "./lib/print";
+import { inputSm as inputCls, btnSm as btnPrimary, btnGhostSm as btnGhost, panel as card, StatusMark } from "./ui";
 
 /* ------------------------------------------------------------------ */
 /*  Billing & Cashier — invoices, PH discounts, payments, ORs          */
 /* ------------------------------------------------------------------ */
 
-const inputCls = "w-full rounded-2xl bg-slate-900 border border-slate-700 px-4 py-2.5 text-slate-100 font-body placeholder-slate-500 focus:outline-none focus:border-teal-400 text-sm";
-const btnPrimary = "px-4 py-2 rounded-xl bg-teal-400 text-slate-950 text-sm font-body font-semibold hover:bg-teal-300 transition-colors disabled:opacity-60";
-const btnGhost = "px-4 py-2 rounded-xl border border-slate-700 text-slate-300 text-sm font-body hover:border-slate-500 transition-colors";
-const card = "rounded-3xl border border-slate-800 bg-slate-900 p-5";
 const peso = (n) => "₱" + Number(n || 0).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const r2 = (n) => Math.round(n * 100) / 100;
 const fmtDT = (iso) => new Date(iso).toLocaleString("en-PH", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
@@ -45,22 +42,7 @@ function printDoc(title, bodyHtml) {
   const w = window.open("", "_blank", "width=820,height=1000");
   if (!w) return;
   w.document.write(
-    `<html><head><title>${title}</title><style>
-      body { font-family: Georgia, serif; color: #111; max-width: 640px; margin: 40px auto; line-height: 1.5; font-size: 14px; }
-      h1 { font-size: 18px; letter-spacing: 1px; margin-bottom: 2px; }
-      .sub { color: #555; font-size: 12px; margin-bottom: 20px; }
-      .rule { border-top: 2px solid #111; margin: 12px 0 18px; }
-      table { width: 100%; border-collapse: collapse; }
-      th { text-align: left; font-size: 11px; color: #555; border-bottom: 1px solid #999; padding: 4px; }
-      td { padding: 6px 4px; vertical-align: top; }
-      .r { text-align: right; }
-      .totals td { padding: 3px 4px; }
-      .grand { font-weight: bold; border-top: 1px solid #111; }
-      .muted { color: #777; font-size: 11px; margin-top: 26px; }
-      .letterhead { display: flex; align-items: center; gap: 12px; }
-      .letterhead .mark { flex: 0 0 auto; line-height: 0; }
-      .letterhead h1 { margin: 0; }
-    </style></head><body>${bodyHtml}<scr` + `ipt>window.onload = () => window.print();</scr` + `ipt></body></html>`
+    `<html><head><title>${title}</title><style>${PRINT_CSS}</style></head><body>${bodyHtml}<scr` + `ipt>window.onload = () => setTimeout(() => window.print(), 250);</scr` + `ipt></body></html>`
   );
   w.document.close();
 }
@@ -312,18 +294,18 @@ function InvoiceDetail({ invoiceId, onBack, reloadList }) {
     const rows = items.map((i) => `<tr><td>${esc(i.description)}</td><td class="r">${esc(i.quantity)}</td><td class="r">${peso(i.unit_price)}</td><td class="r">${peso(i.amount)}</td></tr>`).join("");
     printDoc("Statement of Account", `
       ${letterhead("Statement of Account · " + (inv.invoice_no || ""))}
-      <table><tr><td style="color:#555;width:120px">Patient</td><td>${esc(inv.patient.first_name)} ${esc(inv.patient.last_name)} (${esc(inv.patient.mrn)})</td></tr>
-      <tr><td style="color:#555">Doctor</td><td>${esc(doctorName)}</td></tr>
-      <tr><td style="color:#555">Date</td><td>${esc(new Date(inv.created_at).toLocaleDateString("en-PH", { dateStyle: "long" }))}</td></tr></table>
+      <table><tr><td class="label">Patient</td><td>${esc(inv.patient.first_name)} ${esc(inv.patient.last_name)} (${esc(inv.patient.mrn)})</td></tr>
+      <tr><td class="label">Doctor</td><td>${esc(doctorName)}</td></tr>
+      <tr><td class="label">Date</td><td>${esc(new Date(inv.created_at).toLocaleDateString("en-PH", { dateStyle: "long" }))}</td></tr></table>
       <div class="rule"></div>
       <table><tr><th>Description</th><th class="r">Qty</th><th class="r">Price</th><th class="r">Amount</th></tr>${rows}</table>
       <table class="totals" style="margin-top:14px">
-        <tr><td class="r" style="color:#555">Subtotal</td><td class="r" style="width:110px">${peso(inv.subtotal)}</td></tr>
-        ${Number(inv.vat_exempt) > 0 ? `<tr><td class="r" style="color:#555">Less: VAT exemption</td><td class="r">−${peso(inv.vat_exempt)}</td></tr>` : ""}
-        ${Number(inv.senior_pwd_discount) > 0 ? `<tr><td class="r" style="color:#555">Less: Senior/PWD 20%</td><td class="r">−${peso(inv.senior_pwd_discount)}</td></tr>` : ""}
+        <tr><td class="r label">Subtotal</td><td class="r" style="width:110px">${peso(inv.subtotal)}</td></tr>
+        ${Number(inv.vat_exempt) > 0 ? `<tr><td class="r label">Less: VAT exemption</td><td class="r">−${peso(inv.vat_exempt)}</td></tr>` : ""}
+        ${Number(inv.senior_pwd_discount) > 0 ? `<tr><td class="r label">Less: Senior/PWD 20%</td><td class="r">−${peso(inv.senior_pwd_discount)}</td></tr>` : ""}
         <tr class="grand"><td class="r">TOTAL DUE</td><td class="r">${peso(inv.total_due)}</td></tr>
-        <tr><td class="r" style="color:#555">Paid</td><td class="r">${peso(paid)}</td></tr>
-        <tr><td class="r" style="color:#555">Balance</td><td class="r">${peso(balance)}</td></tr>
+        <tr><td class="r label">Paid</td><td class="r">${peso(paid)}</td></tr>
+        <tr><td class="r label">Balance</td><td class="r">${peso(balance)}</td></tr>
       </table>
       <div class="muted">Generated via 4MED. ${inv.is_senior_pwd ? "Senior Citizen/PWD benefits applied per RA 9994 / RA 10754." : ""}</div>`);
   };
@@ -332,12 +314,13 @@ function InvoiceDetail({ invoiceId, onBack, reloadList }) {
     printDoc("Official Receipt", `
       ${letterhead("OFFICIAL RECEIPT · " + (p.or_number || ""))}
       <table>
-        <tr><td style="color:#555;width:140px">Received from</td><td>${esc(inv.patient.first_name)} ${esc(inv.patient.last_name)}</td></tr>
-        <tr><td style="color:#555">Date</td><td>${esc(new Date(p.paid_at).toLocaleString("en-PH", { dateStyle: "long", timeStyle: "short" }))}</td></tr>
-        <tr><td style="color:#555">For invoice</td><td>${esc(inv.invoice_no)}</td></tr>
-        <tr><td style="color:#555">Payment method</td><td style="text-transform:uppercase">${esc(p.method)}${p.reference_no ? ` (ref: ${esc(p.reference_no)})` : ""}</td></tr>
-        <tr><td style="color:#555">Amount</td><td style="font-size:20px;font-weight:bold">${peso(p.amount)}</td></tr>
+        <tr><td class="label">Received from</td><td>${esc(inv.patient.first_name)} ${esc(inv.patient.last_name)}</td></tr>
+        <tr><td class="label">Date</td><td>${esc(new Date(p.paid_at).toLocaleString("en-PH", { dateStyle: "long", timeStyle: "short" }))}</td></tr>
+        <tr><td class="label">For invoice</td><td>${esc(inv.invoice_no)}</td></tr>
+        <tr><td class="label">Payment method</td><td style="text-transform:uppercase">${esc(p.method)}${p.reference_no ? ` (ref: ${esc(p.reference_no)})` : ""}</td></tr>
+        <tr><td class="label">Amount</td><td style="font-size:20px;font-weight:bold">${peso(p.amount)}</td></tr>
       </table>
+      <div class="stamp">Paid</div>
       <div class="muted">This serves as your official receipt. Generated via 4MED.</div>`);
   };
 
@@ -349,13 +332,13 @@ function InvoiceDetail({ invoiceId, onBack, reloadList }) {
 
       <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
         <div>
-          <h2 className="font-display text-2xl font-bold text-slate-50">{inv.invoice_no}</h2>
+          <h2 className="font-display text-3xl font-bold text-ink tnum">{inv.invoice_no}</h2>
           <div className="font-mono2 text-xs text-slate-500 mt-1">
             {inv.patient.first_name} {inv.patient.last_name} · {inv.patient.mrn} · {doctorName} · {fmtDT(inv.created_at)}
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <span className={"px-3 py-1 rounded-full border text-sm font-body " + STATUS_STYLE[inv.status]}>{inv.status.replace("_", " ")}</span>
+          <StatusMark status={inv.status} size="lg" />
           <button onClick={printSOA} className={btnGhost + " flex items-center gap-1.5"}><Printer size={14} /> SOA</button>
         </div>
       </div>
@@ -460,16 +443,15 @@ export default function BillingModule() {
   return (
     <div className="max-w-5xl mx-auto px-6 py-10">
       <div className="mb-6">
-        <div className="font-mono2 text-xs text-teal-300 mb-1">STAFF · BILLING & CASHIER</div>
-        <h2 className="font-display text-3xl font-bold text-slate-50 flex items-center gap-3"><Receipt size={26} className="text-teal-300" /> Billing</h2>
+        <h1 className="font-display text-3xl sm:text-4xl font-bold text-ink">Billing</h1>
       </div>
 
       {view.name === "list" && (
         <div className="fade-up">
           <div className="flex flex-wrap items-center gap-3 mb-5">
-            <div className="flex gap-1.5 rounded-2xl border border-slate-800 bg-slate-900 p-1 text-sm">
+            <div className="inline-flex gap-1 rounded-lg border border-slate-700 bg-white p-1 text-sm">
               {["all", "draft", "final", "partially_paid", "paid"].map((f) => (
-                <button key={f} onClick={() => setFilter(f)} className={"px-3 py-1.5 rounded-xl font-body capitalize transition-colors " + (filter === f ? "bg-teal-400 text-slate-950 font-medium" : "text-slate-400 hover:text-slate-100")}>
+                <button key={f} onClick={() => setFilter(f)} className={"px-3 py-1.5 rounded-md font-body capitalize transition-colors " + (filter === f ? "bg-ink text-white font-semibold" : "text-slate-300 hover:text-ink")}>
                   {f.replace("_", " ")}
                 </button>
               ))}
@@ -481,12 +463,12 @@ export default function BillingModule() {
           <div className="rounded-3xl border border-slate-800 bg-slate-900 overflow-hidden">
             {shown.length === 0 && <div className="px-5 py-12 text-center text-slate-500 font-body text-sm">No invoices yet — create the first one.</div>}
             {shown.map((i) => (
-              <button key={i.id} onClick={() => setView({ name: "detail", id: i.id })} className="w-full grid grid-cols-12 gap-2 items-center px-5 py-3.5 border-b border-slate-800/60 last:border-0 text-left hover:bg-slate-800/40 transition-colors">
-                <span className="col-span-3 font-mono2 text-sm text-teal-300">{i.invoice_no}</span>
+              <button key={i.id} onClick={() => setView({ name: "detail", id: i.id })} className="w-full grid grid-cols-12 gap-2 items-center px-5 py-3.5 border-b border-slate-800/60 last:border-0 text-left hover:bg-ground transition-colors">
+                <span className="col-span-3 font-mono2 text-sm text-ink font-semibold">{i.invoice_no}</span>
                 <span className="col-span-4 text-sm text-slate-100 font-body truncate">{i.patient?.first_name} {i.patient?.last_name}</span>
                 <span className="col-span-2 font-mono2 text-sm text-slate-300 text-right">{peso(i.total_due)}</span>
                 <span className="col-span-3 flex justify-end">
-                  <span className={"px-2.5 py-0.5 rounded-full border text-xs " + STATUS_STYLE[i.status]}>{i.status.replace("_", " ")}</span>
+                  <StatusMark status={i.status} />
                 </span>
               </button>
             ))}

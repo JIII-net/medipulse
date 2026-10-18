@@ -24,7 +24,7 @@ export default function SignaturePad({ onChange, disabled }) {
     ctx.lineWidth = 2;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
-    ctx.strokeStyle = "#0f172a";
+    ctx.strokeStyle = "#13305E";
     strokes.current.forEach((pts) => {
       if (pts.length < 2) return;
       ctx.beginPath();
@@ -87,7 +87,7 @@ export default function SignaturePad({ onChange, disabled }) {
 
   return (
     <div>
-      <div className="relative rounded-2xl border border-slate-600 bg-slate-100 overflow-hidden">
+      <div className="relative rounded-lg border border-slate-700 bg-white overflow-hidden">
         <canvas
           ref={canvasRef}
           className="w-full h-40 touch-none block cursor-crosshair"

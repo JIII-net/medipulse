@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import {
   Stethoscope, Mic, MicOff, FileText, Printer, Plus, X, Check, ArrowLeft,
-  Clock, Users, ClipboardList, Pill, Scissors, CalendarPlus, AlertCircle, History,
+  Clock, Users, ClipboardList, Pill, Scissors, CalendarPlus, AlertCircle, History, AlertTriangle, ArrowRight,
 } from "lucide-react";
 import { useAuth } from "./lib/AuthContext";
 import { supabase } from "./lib/supabaseClient";
@@ -12,16 +12,13 @@ import EyeExamChart from "./EyeExamChart";
 import MentalHealthChart from "./MentalHealthChart";
 import { SignConsentModal, fetchConsentState } from "./ConsentForms";
 import { MENTAL_HEALTH_TYPES } from "./lib/professions";
+import { inputSm as inputCls, btnSm as btnPrimary, btnGhostSm as btnGhost, panel as card, Tabs, Stamp, StatusMark, Avatar } from "./ui";
 
 /* ------------------------------------------------------------------ */
 /*  Doctor Portal — dashboard + consultation workspace                 */
 /* ------------------------------------------------------------------ */
 
-const inputCls = "w-full rounded-2xl bg-slate-900 border border-slate-700 px-4 py-2.5 text-slate-100 font-body placeholder-slate-500 focus:outline-none focus:border-teal-400 text-sm";
 const areaCls = inputCls + " min-h-24 resize-y";
-const btnPrimary = "px-4 py-2 rounded-xl bg-teal-400 text-slate-950 text-sm font-body font-semibold hover:bg-teal-300 transition-colors disabled:opacity-60";
-const btnGhost = "px-4 py-2 rounded-xl border border-slate-700 text-slate-300 text-sm font-body hover:border-slate-500 transition-colors";
-const card = "rounded-3xl border border-slate-800 bg-slate-900 p-5";
 
 const fmtDT = (iso) => new Date(iso).toLocaleString("en-PH", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 const fmtT = (iso) => new Date(iso).toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" });
@@ -149,13 +146,10 @@ function Dashboard({ me, onOpenEncounter }) {
     onOpenEncounter(data.id);
   };
 
-  const stat = (label, value, Icon) => (
-    <div className={card + " flex items-center gap-4"}>
-      <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center"><Icon size={18} className="text-teal-300" /></div>
-      <div>
-        <div className="font-display text-2xl font-bold text-slate-50">{value}</div>
-        <div className="text-xs text-slate-500 font-body">{label}</div>
-      </div>
+  const stat = (label, value, i) => (
+    <div className={"px-5 py-4 border-slate-800 " + (i < 2 ? "sm:border-r border-b sm:border-b-0" : "")}>
+      <dd className="queue-no text-[44px] text-ink">{value}</dd>
+      <dt className="text-sm text-slate-300 font-body mt-1">{label}</dt>
     </div>
   );
 
@@ -164,19 +158,19 @@ function Dashboard({ me, onOpenEncounter }) {
   return (
     <div className="fade-up">
       <ErrorBanner msg={error} />
-      <div className="grid sm:grid-cols-3 gap-4 mb-6">
-        {stat("Today's appointments", appts.length, Clock)}
-        {stat("Waiting in queue", waiting.length, Users)}
-        {stat("Completed today", done, Check)}
-      </div>
+      <dl className="grid sm:grid-cols-3 rounded-xl border border-slate-700 bg-white mb-6">
+        {stat("Booked today", appts.length, 0)}
+        {stat("Waiting in the queue", waiting.length, 1)}
+        {stat("Seen today", done, 2)}
+      </dl>
 
       {openEncounters.length > 0 && (
-        <div className="rounded-3xl border border-amber-500/40 bg-amber-500/10 p-5 mb-6">
-          <div className="font-display font-semibold text-amber-200 mb-2">Open consultations</div>
+        <div className="rounded-xl border border-amber-500/50 bg-butter p-5 mb-6">
+          <div className="font-display text-lg font-bold text-ink mb-2">Consultations still open</div>
           {openEncounters.map((e) => (
             <button key={e.id} onClick={() => onOpenEncounter(e.id)} className="w-full flex justify-between items-center py-2 text-sm font-body text-left hover:text-teal-300 transition-colors">
-              <span className="text-slate-100">{e.patient?.first_name} {e.patient?.last_name} <span className="text-slate-500">· started {fmtT(e.started_at)}</span></span>
-              <span className="text-teal-300 text-xs">Resume →</span>
+              <span className="text-ink font-semibold">{e.patient?.first_name} {e.patient?.last_name} <span className="text-slate-300 font-normal">· started {fmtT(e.started_at)}</span></span>
+              <span className="text-ink text-sm font-semibold inline-flex items-center gap-1">Resume <ArrowRight size={14} /></span>
             </button>
           ))}
         </div>
@@ -195,8 +189,9 @@ function Dashboard({ me, onOpenEncounter }) {
                     <span className="text-slate-500"> · {calcAge(a.patient_rec.birthdate) != null ? `${calcAge(a.patient_rec.birthdate)}y ` : ""}{a.patient_rec.sex !== "unknown" ? a.patient_rec.sex : ""}</span>
                   )}
                 </div>
-                <div className="font-mono2 text-xs text-slate-500">{fmtT(a.starts_at)} · {a.type.replace("_", " ")} · {a.status}{a.location ? ` · ${a.location.name}` : ""}</div>
+                <div className="font-mono2 text-sm text-slate-400">{fmtT(a.starts_at)} · {a.type.replace("_", " ")}{a.location ? ` · ${a.location.name}` : ""}</div>
               </div>
+              <StatusMark status={a.status} className="mx-3 shrink-0" />
               {["booked", "confirmed", "checked_in"].includes(a.status) && (
                 <button onClick={() => startConsult(a.patient_record_id, a.id, null)} disabled={busy === a.id} className={btnPrimary + " py-1.5 shrink-0"}>
                   {busy === a.id ? "Opening…" : "Start consult"}
@@ -212,7 +207,7 @@ function Dashboard({ me, onOpenEncounter }) {
           {waiting.map((t) => (
             <div key={t.id} className="flex items-center justify-between py-2.5 border-b border-slate-800/60 last:border-0">
               <div className="text-sm font-body">
-                <span className="font-mono2 text-teal-300">{t.number}</span>
+                <span className="queue-no text-2xl text-ink align-middle">{t.number}</span>
                 <span className="text-slate-100 ml-2">{t.patient ? `${t.patient.first_name} ${t.patient.last_name}` : "Unregistered"}</span>
                 {t.priority !== "regular" && <span className="ml-2 text-xs text-amber-300">{t.priority.replace("_", "/")}</span>}
               </div>
@@ -258,8 +253,8 @@ function LinkPatientModal({ appt, me, onClose, onLinked }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80" onClick={onClose}>
-      <div className="w-full max-w-md rounded-3xl border border-slate-700 bg-slate-900 p-6 fade-up" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40" onClick={onClose}>
+      <div className="w-full max-w-md rounded-xl bg-white p-6 card-deal shadow-[0_24px_60px_-20px_rgba(19,48,94,0.5)]" onClick={(e) => e.stopPropagation()}>
         <h3 className="font-display text-lg font-bold text-slate-50 mb-1">Create patient record for {portalName}</h3>
         <p className="text-xs text-slate-500 font-body mb-4">
           This booking came from the online portal before a medical record existed.
@@ -473,27 +468,25 @@ function Consult({ encounterId, me, myName, onExit }) {
       </button>
 
       {/* patient context banner */}
-      <div className="rounded-3xl border border-slate-700 bg-slate-900 p-5 mb-5 flex flex-wrap items-center gap-4">
-        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-teal-500 to-cyan-700 flex items-center justify-center font-display font-bold text-slate-950">
-          {patient.first_name[0]}{patient.last_name[0]}
-        </div>
+      <div className="rounded-xl border border-ink/20 bg-sky p-5 mb-5 flex flex-wrap items-center gap-4">
+        <Avatar name={`${patient.first_name} ${patient.last_name}`} tint="bg-white" />
         <div className="min-w-0 flex-1">
-          <div className="font-display text-lg font-bold text-slate-50">{patient.first_name} {patient.last_name}</div>
-          <div className="font-mono2 text-xs text-teal-300">{patient.mrn}{calcAge(patient.birthdate) != null ? ` · ${calcAge(patient.birthdate)}y` : ""}{patient.sex !== "unknown" ? ` ${patient.sex}` : ""} · started {fmtT(enc.started_at)}</div>
+          <div className="font-display text-2xl font-bold text-ink">{patient.first_name} {patient.last_name}</div>
+          <div className="font-mono2 text-sm text-slate-200">{patient.mrn}{calcAge(patient.birthdate) != null ? ` · ${calcAge(patient.birthdate)}y` : ""}{patient.sex !== "unknown" ? ` ${patient.sex}` : ""} · started {fmtT(enc.started_at)}</div>
           <div className="flex flex-wrap gap-1.5 mt-1.5">
             {["moderate", "high"].includes(riskLevel) && (
-              <span className={"px-2 py-0.5 rounded-full border text-xs font-body font-semibold " + (riskLevel === "high" ? "bg-rose-500/25 text-rose-200 border-rose-400" : "bg-amber-500/20 text-amber-200 border-amber-500/50")}>
-                ⚠ {riskLevel === "high" ? "High" : "Moderate"} mental health risk
+              <span className={"inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-xs font-body font-semibold " + (riskLevel === "high" ? "bg-white text-rose-200 border-rose-400" : "bg-butter text-amber-200 border-amber-500/60")}>
+                <AlertTriangle size={12} /> {riskLevel === "high" ? "High" : "Moderate"} mental health risk
               </span>
             )}
             {allergies.map((a, i) => (
-              <span key={i} className="px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-300 border border-rose-500/40 text-xs font-body">⚠ {a.substance}</span>
+              <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white text-rose-300 border border-rose-500/50 text-xs font-body font-semibold"><AlertTriangle size={12} /> Allergy: {a.substance}</span>
             ))}
-            {allergies.length === 0 && <span className="text-xs text-slate-600 font-body">No known allergies</span>}
+            {allergies.length === 0 && <span className="text-xs text-slate-200 font-body">No known allergies</span>}
           </div>
         </div>
         {signed ? (
-          <span className="px-3 py-1.5 rounded-xl bg-teal-400/10 border border-teal-400/40 text-teal-300 text-sm font-body flex items-center gap-1.5"><Check size={14} /> Signed</span>
+          <Stamp size="lg" press tilt={-5}>Signed</Stamp>
         ) : (
           <div className="flex gap-2">
             <button onClick={() => saveDraft()} disabled={busy} className={btnGhost}>Save draft</button>
@@ -531,8 +524,8 @@ function Consult({ encounterId, me, myName, onExit }) {
         <div className="lg:col-span-2 space-y-5">
           <input className={inputCls} placeholder="Chief complaint" value={chief} onChange={(e) => setChief(e.target.value)} disabled={signed} />
 
-          <div className="flex gap-1.5 rounded-2xl border border-slate-800 bg-slate-900 p-1 text-sm w-fit">
-            {[
+          <Tabs
+            tabs={[
               ["soap", "SOAP note"],
               ...(isDentist ? [["dental", "Dental Chart"]] : []),
               ...(isOphtho ? [["eye", "Eye Exam"]] : []),
@@ -540,12 +533,10 @@ function Consult({ encounterId, me, myName, onExit }) {
               // Psychologists don't prescribe — no prescription pad for them.
               ...(isPsychologist ? [] : [["rx", "e-Prescription"]]),
               ["proc", "Procedures"], ["cert", "Med certificate"], ["fu", "Follow-up"],
-            ].map(([id, label]) => (
-              <button key={id} onClick={() => setTab(id)} className={"px-3 py-1.5 rounded-xl font-body transition-colors " + (tab === id ? "bg-teal-400 text-slate-950 font-medium" : "text-slate-400 hover:text-slate-100")}>
-                {label}
-              </button>
-            ))}
-          </div>
+            ]}
+            value={tab}
+            onChange={setTab}
+          />
 
           {tab === "soap" && (
             <div className={card + " space-y-4"}>
@@ -756,8 +747,8 @@ function PostSignBilling({ patient, me, encounterId, consultFee, procedures, den
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80">
-      <div className="w-full max-w-lg rounded-3xl border border-slate-700 bg-slate-900 p-6 fade-up max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40">
+      <div className="w-full max-w-lg rounded-xl bg-white p-6 card-deal shadow-[0_24px_60px_-20px_rgba(19,48,94,0.5)] max-h-[90vh] overflow-y-auto">
         <h3 className="font-display text-lg font-bold text-slate-50 mb-1">Consultation signed — bill the visit</h3>
         <p className="text-xs text-slate-500 font-body mb-4">
           Set the amounts below. The invoice goes to Billing, where you or your secretary can receive the payment and print the official receipt.
@@ -976,10 +967,7 @@ function DoctorPortalInner() {
   return (
     <div className="max-w-7xl mx-auto px-6 py-10">
       <div className="mb-6">
-        <div className="font-mono2 text-xs text-teal-300 mb-1">DOCTOR PORTAL · {profile.full_name?.toUpperCase()}</div>
-        <h2 className="font-display text-3xl font-bold text-slate-50 flex items-center gap-3">
-          <Stethoscope size={26} className="text-teal-300" /> {encounterId ? "Consultation" : "Today"}
-        </h2>
+        <h1 className="font-display text-3xl sm:text-4xl font-bold text-ink">{encounterId ? "Consultation" : "Today's consultations"}</h1>
       </div>
       {encounterId
         ? <Consult encounterId={encounterId} me={me} myName={profile.full_name} onExit={() => setEncounterId(null)} />

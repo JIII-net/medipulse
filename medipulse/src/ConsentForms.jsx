@@ -4,6 +4,7 @@ import { supabase } from "./lib/supabaseClient";
 import SignaturePad from "./SignaturePad";
 import { BUCKET_SIGNATURES, uploadDataUrl, signedUrl } from "./lib/uploads";
 import { printDocument, esc, letterhead } from "./lib/print";
+import { inputSm as inputCls, btnSm as btnPrimary, btnGhostSm as btnGhost, StatusMark } from "./ui";
 
 /* ------------------------------------------------------------------ */
 /*  Consent forms — the patient reads a document, signs it, and the    */
@@ -11,9 +12,6 @@ import { printDocument, esc, letterhead } from "./lib/print";
 /*  the patient portal and on a clinic tablet handed over at the desk. */
 /* ------------------------------------------------------------------ */
 
-const inputCls = "w-full rounded-2xl bg-slate-900 border border-slate-700 px-4 py-2.5 text-slate-100 font-body placeholder-slate-500 focus:outline-none focus:border-teal-400 text-sm";
-const btnPrimary = "px-4 py-2 rounded-xl bg-teal-400 text-slate-950 text-sm font-body font-semibold hover:bg-teal-300 transition-colors disabled:opacity-60";
-const btnGhost = "px-4 py-2 rounded-xl border border-slate-700 text-slate-300 text-sm font-body hover:border-slate-500 transition-colors";
 
 export async function fetchConsentState(patientRecordId) {
   const [docs, sigs] = await Promise.all([
@@ -77,8 +75,8 @@ export function SignConsentModal({ doc, patientRecordId, userId, appointmentId, 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80" onClick={onClose}>
-      <div className="w-full max-w-2xl max-h-[92vh] flex flex-col rounded-3xl border border-slate-700 bg-slate-900 p-6 fade-up" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40" onClick={onClose}>
+      <div className="w-full max-w-2xl max-h-[92vh] flex flex-col rounded-xl bg-white p-6 card-deal shadow-[0_24px_60px_-20px_rgba(19,48,94,0.5)]" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between mb-3">
           <div>
             <h3 className="font-display text-lg font-bold text-slate-50">{doc.title}</h3>
@@ -170,12 +168,12 @@ export function ConsentFormsPanel({ patientRecordId, userId, appointmentId }) {
       )}
 
       {state.outstanding.length > 0 && (
-        <div className="mb-5 rounded-2xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200 font-body">
+        <div className="mb-5 rounded-lg border border-amber-500/50 bg-butter px-4 py-3 text-sm text-amber-200 font-body font-medium">
           You have {state.outstanding.length} form{state.outstanding.length > 1 ? "s" : ""} to read and sign before your consultation.
         </div>
       )}
 
-      <div className="rounded-3xl border border-slate-800 bg-slate-900 px-5">
+      <div className="rounded-xl border border-slate-700 bg-white px-5">
         {state.documents.length === 0 ? (
           <div className="py-8 text-sm text-slate-500 font-body text-center">No forms to sign right now.</div>
         ) : state.documents.map((d) => {
@@ -183,21 +181,19 @@ export function ConsentFormsPanel({ patientRecordId, userId, appointmentId }) {
           return (
             <div key={d.id} className="flex items-center justify-between gap-4 py-3.5 border-b border-slate-800/60 last:border-0">
               <div className="min-w-0">
-                <div className="text-sm text-slate-100 font-body flex items-center gap-2">
-                  <FileText size={14} className="text-teal-300 shrink-0" /> {d.title}
+                <div className="text-ink font-body font-semibold flex items-center gap-2">
+                  <FileText size={16} className="shrink-0" /> {d.title}
                 </div>
-                <div className="font-mono2 text-xs text-slate-500 mt-0.5">
+                <div className="font-mono2 text-sm text-slate-400 mt-0.5">
                   {sig
                     ? `Signed ${new Date(sig.signed_at).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })}`
                     : d.required_before_consult ? "Required before your visit" : "Optional"}
                 </div>
               </div>
               {sig ? (
-                <span className="px-2.5 py-0.5 rounded-full border border-teal-400/40 bg-teal-400/10 text-teal-300 text-xs font-body flex items-center gap-1">
-                  <Check size={12} /> signed
-                </span>
+                <StatusMark status="signed" />
               ) : (
-                <button onClick={() => setOpenDoc(d)} className="text-xs text-teal-300 hover:underline shrink-0">Read & sign</button>
+                <button onClick={() => setOpenDoc(d)} className={btnPrimary + " shrink-0"}>Read and sign</button>
               )}
             </div>
           );
@@ -242,6 +238,7 @@ export function PatientConsentTab({ patient, me }) {
         ${img ? `<img src="${esc(img)}" style="max-height:90px" /><br/>` : ""}
         <div class="line">${esc(row.signed_name)}</div>
       </div>
+      <div class="stamp">Signed</div>
       <div class="muted">Signed electronically via 4MED.</div>`);
   };
 
@@ -260,22 +257,22 @@ export function PatientConsentTab({ patient, me }) {
       )}
 
       {state.outstanding.length > 0 && (
-        <div className="rounded-3xl border border-amber-500/40 bg-amber-500/10 p-5 mb-5">
-          <div className="font-display font-semibold text-amber-200 mb-1">Not yet signed</div>
-          <p className="text-sm text-amber-200/80 font-body mb-3">
+        <div className="rounded-xl border border-amber-500/50 bg-butter p-5 mb-5">
+          <div className="font-display text-lg font-bold text-ink mb-1">Not signed yet</div>
+          <p className="text-sm text-slate-200 font-body mb-3">
             Hand the patient a tablet, or open the form here and let them sign.
           </p>
           {state.outstanding.map((d) => (
             <div key={d.id} className="flex items-center justify-between py-2 border-b border-amber-500/20 last:border-0">
-              <span className="text-sm text-slate-100 font-body">{d.title}</span>
-              <button onClick={() => setOpenDoc(d)} className="text-xs text-teal-300 hover:underline">Sign now</button>
+              <span className="text-sm text-ink font-body font-medium">{d.title}</span>
+              <button onClick={() => setOpenDoc(d)} className="text-sm font-semibold text-teal-300 hover:underline underline-offset-4">Sign now</button>
             </div>
           ))}
         </div>
       )}
 
-      <div className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
-        <div className="font-display font-semibold text-slate-100 mb-3">Signed documents</div>
+      <div className="rounded-xl border border-slate-700 bg-white p-5">
+        <div className="font-display text-lg font-bold text-ink mb-3">Signed documents</div>
         {rows.length === 0 ? (
           <div className="text-sm text-slate-500 font-body">Nothing signed yet.</div>
         ) : rows.map((r) => (
@@ -286,7 +283,7 @@ export function PatientConsentTab({ patient, me }) {
                 {r.signed_name} · {new Date(r.signed_at).toLocaleString("en-PH", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}
               </div>
             </div>
-            <button onClick={() => print(r)} className="text-xs text-teal-300 hover:underline shrink-0">Print</button>
+            <div className="flex items-center gap-4 shrink-0"><StatusMark status="signed" /><button onClick={() => print(r)} className="text-sm font-semibold text-teal-300 hover:underline underline-offset-4">Print</button></div>
           </div>
         ))}
       </div>

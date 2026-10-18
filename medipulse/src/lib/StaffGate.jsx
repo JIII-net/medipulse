@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { Lock, AlertCircle } from "lucide-react";
 import { useAuth } from "./AuthContext";
+import { inputSm as inputCls } from "../ui";
 
-const inputCls = "w-full rounded-2xl bg-slate-900 border border-slate-700 px-4 py-2.5 text-slate-100 font-body placeholder-slate-500 focus:outline-none focus:border-teal-400 text-sm";
 
 export function StaffGate({ children }) {
   const { session, profile, loading, signIn, signOut } = useAuth();

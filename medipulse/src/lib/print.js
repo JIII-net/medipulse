@@ -1,26 +1,43 @@
 /* ---------------------------- print helper ------------------------ */
 
+// One stylesheet for every printed document (prescriptions, certificates,
+// consent forms, statements and receipts), so the paper matches the app:
+// Archivo in navy ink, hairline rules, printed field labels. The fallback
+// stack covers a print window that can't reach Google Fonts.
+export const PRINT_CSS = `
+  @import url("https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap");
+  @page { margin: 18mm 16mm; }
+  body { font-family: Archivo, "Helvetica Neue", Arial, sans-serif; color: #13305E; max-width: 680px; margin: 36px auto; line-height: 1.5; font-size: 14px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  h1 { font-size: 22px; font-weight: 800; letter-spacing: -0.01em; margin: 0 0 2px; }
+  h2, h3 { font-weight: 700; }
+  .sub { color: #46597A; font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; font-stretch: 80%; margin-bottom: 22px; }
+  .rule { border-top: 2px solid #13305E; border-bottom: 1px solid #13305E; height: 3px; margin: 14px 0 22px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+  th { text-align: left; font-size: 10.5px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: #46597A; border-bottom: 1px solid #13305E; padding: 6px 4px; }
+  td { padding: 7px 4px; vertical-align: top; border-bottom: 1px solid #DDE2E8; }
+  .totals td { border-bottom: 0; padding: 3px 4px; }
+  .grand td { font-weight: 800; border-top: 2px solid #13305E; }
+  .r { text-align: right; }
+  .label { color: #46597A; width: 160px; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+  .rx-item { margin: 0; padding: 10px 0 10px 34px; border-bottom: 1px solid #DDE2E8; position: relative; }
+  .rx-item::before { content: "Rx"; position: absolute; left: 0; top: 10px; font-weight: 800; font-style: italic; font-size: 13px; }
+  .sig { margin-top: 72px; text-align: right; }
+  .sig .line { display: inline-block; border-top: 1px solid #13305E; padding-top: 5px; min-width: 260px; text-align: center; font-size: 13px; }
+  .muted { color: #566884; font-size: 11px; margin-top: 32px; padding-top: 10px; border-top: 1px dashed #C3CBD6; }
+  .letterhead { display: flex; align-items: center; gap: 12px; }
+  .letterhead .mark { flex: 0 0 auto; line-height: 0; }
+  .letterhead h1 { margin: 0; }
+  .letterhead .sub { margin: 2px 0 0; }
+  img { max-width: 100%; }
+  .stamp { display: inline-block; margin-top: 18px; padding: 5px 14px 4px; border: 3px solid #5B3FA8; outline: 2px solid #5B3FA8; outline-offset: 2px; border-radius: 4px; color: #5B3FA8; font-weight: 800; font-stretch: 70%; font-size: 20px; letter-spacing: 0.12em; text-transform: uppercase; transform: rotate(-6deg); opacity: 0.9; }
+  @media print { body { margin: 0 auto; } }
+`;
+
 export function printDocument(title, bodyHtml) {
   const w = window.open("", "_blank", "width=820,height=1000");
   if (!w) return;
   w.document.write(
-    `<html><head><title>${title}</title><style>
-      body { font-family: Georgia, serif; color: #111; max-width: 700px; margin: 40px auto; line-height: 1.55; }
-      h1 { font-size: 20px; letter-spacing: 1px; margin-bottom: 2px; }
-      .sub { color: #555; font-size: 12px; margin-bottom: 24px; }
-      .rule { border-top: 2px solid #111; margin: 14px 0 22px; }
-      table { width: 100%; border-collapse: collapse; font-size: 14px; }
-      td { padding: 6px 4px; vertical-align: top; }
-      .label { color: #555; width: 160px; }
-      .rx-item { margin: 10px 0; padding-left: 14px; border-left: 3px solid #0d9488; }
-      .sig { margin-top: 70px; text-align: right; }
-      .sig .line { display: inline-block; border-top: 1px solid #111; padding-top: 4px; min-width: 260px; text-align: center; font-size: 13px; }
-      .muted { color: #777; font-size: 11px; margin-top: 30px; }
-      .letterhead { display: flex; align-items: center; gap: 12px; }
-      .letterhead .mark { flex: 0 0 auto; line-height: 0; }
-      .letterhead h1 { margin: 0; }
-      @media print { body { margin: 0 auto; } }
-    </style></head><body>${bodyHtml}<scr` + `ipt>window.onload = () => window.print();</scr` + `ipt></body></html>`
+    `<html><head><title>${title}</title><style>${PRINT_CSS}</style></head><body>${bodyHtml}<scr` + `ipt>window.onload = () => setTimeout(() => window.print(), 250);</scr` + `ipt></body></html>`
   );
   w.document.close();
 }
@@ -59,8 +76,8 @@ export function letterhead(subtitle) {
     <div class="letterhead">
       <span class="mark">${MARK}</span>
       <div>
-        <h1>4MED CLINIC</h1>
-        <div class="sub" style="margin-bottom:0">${esc(subtitle)}</div>
+        <h1>4MED Clinic</h1>
+        <div class="sub">${esc(subtitle)}</div>
       </div>
     </div>
     <div class="rule"></div>`;

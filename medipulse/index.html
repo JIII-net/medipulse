@@ -3,9 +3,51 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#CFE3F5" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <title>4MED — Patient Management SaaS</title>
+    <title>4MED · Clinic management for Philippine practices</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap" rel="stylesheet" />
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      /* The Clinic Card palette. Tailwind's slate and teal scales are
+         re-pointed at the 4MED inks so the whole app moves onto the light
+         card-stock world together; the numbers keep their old meaning
+         (950 = page ground, 900 = card paper, 100 = ink, 400 = primary). */
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              slate: {
+                50: "#0B2349", 100: "#13305E", 200: "#1E3A66", 300: "#2C4670",
+                400: "#46597A", 500: "#566884", 600: "#6E7D94", 700: "#C3CBD6",
+                800: "#DDE2E8", 900: "#FFFFFF", 950: "#F2F3EF",
+              },
+              teal: {
+                50: "#EEF4FB", 100: "#DCE8F6", 200: "#13305E", 300: "#1F56A0",
+                400: "#13305E", 500: "#1F56A0", 600: "#0E3F82", 700: "#0B2C5E",
+              },
+              rose: { 200: "#8E2420", 300: "#A42B27", 400: "#B8322F", 500: "#B8322F" },
+              amber: { 200: "#6E4700", 300: "#7E5300", 400: "#9A6600", 500: "#C98A0B" },
+              violet: { 200: "#3F2A80", 300: "#5B3FA8", 500: "#5B3FA8" },
+              cyan: { 400: "#1F56A0", 700: "#0B2C5E" },
+              ink: "#13305E",
+              paper: "#FFFFFF",
+              ground: "#F2F3EF",
+              sky: "#CFE3F5",
+              mint: "#CDEBD9",
+              butter: "#F6E7A8",
+              lilac: "#DDD5F0",
+              blush: "#F4D6D2",
+              stamp: "#5B3FA8",
+              void: "#B8322F",
+            },
+            borderRadius: { lg: "6px", xl: "6px", "2xl": "8px", "3xl": "10px" },
+          },
+        },
+      };
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -8,16 +8,13 @@ import { useAuth } from "./lib/AuthContext";
 import { supabase } from "./lib/supabaseClient";
 import { StaffGate } from "./lib/StaffGate";
 import { PaymentProofReview, paymentLabel, paymentStyle } from "./PaymentProof";
+import { inputSm as inputCls, btnSm as btnPrimary, btnGhostSm as btnGhost, panel as card, Tabs, StatusMark, Stamp } from "./ui";
 
 /* ------------------------------------------------------------------ */
 /*  Appointment Management — staff module                              */
 /*  Calendar (day/week) · Schedules · Queue & walk-ins · Outbox        */
 /* ------------------------------------------------------------------ */
 
-const inputCls = "w-full rounded-2xl bg-slate-900 border border-slate-700 px-4 py-2.5 text-slate-100 font-body placeholder-slate-500 focus:outline-none focus:border-teal-400 text-sm";
-const btnPrimary = "px-4 py-2 rounded-xl bg-teal-400 text-slate-950 text-sm font-body font-semibold hover:bg-teal-300 transition-colors disabled:opacity-60";
-const btnGhost = "px-4 py-2 rounded-xl border border-slate-700 text-slate-300 text-sm font-body hover:border-slate-500 transition-colors";
-const card = "rounded-3xl border border-slate-800 bg-slate-900 p-5";
 
 const STATIONS = [
   { name: "Triage", prefix: "T" },
@@ -187,8 +184,8 @@ function BookModal({ slot, doctors, schedules, locations = [], onClose, onBooked
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80" onClick={onClose}>
-      <div className="w-full max-w-md rounded-3xl border border-slate-700 bg-slate-900 p-6 fade-up max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40" onClick={onClose}>
+      <div className="w-full max-w-md rounded-xl bg-white p-6 card-deal shadow-[0_24px_60px_-20px_rgba(19,48,94,0.5)] max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-display text-lg font-bold text-slate-50">New appointment</h3>
           <button onClick={onClose} className="text-slate-500 hover:text-slate-300"><X size={18} /></button>
@@ -282,14 +279,17 @@ function DetailModal({ appt, doctors, schedules, onClose, onChanged }) {
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80" onClick={onClose}>
-      <div className="w-full max-w-md rounded-3xl border border-slate-700 bg-slate-900 p-6 fade-up" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40" onClick={onClose}>
+      <div className="w-full max-w-md rounded-xl bg-white p-6 card-deal shadow-[0_24px_60px_-20px_rgba(19,48,94,0.5)]" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-1">
           <h3 className="font-display text-lg font-bold text-slate-50">{patientName(appt)}</h3>
           <button onClick={onClose} className="text-slate-500 hover:text-slate-300"><X size={18} /></button>
         </div>
-        <div className="font-mono2 text-xs text-teal-300 mb-1">
-          {fmtDay(localDate(appt.starts_at))} · {fmt12h(localTime(appt.starts_at))} · {appt.type.replace("_", " ")} · {appt.status}
+        <div className="flex items-center justify-between gap-3 mb-2">
+          <div className="font-mono2 text-sm text-slate-300">
+            {fmtDay(localDate(appt.starts_at))} · {fmt12h(localTime(appt.starts_at))} · {appt.type.replace("_", " ")}
+          </div>
+          <StatusMark status={appt.status} />
         </div>
         {appt.location && (
           <div className="text-xs text-slate-400 font-body mb-4 flex items-center gap-1.5">
@@ -301,10 +301,10 @@ function DetailModal({ appt, doctors, schedules, onClose, onChanged }) {
         {mode === "view" ? (
           <div className="space-y-2">
             {appt.payment_status && appt.payment_status !== "not_required" && (
-              <div className={"rounded-2xl border px-3 py-2.5 mb-1 flex flex-wrap items-center justify-between gap-2 " + (paymentStyle[appt.payment_status] || "")}>
-                <span className="text-xs font-body">Payment: {paymentLabel(appt.payment_status)}</span>
+              <div className="rounded-lg border border-slate-700 px-3 py-2.5 mb-1 flex flex-wrap items-center justify-between gap-2">
+                <span className="flex items-center gap-3 text-sm font-body text-slate-300">Payment <StatusMark status={appt.payment_status} /></span>
                 {["proof_submitted", "verified", "rejected"].includes(appt.payment_status) && (
-                  <button onClick={() => setShowProof(true)} className="text-xs underline">
+                  <button onClick={() => setShowProof(true)} className="text-sm font-semibold text-teal-300 hover:underline underline-offset-4">
                     {appt.payment_status === "proof_submitted" ? "Review proof" : "View proof"}
                   </button>
                 )}
@@ -319,7 +319,7 @@ function DetailModal({ appt, doctors, schedules, onClose, onChanged }) {
             )}
             {["booked", "confirmed"].includes(appt.status) && (
               <button onClick={checkIn} disabled={busy} className={btnPrimary + " w-full flex items-center justify-center gap-2"}>
-                <Check size={15} /> Check in → issue queue number
+                <Check size={15} /> Check in and issue a queue number
               </button>
             )}
             <button onClick={() => setMode("reschedule")} disabled={busy} className={btnGhost + " w-full flex items-center justify-center gap-2"}>
@@ -334,7 +334,7 @@ function DetailModal({ appt, doctors, schedules, onClose, onChanged }) {
             </div>
             <p className="text-center text-xs text-slate-500 font-body">Schedule a follow-up 1, 2, or 4 weeks out at the same time</p>
             {appt.status !== "canceled" && (
-              <button onClick={cancel} disabled={busy} className="w-full py-2 rounded-xl border border-rose-500/40 text-rose-300 text-sm font-body hover:bg-rose-500/10 transition-colors">
+              <button onClick={cancel} disabled={busy} className="w-full py-2 rounded-md border border-rose-500/40 text-rose-300 text-sm font-body font-semibold hover:bg-blush transition-colors">
                 Cancel appointment
               </button>
             )}
@@ -411,9 +411,9 @@ function CalendarTab({ doctors, schedules, locations }) {
   return (
     <div>
       <div className="flex flex-wrap items-center gap-3 mb-5">
-        <div className="flex gap-1.5 rounded-2xl border border-slate-800 bg-slate-900 p-1 text-sm">
+        <div className="inline-flex gap-1 rounded-lg border border-slate-700 bg-white p-1 text-sm">
           {["day", "week"].map((v) => (
-            <button key={v} onClick={() => setView(v)} className={"px-3.5 py-1.5 rounded-xl font-body capitalize transition-colors " + (view === v ? "bg-teal-400 text-slate-950 font-medium" : "text-slate-400 hover:text-slate-100")}>{v}</button>
+            <button key={v} onClick={() => setView(v)} className={"px-3.5 py-1.5 rounded-md font-body capitalize transition-colors " + (view === v ? "bg-ink text-white font-semibold" : "text-slate-300 hover:text-ink")}>{v}</button>
           ))}
         </div>
         <div className="flex items-center gap-1.5">
@@ -436,7 +436,7 @@ function CalendarTab({ doctors, schedules, locations }) {
       {doctors.length === 0 ? (
         <div className={card + " text-center py-14 text-slate-500 font-body text-sm"}>No doctors registered yet — doctors appear here once they sign up.</div>
       ) : loading ? (
-        <div className="rounded-3xl border border-slate-800 bg-slate-900 p-5 space-y-3 animate-pulse">
+        <div className="rounded-xl border border-slate-700 bg-white p-5 space-y-3 animate-pulse">
           <div className="h-6 bg-slate-800 rounded-lg w-1/3" />
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="h-9 bg-slate-800/60 rounded-lg" />
@@ -444,7 +444,7 @@ function CalendarTab({ doctors, schedules, locations }) {
         </div>
       ) : (
         <>
-        <div className="rounded-3xl border border-slate-800 bg-slate-900 overflow-x-auto">
+        <div className="rounded-xl border border-slate-700 bg-white overflow-x-auto">
           <div style={{ display: "grid", gridTemplateColumns: `72px repeat(${dayColumns.length}, minmax(140px, 1fr))`, minWidth: dayColumns.length * 150 + 72 }}>
             <div className="border-b border-slate-800 px-3 py-3" />
             {dayColumns.map((c) => (
@@ -480,7 +480,7 @@ function CalendarTab({ doctors, schedules, locations }) {
             ))}
           </div>
         </div>
-        <div className="sm:hidden text-center text-xs text-slate-600 font-body mt-2">← scroll to see all doctors →</div>
+        <div className="sm:hidden text-center text-xs text-slate-600 font-body mt-2">Scroll sideways to see every doctor</div>
         </>
       )}
 
@@ -610,7 +610,7 @@ function QueueTab() {
   return (
     <div>
       <div className="flex flex-wrap items-center gap-3 mb-5">
-        <div className="font-mono2 text-xs text-slate-500 flex items-center gap-2"><Megaphone size={13} className="text-teal-400" /> Today's queue · sorted by priority then arrival</div>
+        <p className="font-body text-sm text-slate-300">Today's queue by station. Emergencies first, then seniors and PWDs, then order of arrival.</p>
         <div className="flex-1" />
         <button onClick={() => setScanning(true)} className={btnGhost + " flex items-center gap-1.5"}><QrCode size={15} /> Scan ID card</button>
         <button onClick={() => setWalkIn(true)} className={btnPrimary + " flex items-center gap-1.5"}><UserPlus size={15} /> Walk-in registration</button>
@@ -624,15 +624,18 @@ function QueueTab() {
           const nowServing = list.find((t) => ["called", "serving"].includes(t.status));
           return (
             <div key={st.name} className={card}>
-              <div className="flex items-center justify-between mb-3">
-                <div className="font-display font-semibold text-slate-100">{st.name}</div>
-                <div className="font-mono2 text-xs text-slate-500">{list.length} waiting</div>
+              <div className="flex items-baseline justify-between mb-3">
+                <h3 className="font-display text-lg font-bold text-ink">{st.name}</h3>
+                <div className="text-sm text-slate-400 font-body tnum">{list.length} in line</div>
               </div>
               {nowServing && (
-                <div className="rounded-2xl bg-teal-400/10 border border-teal-400/40 px-4 py-3 mb-3">
-                  <div className="font-mono2 text-2xl font-bold text-teal-300">{nowServing.number}</div>
-                  <div className="text-xs font-body text-slate-300">{nowServing.patient ? `${nowServing.patient.first_name} ${nowServing.patient.last_name}` : ""} · {nowServing.status}</div>
-                  <div className="flex gap-2 mt-2">
+                <div className="rounded-lg bg-mint border border-ink/15 px-4 py-3 mb-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="queue-no text-6xl text-ink">{nowServing.number}</div>
+                    <StatusMark status={nowServing.status} />
+                  </div>
+                  <div className="text-sm font-body text-ink mt-1">{nowServing.patient ? `${nowServing.patient.first_name} ${nowServing.patient.last_name}` : "Walk-in"}</div>
+                  <div className="flex gap-2 mt-3">
                     {nowServing.status === "called" && <button onClick={() => advance(nowServing, "serving")} className={btnGhost + " py-1 px-3 text-xs"}>Serving</button>}
                     <button onClick={() => advance(nowServing, "done")} className={btnPrimary + " py-1 px-3 text-xs"}>Done</button>
                     <button onClick={() => advance(nowServing, "skipped")} className={btnGhost + " py-1 px-3 text-xs"}>Skip</button>
@@ -641,20 +644,20 @@ function QueueTab() {
               )}
               {list.filter((t) => t.status === "waiting").slice(0, 5).map((t) => (
                 <div key={t.id} className="flex items-center justify-between py-2 border-b border-slate-800/60 last:border-0 text-sm font-body">
-                  <span className="font-mono2 text-slate-200">{t.number}</span>
-                  <span className={"text-xs " + prColor[t.priority]}>{t.priority.replace("_", "/")}</span>
-                  {!nowServing && <button onClick={() => advance(t, "called")} className="text-xs text-teal-300 hover:underline">Call</button>}
+                  <span className="queue-no text-2xl text-ink w-16">{t.number}</span>
+                  <span className={"text-xs font-semibold flex-1 " + prColor[t.priority]}>{t.priority === "regular" ? "" : t.priority === "senior_pwd" ? "Senior / PWD" : "Emergency"}</span>
+                  {!nowServing && <button onClick={() => advance(t, "called")} className="text-sm font-semibold text-teal-300 hover:underline underline-offset-4">Call</button>}
                 </div>
               ))}
-              {list.length === 0 && <div className="text-sm text-slate-600 font-body">Queue clear.</div>}
+              {list.length === 0 && <div className="text-sm text-slate-400 font-body">Nobody waiting.</div>}
             </div>
           );
         })}
       </div>
 
       {walkIn && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80" onClick={() => setWalkIn(false)}>
-          <div className="w-full max-w-md rounded-3xl border border-slate-700 bg-slate-900 p-6 fade-up" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40" onClick={() => setWalkIn(false)}>
+          <div className="w-full max-w-md rounded-xl bg-white p-6 card-deal shadow-[0_24px_60px_-20px_rgba(19,48,94,0.5)]" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-display text-lg font-bold text-slate-50">Walk-in registration</h3>
               <button onClick={() => setWalkIn(false)} className="text-slate-500 hover:text-slate-300"><X size={18} /></button>
@@ -728,8 +731,8 @@ function QRCheckinModal({ station: initialStation, myDoctorIds, onClose, onDone 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80" onClick={onClose}>
-      <div className="w-full max-w-md rounded-3xl border border-slate-700 bg-slate-900 p-6 fade-up" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40" onClick={onClose}>
+      <div className="w-full max-w-md rounded-xl bg-white p-6 card-deal shadow-[0_24px_60px_-20px_rgba(19,48,94,0.5)]" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-display text-lg font-bold text-slate-50 flex items-center gap-2"><QrCode size={18} className="text-teal-300" /> Scan patient ID card</h3>
           <button onClick={onClose} className="text-slate-500 hover:text-slate-300"><X size={18} /></button>
@@ -737,12 +740,10 @@ function QRCheckinModal({ station: initialStation, myDoctorIds, onClose, onDone 
 
         {result ? (
           <div className="text-center py-4">
-            <div className="w-14 h-14 rounded-2xl bg-teal-400/15 border border-teal-400/40 flex items-center justify-center mx-auto mb-4">
-              <Check size={24} className="text-teal-300" />
-            </div>
-            <div className="font-display text-lg font-bold text-slate-50">{result.first_name} {result.last_name}</div>
-            <div className="font-mono2 text-2xl font-bold text-teal-300 mt-2">{result.ticket_number}</div>
-            <div className="text-xs text-slate-500 font-body mt-1">Checked in at {station}</div>
+            <Stamp press size="lg" tilt={-6}>Checked in</Stamp>
+            <div className="font-display text-2xl font-bold text-ink mt-5">{result.first_name} {result.last_name}</div>
+            <div className="queue-no text-7xl text-ink mt-2">{result.ticket_number}</div>
+            <div className="text-sm text-slate-300 font-body mt-1">Queue number at {station}</div>
             <button onClick={onDone} className={btnPrimary + " mt-5"}>Done</button>
           </div>
         ) : (
@@ -759,7 +760,7 @@ function QRCheckinModal({ station: initialStation, myDoctorIds, onClose, onDone 
                 <div className="flex items-center text-xs text-slate-500 font-body">Doctor: (your assigned doctor)</div>
               )}
             </div>
-            <div id={elId} className="rounded-2xl overflow-hidden border border-slate-700" />
+            <div id={elId} className="rounded-lg overflow-hidden border border-slate-700 bg-ink" />
             <p className="text-xs text-slate-500 font-body mt-3">Point the camera at the QR code on the patient's ID card. Checking in issues a queue number automatically.</p>
             {error && (
               <div className="mt-3 flex items-start gap-2 text-sm text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-2xl px-4 py-3 font-body">
@@ -820,7 +821,7 @@ function OutboxTab() {
           Last run: {lastResult.processed} processed · {lastResult.sent} sent · {lastResult.failed} failed
         </div>
       )}
-      <div className="rounded-3xl border border-slate-800 bg-slate-900 overflow-hidden">
+      <div className="rounded-xl border border-slate-700 bg-white overflow-hidden">
         {rows.length === 0 && <div className="px-5 py-10 text-center text-slate-500 font-body text-sm">No notifications yet — book an appointment to see confirmations queue here.</div>}
         {rows.map((n) => (
           <div key={n.id} className="px-5 py-3.5 border-b border-slate-800/60 last:border-0">
@@ -828,7 +829,7 @@ function OutboxTab() {
               <span className="font-mono2 text-xs text-slate-400">{n.channel.toUpperCase()} → {n.recipient}</span>
               <div className="flex items-center gap-2">
                 <span className="font-mono2 text-xs text-slate-600">{new Date(n.scheduled_at).toLocaleString("en-PH", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>
-                <span className={"px-2 py-0.5 rounded-full border text-xs " + stStyle[n.status]}>{n.status}</span>
+                <StatusMark status={n.status} />
               </div>
             </div>
             <div className="text-sm text-slate-300 font-body">{n.body}</div>
@@ -881,16 +882,9 @@ export default function AppointmentsModule() {
     <StaffGate>
       <div className="max-w-7xl mx-auto px-6 py-10">
         <div className="mb-6">
-          <div className="font-mono2 text-xs text-teal-300 mb-1">STAFF · APPOINTMENT MANAGEMENT</div>
-          <h2 className="font-display text-3xl font-bold text-slate-50">Appointments</h2>
+          <h1 className="font-display text-3xl sm:text-4xl font-bold text-ink">Appointments</h1>
         </div>
-        <div className="flex gap-1.5 rounded-2xl border border-slate-800 bg-slate-900 p-1 text-sm w-fit mb-6">
-          {[["calendar", "Calendar"], ["schedules", "Schedules"], ["queue", "Queue"], ["outbox", "Outbox"]].map(([id, label]) => (
-            <button key={id} onClick={() => setTab(id)} className={"px-3.5 py-1.5 rounded-xl font-body transition-colors " + (tab === id ? "bg-teal-400 text-slate-950 font-medium" : "text-slate-400 hover:text-slate-100")}>
-              {label}
-            </button>
-          ))}
-        </div>
+        <Tabs className="mb-6" tabs={[["calendar", "Calendar"], ["schedules", "Schedules"], ["queue", "Queue"], ["outbox", "Outbox"]]} value={tab} onChange={setTab} />
         {tab === "calendar" && <CalendarTab doctors={doctors} schedules={schedules} locations={locations} />}
         {tab === "schedules" && <SchedulesTab doctors={doctors} schedules={schedules} locations={locations} reload={loadBase} />}
         {tab === "queue" && <QueueTab />}

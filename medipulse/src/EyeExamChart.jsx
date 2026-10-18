@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { X, Check, Printer, Eye, Activity, Glasses } from "lucide-react";
 import { supabase } from "./lib/supabaseClient";
 import { printDocument, esc, letterhead } from "./lib/print";
+import { selectSm as selectCls } from "./ui";
 
 /* ------------------------------------------------------------------ */
 /*  Eye Exam — visual acuity, IOP with trend, refraction, per-eye      */
@@ -14,18 +15,18 @@ const SNELLEN = ["20/20", "20/25", "20/30", "20/40", "20/50", "20/60", "20/70", 
 const EYES = { OD: "Right eye (OD)", OS: "Left eye (OS)" };
 
 const CONDITION_META = {
-  normal: { label: "Normal", color: "#1e293b", border: "#475569", text: "#94a3b8" },
-  refractive_error: { label: "Refractive error", color: "#164e63", border: "#22d3ee", text: "#a5f3fc" },
-  cataract: { label: "Cataract", color: "#78350f", border: "#fbbf24", text: "#fde68a" },
-  glaucoma_suspect: { label: "Glaucoma suspect", color: "#7c2d12", border: "#fb923c", text: "#fed7aa" },
-  glaucoma: { label: "Glaucoma", color: "#7f1d1d", border: "#f87171", text: "#fecaca" },
-  dry_eye: { label: "Dry eye", color: "#134e4a", border: "#2dd4bf", text: "#99f6e4" },
-  conjunctivitis: { label: "Conjunctivitis", color: "#701a75", border: "#e879f9", text: "#f5d0fe" },
-  pterygium: { label: "Pterygium", color: "#365314", border: "#a3e635", text: "#d9f99d" },
-  diabetic_retinopathy: { label: "Diabetic retinopathy", color: "#4c1d95", border: "#a78bfa", text: "#ddd6fe" },
-  macular_degeneration: { label: "Macular degeneration", color: "#581c87", border: "#c084fc", text: "#f3e8ff" },
-  corneal_abrasion: { label: "Corneal abrasion", color: "#7c2d12", border: "#f97316", text: "#ffedd5" },
-  other: { label: "Other", color: "#1c1917", border: "#78716c", text: "#d6d3d1" },
+  normal: { label: "Normal", color: "#FFFFFF", border: "#8794A8", text: "#46597A" },
+  refractive_error: { label: "Refractive error", color: "#CFE3F5", border: "#1F56A0", text: "#0B2C5E" },
+  cataract: { label: "Cataract", color: "#F6E7A8", border: "#9A6600", text: "#6E4700" },
+  glaucoma_suspect: { label: "Glaucoma suspect", color: "#FBE0C8", border: "#C25E14", text: "#7A3A0A" },
+  glaucoma: { label: "Glaucoma", color: "#F6D3D0", border: "#B8322F", text: "#8E2420" },
+  dry_eye: { label: "Dry eye", color: "#CDEBD9", border: "#2F8A57", text: "#1C5A37" },
+  conjunctivitis: { label: "Conjunctivitis", color: "#F7D5E8", border: "#B03A7C", text: "#7A1F52" },
+  pterygium: { label: "Pterygium", color: "#E3EFC6", border: "#5E7F1F", text: "#3E5612" },
+  diabetic_retinopathy: { label: "Diabetic retinopathy", color: "#DDD5F0", border: "#5B3FA8", text: "#3F2A80" },
+  macular_degeneration: { label: "Macular degeneration", color: "#EBD8F2", border: "#8A3FA8", text: "#5C2470" },
+  corneal_abrasion: { label: "Corneal abrasion", color: "#FBE0C8", border: "#C25E14", text: "#7A3A0A" },
+  other: { label: "Other", color: "#E4E6E9", border: "#6E7D94", text: "#46597A" },
 };
 
 // +2.00 / -0.75 style — plus lenses conventionally carry an explicit sign
@@ -33,7 +34,6 @@ const fmtDiopter = (v) => (v == null || v === "" ? "—" : (Number(v) > 0 ? "+" 
 
 const IOP_ALERT = 21; // mmHg — conventional upper limit of normal
 
-const selectCls = "rounded-xl bg-slate-900 border border-slate-700 px-3 py-2 text-sm text-slate-100 font-body focus:outline-none focus:border-teal-400 disabled:opacity-50";
 const inputCls = selectCls + " placeholder-slate-500 w-full";
 
 function EyeIcon({ eye, status, selected, onClick }) {
@@ -44,20 +44,20 @@ function EyeIcon({ eye, status, selected, onClick }) {
       className="flex flex-col items-center gap-1 group"
       title={`${EYES[eye]} — ${meta.label}`}
     >
-      <div className={"transition-transform group-hover:scale-105 " + (selected ? "drop-shadow-[0_0_8px_rgba(45,212,191,0.6)]" : "")}>
+      <div className={"transition-transform group-hover:scale-105 " + (selected ? "-translate-y-0.5" : "")}>
         <svg width="120" height="70" viewBox="0 0 120 70" className="overflow-visible">
           <path
             d="M10 35 Q60 -2 110 35 Q60 72 10 35 Z"
-            fill="#0f172a"
-            stroke={selected ? "#2dd4bf" : meta.border}
+            fill="#FFFFFF"
+            stroke={selected ? "#13305E" : meta.border}
             strokeWidth={selected ? 2.5 : 1.5}
           />
           <circle cx="60" cy="35" r="17" fill={meta.color} stroke={meta.border} strokeWidth="1.5" />
-          <circle cx="60" cy="35" r="7.5" fill="#020617" />
-          <circle cx="55" cy="30" r="2.5" fill="#e2e8f0" opacity="0.7" />
+          <circle cx="60" cy="35" r="7.5" fill="#13305E" />
+          <circle cx="55" cy="30" r="2.5" fill="#FFFFFF" opacity="0.85" />
         </svg>
       </div>
-      <span className="font-mono2 text-[10px] text-slate-500 group-hover:text-teal-300">{EYES[eye]}</span>
+      <span className="font-mono2 text-[11px] text-slate-400 group-hover:text-ink">{EYES[eye]}</span>
     </button>
   );
 }
@@ -73,13 +73,13 @@ function IopSparkline({ rows, encounterId }) {
   const line = (key) => pts.map((r, i) => (r[key] == null ? null : `${x(i)},${y(r[key])}`)).filter(Boolean).join(" ");
   return (
     <svg width={W} height={H} className="mt-2">
-      <line x1={PAD} x2={W - PAD} y1={y(IOP_ALERT)} y2={y(IOP_ALERT)} stroke="#f59e0b" strokeWidth="1" strokeDasharray="4 3" opacity="0.5" />
-      <polyline points={line("iop_od")} fill="none" stroke="#2dd4bf" strokeWidth="1.5" />
-      <polyline points={line("iop_os")} fill="none" stroke="#22d3ee" strokeWidth="1.5" strokeDasharray="5 3" />
+      <line x1={PAD} x2={W - PAD} y1={y(IOP_ALERT)} y2={y(IOP_ALERT)} stroke="#B8322F" strokeWidth="1" strokeDasharray="4 3" opacity="0.6" />
+      <polyline points={line("iop_od")} fill="none" stroke="#13305E" strokeWidth="1.5" />
+      <polyline points={line("iop_os")} fill="none" stroke="#1F56A0" strokeWidth="1.5" strokeDasharray="5 3" />
       {pts.map((r, i) => (
         <g key={r.id || i}>
-          {r.iop_od != null && <circle cx={x(i)} cy={y(r.iop_od)} r={r.encounter_id === encounterId ? 3.5 : 2.5} fill="#2dd4bf" />}
-          {r.iop_os != null && <circle cx={x(i)} cy={y(r.iop_os)} r={r.encounter_id === encounterId ? 3.5 : 2.5} fill="#22d3ee" />}
+          {r.iop_od != null && <circle cx={x(i)} cy={y(r.iop_od)} r={r.encounter_id === encounterId ? 3.5 : 2.5} fill="#13305E" />}
+          {r.iop_os != null && <circle cx={x(i)} cy={y(r.iop_os)} r={r.encounter_id === encounterId ? 3.5 : 2.5} fill="#1F56A0" />}
         </g>
       ))}
     </svg>
@@ -294,7 +294,7 @@ export default function EyeExamChart({ patient, encounterId, me, signed, myName 
           </table>
         </div>
         {(iopWarn(exam.iop_od) || iopWarn(exam.iop_os)) && (
-          <p className="text-xs text-amber-300 font-body mt-2">⚠ IOP above {IOP_ALERT} mmHg — consider glaucoma workup.</p>
+          <p className="text-xs text-amber-300 font-body mt-2">IOP above {IOP_ALERT} mmHg — consider glaucoma workup.</p>
         )}
       </div>
 
@@ -383,7 +383,7 @@ export default function EyeExamChart({ patient, encounterId, me, signed, myName 
             <button onClick={saveExam} disabled={busy} className="px-4 py-2 rounded-xl bg-teal-400 text-slate-950 text-sm font-body font-semibold hover:bg-teal-300 transition-colors disabled:opacity-60 flex items-center gap-1.5">
               <Check size={14} /> {busy ? "Saving…" : "Save eye exam"}
             </button>
-            {saved && <span className="text-xs text-teal-300 font-body">Saved ✓</span>}
+            {saved && <span className="text-xs text-teal-300 font-body">Saved</span>}
             <span className="text-xs text-slate-500 font-body">Saves acuity, pressure and refraction together.</span>
           </div>
         )}

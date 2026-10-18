@@ -4,3 +4,9 @@ dist
 .env.*
 .DS_Store
 *.log
+
+# impeccable working files (keep surfaces/ and design.json)
+.impeccable/mocks/
+.impeccable/review/
+.impeccable/decision-payload.json
+.impeccable/questions/
