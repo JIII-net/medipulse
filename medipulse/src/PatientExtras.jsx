@@ -32,7 +32,9 @@ export function useMyPeople() {
       supabase.from("patients").select("id, first_name, last_name, birthdate").eq("profile_id", uid).maybeSingle(),
       supabase.from("patients").select("id, first_name, last_name, birthdate, sex, guardian_relationship").eq("guardian_profile_id", uid).is("deleted_at", null).order("created_at"),
     ]);
-    setSelf(me.data || null);
+    // Dev-only ?demo= preview: stand in a record so per-person screens render.
+    const demo = import.meta.env.DEV && me.error && new URLSearchParams(window.location.search).get("demo");
+    setSelf(me.data || (demo ? { id: "demo-self", first_name: "Ana", last_name: "Reyes" } : null));
     setDependents(deps.data || []);
     setLoaded(true);
   }, [uid]);

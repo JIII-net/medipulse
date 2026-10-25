@@ -18,6 +18,7 @@ import { LangProvider, LangSwitch, useT } from "./lib/i18n";
 import { DOCTOR_SELECT, toBookableDoctor, loadRatings } from "./lib/doctors";
 import { useMyPeople, FamilyPanel, OffersAndCredits, ReviewModal } from "./PatientExtras";
 import { PatientRecordsPanel } from "./PatientFiles";
+import { useVisitSummaries, VisitSummary, VisitsSection, ReceiptsSection, MyDetailsPanel, BookAgain } from "./PatientProfile";
 import DoctorProfile from "./DoctorProfile";
 import {
   Avatar, Stamp, StatusMark, FieldLabel, Notice, Tabs, HoldCountdown,
@@ -1204,6 +1205,9 @@ function MyAppointments() {
   const [payFor, setPayFor] = useState(null);
   const [reviewFor, setReviewFor] = useState(null);
   const [tick, setTick] = useState(0);
+  const [summaryOpen, setSummaryOpen] = useState(null);
+  const summaries = useVisitSummaries(null, tick);
+  const summaryFor = (a) => (summaries || []).find((s) => s.appointment_id === a.id);
 
   const load = async () => {
     setLoading(true);
@@ -1348,8 +1352,11 @@ function MyAppointments() {
                 {past.map((a) => {
                   const st = a.payment_status === "expired" ? "expired" : a.status;
                   const who = forWhom(a);
+                  const summary = summaryFor(a);
+                  const open = summaryOpen === a.id;
                   return (
-                    <div key={a.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-5 py-3.5 border-b border-slate-800 last:border-0 font-body">
+                    <div key={a.id} className="border-b border-slate-800 last:border-0">
+                    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-5 py-3.5 font-body">
                       <div className="min-w-0">
                         <div className="text-ink truncate">{a.doctors?.profiles?.full_name || t("Doctor")} <span className="text-slate-400">· {a.doctors?.specialty}{who ? ` · ${t("for {name}", { name: who })}` : ""}</span></div>
                         <div className="text-sm text-slate-400 tnum">
@@ -1358,12 +1365,26 @@ function MyAppointments() {
                         </div>
                         {a.status === "no_show" && a.payment_status === "verified" && <div className="text-sm text-ink mt-0.5">{t("Your downpayment became credit for your next booking with this doctor.")}</div>}
                       </div>
-                      <div className="flex items-center gap-4">
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                        {summary && (
+                          <button onClick={() => setSummaryOpen(open ? null : a.id)} aria-expanded={open} className={btnQuiet}>
+                            {open ? t("Hide summary") : t("Visit summary")}
+                          </button>
+                        )}
                         {a.status === "completed" && !reviewed.has(a.id) && (
                           <button onClick={() => setReviewFor(a)} className={btnQuiet}>{t("Rate this visit")}</button>
                         )}
+                        {a.doctors?.slug && <BookAgain slug={a.doctors.slug} t={t} />}
                         <StatusMark status={st} label={STATUS_T(st, t)} />
                       </div>
+                    </div>
+                    {open && summary && (
+                      <div className="px-5 pb-4 -mt-1">
+                        <div className="rounded-lg border border-slate-700 bg-ground px-4 py-3">
+                          <VisitSummary s={summary} t={t} />
+                        </div>
+                      </div>
+                    )}
                     </div>
                   );
                 })}
@@ -1387,7 +1408,7 @@ function PatientPortal({ initialTab = "find" }) {
   const t = useT();
   const [tab, setTab] = useState(initialTab);
   const { session, profile, signOut } = useAuth();
-  const { people, self } = useMyPeople();
+  const { people, self, ensureSelf } = useMyPeople();
   const [recordsFor, setRecordsFor] = useState("self");
   const recordPerson = people.find((p) => (recordsFor === "self" ? p.isSelf : p.id === recordsFor)) || people[0];
   const recordId = recordPerson?.isSelf ? self?.id || null : recordPerson?.id;
@@ -1400,7 +1421,7 @@ function PatientPortal({ initialTab = "find" }) {
           <button onClick={signOut} className="text-sm font-body text-slate-300 hover:text-ink flex items-center gap-1.5"><LogOut size={15} /> {t("Log out")}</button>
         </div>
         <Tabs
-          tabs={[["find", t("Find a doctor")], ["mine", t("My appointments")], ["records", t("Records")], ["family", t("Family")], ["forms", t("Consent forms")]]}
+          tabs={[["find", t("Find a doctor")], ["mine", t("My appointments")], ["records", t("Records")], ["details", t("My details")], ["family", t("Family")], ["forms", t("Consent forms")]]}
           value={tab}
           onChange={setTab}
         />
@@ -1409,21 +1430,36 @@ function PatientPortal({ initialTab = "find" }) {
         <div className="max-w-6xl mx-auto px-5 sm:px-6 py-8 sm:py-10">
           {tab === "mine" && <MyAppointments />}
           {tab === "family" && <FamilyPanel />}
-          {tab === "records" && (
-            <div className="max-w-3xl">
-              {people.length > 1 && (
-                <div className="flex flex-wrap gap-2 mb-6" role="group" aria-label={t("Whose records")}>
-                  {people.map((p) => (
-                    <Pill key={p.id} active={(recordsFor === "self" && p.isSelf) || recordsFor === p.id} onClick={() => setRecordsFor(p.isSelf ? "self" : p.id)}>
-                      {p.isSelf ? t("Me") : p.name}
-                    </Pill>
-                  ))}
-                </div>
-              )}
-              <PatientRecordsPanel key={recordId || "none"} recordId={recordId} personName={recordPerson?.name || ""} t={t} />
+          {/* Records, details and forms are per person: the patient or a dependent. */}
+          {["records", "details", "forms"].includes(tab) && people.length > 1 && (
+            <div className="flex flex-wrap gap-2 mb-6" role="group" aria-label={t("Whose records")}>
+              {people.map((p) => (
+                <Pill key={p.id} active={(recordsFor === "self" && p.isSelf) || recordsFor === p.id} onClick={() => setRecordsFor(p.isSelf ? "self" : p.id)}>
+                  {p.isSelf ? t("Me") : p.name}
+                </Pill>
+              ))}
             </div>
           )}
-          {tab === "forms" && <ConsentFormsPanel patientRecordId={self?.id || null} userId={session?.user?.id} />}
+          {tab === "records" && (
+            <div className="max-w-3xl space-y-5">
+              <VisitsSection key={"v" + (recordId || "none")} recordId={recordId} t={t} />
+              <PatientRecordsPanel key={recordId || "none"} recordId={recordId} personName={recordPerson?.name || ""} t={t} />
+              <ReceiptsSection key={"r" + (recordId || "none")} recordId={recordId} personName={recordPerson?.name || ""} t={t} />
+            </div>
+          )}
+          {tab === "details" && (
+            <div className="max-w-3xl">
+              <MyDetailsPanel key={recordId || "none"} recordId={recordId} personName={recordPerson?.name || ""} isSelf={!!recordPerson?.isSelf} t={t} onCreate={ensureSelf} />
+            </div>
+          )}
+          {tab === "forms" && (
+            <div>
+              {recordPerson && !recordPerson.isSelf && (
+                <Notice tone="info" className="mb-5">{t("You're reading and signing these for {name}, as their parent or guardian.", { name: recordPerson.name })}</Notice>
+              )}
+              <ConsentFormsPanel key={recordId || "none"} patientRecordId={recordId} userId={session?.user?.id} />
+            </div>
+          )}
         </div>
       )}
     </PatientAuthGate>

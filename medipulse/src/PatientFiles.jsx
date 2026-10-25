@@ -172,6 +172,22 @@ export function PatientRecordsPanel({ recordId, personName, t = (s) => s }) {
       <div class="muted">Copy from the 4MED patient portal.</div>`);
   };
 
+  const printCert = (c) => {
+    const doctor = c.visit.doctor?.profiles?.full_name || "Doctor";
+    printDocument("Medical certificate", `
+      ${letterhead("MEDICAL CERTIFICATE")}
+      <table><tr><td class="label">Patient</td><td>${esc(personName)}</td></tr>
+      <tr><td class="label">Date issued</td><td>${esc(fmtDate(c.issued_at))}</td></tr>
+      <tr><td class="label">Seen on</td><td>${esc(fmtDate(c.visit.started_at || c.issued_at))}</td></tr></table>
+      <div class="rule"></div>
+      <p>This is to certify that <b>${esc(personName)}</b> was seen and examined on ${esc(fmtDate(c.visit.started_at || c.issued_at))}.</p>
+      <table><tr><td class="label">Diagnosis</td><td>${esc(c.diagnosis || "")}</td></tr>
+      ${c.rest_days ? `<tr><td class="label">Rest</td><td>${esc(c.rest_days)} day${Number(c.rest_days) === 1 ? "" : "s"}</td></tr>` : ""}
+      ${c.remarks ? `<tr><td class="label">Remarks</td><td>${esc(c.remarks)}</td></tr>` : ""}</table>
+      <div class="sig"><div class="line">${esc(doctor)}${c.visit.doctor?.prc_license ? `<br/>PRC ${esc(c.visit.doctor.prc_license)}` : ""}</div></div>
+      <div class="muted">Copy from the 4MED patient portal. For work, school or travel, ask the clinic for a copy with the doctor's signature.</div>`);
+  };
+
   if (!recordId) return <p className="font-body text-slate-300">{t("Records appear here after the first visit.")}</p>;
   if (loading) return <p className="font-body text-slate-400">{t("Loading records…")}</p>;
 
@@ -215,13 +231,18 @@ export function PatientRecordsPanel({ recordId, personName, t = (s) => s }) {
       <Section icon={ClipboardList} title={t("Medical certificates")} empty={t("No certificates yet.")}>
         {certs.map((c) => (
           <li key={c.id} className="px-5 py-3 border-b border-slate-800 last:border-0 font-body">
-            <div className="text-sm text-slate-400">{fmtDate(c.issued_at)} · {c.visit.doctor?.profiles?.full_name || "Doctor"}</div>
-            <div className="text-ink">{c.diagnosis}{c.rest_days ? ` · ${c.rest_days} ${t("days rest")}` : ""}</div>
-            {c.remarks && <div className="text-sm text-slate-300">{c.remarks}</div>}
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-sm text-slate-400">{fmtDate(c.issued_at)} · {c.visit.doctor?.profiles?.full_name || "Doctor"}</div>
+                <div className="text-ink">{c.diagnosis}{c.rest_days ? ` · ${c.rest_days} ${t("days rest")}` : ""}</div>
+                {c.remarks && <div className="text-sm text-slate-300">{c.remarks}</div>}
+              </div>
+              <button onClick={() => printCert(c)} className={btnGhostSm + " shrink-0"}><Printer size={15} /> {t("Print")}</button>
+            </div>
           </li>
         ))}
       </Section>
-      <FieldLabel className="block">{t("Ask the clinic for a signed copy if you need one for work or school.")}</FieldLabel>
+      <FieldLabel className="block">{t("Printed copies come from the portal. Ask the clinic for a signed copy if you need one for work or school.")}</FieldLabel>
     </div>
   );
 }
