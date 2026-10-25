@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { CreditCard, MapPin, Users, Plus, Trash2, Copy, Check, AlertCircle, FileText, Pencil, X } from "lucide-react";
+import { CreditCard, MapPin, Users, Plus, Trash2, Copy, Check, AlertCircle, FileText, Pencil, X, Share2, Upload, ExternalLink } from "lucide-react";
+import { profileUrl, slugify } from "./lib/doctors";
+import { DoctorInvoices } from "./SubscriptionBilling";
+import { validateUpload } from "./lib/uploads";
 import { useAuth } from "./lib/AuthContext";
 import { supabase } from "./lib/supabaseClient";
-import { inputSm as inputCls, btnSm as btnPrimary, btnGhostSm as btnGhost, panel as card, StatusMark } from "./ui";
+import { inputSm as inputCls, btnSm as btnPrimary, btnGhostSm as btnGhost, panel as card, StatusMark, Avatar, FieldLabel } from "./ui";
 
 /* ------------------------------------------------------------------ */
 /*  Practice settings — for doctors: subscription, locations, team     */
@@ -122,7 +125,8 @@ export default function PracticeSettings() {
               <StatusMark status={sub.status} size="lg" />
             </div>
           )}
-          <p className="text-xs text-slate-500 font-body mt-3">To change plans or billing, contact support — self-serve plan changes arrive with the billing integration.</p>
+          <DoctorInvoices doctorId={me} />
+          <p className="text-xs text-slate-500 font-body mt-3">To change plans or billing, contact 4MED support.</p>
         </div>
 
         {/* locations */}
@@ -185,6 +189,7 @@ export default function PracticeSettings() {
           </button>
         </div>
 
+        <PublicProfileCard doctorId={me} />
         <BookingRulesCard doctorId={me} />
 
         <ConsentDocsCard doctorId={me} />
@@ -207,6 +212,107 @@ const HOLD_CHOICES = [
 ];
 
 const DOWNPAYMENT_SHARES = [20, 30, 50];
+
+/* --------------------------- public profile -------------------------- */
+
+// The page patients see at /dr/<slug>, and the link the doctor shares.
+function PublicProfileCard({ doctorId }) {
+  const { profile } = useAuth();
+  const [f, setF] = useState({ slug: "", bio: "", years_experience: "", photo_url: "" });
+  const [saved, setSaved] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (!doctorId) return;
+    supabase.from("doctors").select("slug, bio, years_experience, photo_url").eq("id", doctorId).maybeSingle()
+      .then(({ data }) => data && setF({
+        slug: data.slug || slugify(profile?.full_name, doctorId),
+        bio: data.bio || "",
+        years_experience: data.years_experience ?? "",
+        photo_url: data.photo_url || "",
+      }));
+  }, [doctorId, profile?.full_name]);
+
+  const set = (patch) => { setF((x) => ({ ...x, ...patch })); setSaved(false); };
+
+  const uploadPhoto = async (file) => {
+    const bad = validateUpload(file);
+    if (bad || !file.type.startsWith("image/")) { setError(bad || "Use a photo (JPG, PNG or WEBP)."); return; }
+    setBusy(true); setError(null);
+    const path = `${doctorId}/photo-${Date.now()}.${(file.name.split(".").pop() || "jpg").toLowerCase()}`;
+    const { error: upErr } = await supabase.storage.from("doctor-photos").upload(path, file, { contentType: file.type, upsert: true });
+    if (upErr) { setBusy(false); setError("Upload failed: " + upErr.message); return; }
+    const { data } = supabase.storage.from("doctor-photos").getPublicUrl(path);
+    setBusy(false);
+    set({ photo_url: data.publicUrl });
+  };
+
+  const save = async () => {
+    const slug = slugify(f.slug);
+    if (slug.length < 3) { setError("The link needs at least 3 letters or numbers."); return; }
+    setBusy(true); setError(null);
+    const { error } = await supabase.from("doctors").update({
+      slug, bio: f.bio.trim() || null,
+      years_experience: f.years_experience === "" ? null : Number(f.years_experience),
+      photo_url: f.photo_url || null,
+    }).eq("id", doctorId);
+    setBusy(false);
+    if (error) {
+      setError(/doctors_slug_key|duplicate/i.test(error.message) ? "Another doctor already uses that link. Try adding your city or specialty." : error.message);
+      return;
+    }
+    setF((x) => ({ ...x, slug }));
+    setSaved(true);
+  };
+
+  const url = profileUrl(slugify(f.slug));
+  const copy = () => { navigator.clipboard?.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 1500); };
+
+  return (
+    <div className={card}>
+      <div className="font-display text-lg font-bold text-ink mb-1">Public profile</div>
+      <p className="text-sm text-slate-300 font-body mb-4">Your page on 4MED. Share the link on Facebook or Messenger so patients can see your schedule and reviews and book you directly.</p>
+      {error && <div className="mb-4 text-sm text-rose-300 bg-blush border border-rose-500/30 rounded-lg px-4 py-3 font-body">{error}</div>}
+
+      <div className="flex flex-col sm:flex-row gap-5">
+        <div className="shrink-0 flex flex-col items-center gap-2">
+          {f.photo_url ? <img src={f.photo_url} alt="" className="w-24 h-24 rounded-lg object-cover border border-slate-700" /> : <Avatar name={profile?.full_name || ""} size={96} />}
+          <label className={btnGhost + " cursor-pointer"}>
+            <Upload size={14} /> {f.photo_url ? "Change" : "Add photo"}
+            <input type="file" accept="image/*" className="sr-only" onChange={(e) => e.target.files?.[0] && uploadPhoto(e.target.files[0])} />
+          </label>
+        </div>
+        <div className="flex-1 space-y-3">
+          <label className="block">
+            <FieldLabel>Your link</FieldLabel>
+            <div className="flex items-center mt-1.5">
+              <span className="px-3 py-2 text-sm text-slate-400 font-body border border-r-0 border-slate-700 rounded-l-md bg-ground whitespace-nowrap">{window.location.host}/dr/</span>
+              <input className={inputCls + " rounded-l-none"} value={f.slug} onChange={(e) => set({ slug: e.target.value.toLowerCase() })} />
+            </div>
+          </label>
+          <label className="block">
+            <FieldLabel>About you</FieldLabel>
+            <textarea className={inputCls + " mt-1.5 min-h-24 resize-y"} maxLength={1200} placeholder="Training, what you treat, languages you speak, what patients should bring." value={f.bio} onChange={(e) => set({ bio: e.target.value })} />
+          </label>
+          <label className="block w-40">
+            <FieldLabel>Years in practice</FieldLabel>
+            <input type="number" min="0" className={inputCls + " mt-1.5 tnum"} value={f.years_experience} onChange={(e) => set({ years_experience: e.target.value })} />
+          </label>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 mt-5">
+        <button onClick={save} disabled={busy} className={btnPrimary}><Check size={14} /> {busy ? "Saving…" : "Save"}</button>
+        <button onClick={copy} className={btnGhost}>{copied ? <Check size={14} /> : <Copy size={14} />} {copied ? "Copied" : "Copy link"}</button>
+        <a href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`} target="_blank" rel="noreferrer" className={btnGhost}><Share2 size={14} /> Share on Facebook</a>
+        <a href={url} target="_blank" rel="noreferrer" className={btnGhost}><ExternalLink size={14} /> View page</a>
+        {saved && <span className="text-sm text-ink font-body">Saved</span>}
+      </div>
+    </div>
+  );
+}
 
 function BookingRulesCard({ doctorId }) {
   const [f, setF] = useState(EMPTY_RULES);
@@ -380,6 +486,10 @@ function BookingRulesCard({ doctorId }) {
     </div>
   );
 }
+
+/* --------------------------- consent forms --------------------------- */
+
+const EMPTY_DOC = { title: "", body: "", required_before_consult: true, active: true };
 
 function ConsentDocsCard({ doctorId }) {
   const [docs, setDocs] = useState([]);

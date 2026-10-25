@@ -1,0 +1,5 @@
+{
+  "rewrites": [
+    { "source": "/dr/:slug", "destination": "/index.html" }
+  ]
+}

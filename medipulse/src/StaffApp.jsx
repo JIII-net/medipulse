@@ -11,6 +11,7 @@ import AppointmentsModule from "./AppointmentsModule";
 import DoctorPortal from "./DoctorPortal";
 import PracticeSettings from "./PracticeSettings";
 import { PaymentProofReview } from "./PaymentProof";
+import { useBillingStatus, BillingBanner, BillingLock } from "./SubscriptionBilling";
 import BillingModule from "./BillingModule";
 import { LogoMark } from "./Logo";
 import { StatusMark, FieldLabel, HoldCountdown, Notice, btnSm, btnGhostSm, btnQuiet, inputSm, tintForProfession } from "./ui";
@@ -449,6 +450,7 @@ function StaffAppInner({ AdminPortal, onExitToSite }) {
   // practitioner record (a signup that failed half-way), true otherwise.
   const [hasDoctorRow, setHasDoctorRow] = useState(undefined);
   const [setupDone, setSetupDone] = useState(0);
+  const billing = useBillingStatus();
 
   // The rail is the practitioner's card stock: a dentist's clinic app is
   // mint, an ophthalmologist's butter. Secretaries and admins take the
@@ -577,8 +579,11 @@ function StaffAppInner({ AdminPortal, onExitToSite }) {
           </button>
           <GlobalSearch onOpenPatient={openPatient} />
         </header>
+        {!billing.pastDue && <BillingBanner open={billing.open} />}
         <main className="flex-1">
-          {profile?.role === "doctor" && hasDoctorRow === false ? (
+          {billing.pastDue ? (
+            <BillingLock pastDue={billing.pastDue} />
+          ) : profile?.role === "doctor" && hasDoctorRow === false ? (
             <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10">
               <FinishPracticeSetup onDone={() => setSetupDone((n) => n + 1)} />
             </div>

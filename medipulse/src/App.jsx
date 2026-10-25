@@ -8,10 +8,16 @@ import { supabase } from "./lib/supabaseClient";
 import { friendlyError, prcLicenseAvailable } from "./lib/errors";
 import StaffApp from "./StaffApp";
 import { PlansTab, InvitesTab, SpecialtiesTab } from "./AdminSetup";
+import { SubscriptionBillingTab } from "./SubscriptionBilling";
 import { PROFESSIONS, ALL_SPECIALTIES, professionById } from "./lib/professions";
 import { LogoMark } from "./Logo";
 import { PaymentProofModal } from "./PaymentProof";
 import { ConsentFormsPanel } from "./ConsentForms";
+import { LangProvider, LangSwitch, useT } from "./lib/i18n";
+import { DOCTOR_SELECT, toBookableDoctor, loadRatings } from "./lib/doctors";
+import { useMyPeople, FamilyPanel, OffersAndCredits, ReviewModal } from "./PatientExtras";
+import { PatientRecordsPanel } from "./PatientFiles";
+import DoctorProfile from "./DoctorProfile";
 import {
   Avatar, Stamp, StatusMark, FieldLabel, Notice, Tabs, HoldCountdown,
   btn, btnLg, btnGhost, btnGhostLg, btnQuiet, inputCls,
@@ -126,6 +132,7 @@ function Pill({ children, active, onClick }) {
 const PLAN_TINTS = ["bg-sky", "bg-butter", "bg-mint"];
 
 function PricingCards({ annual, selected, onSelect, compact, plans }) {
+  const t = useT();
   const list = plans && plans.length > 0 ? plans : PLANS;
   return (
     <div className="grid md:grid-cols-3 gap-5">
@@ -154,9 +161,9 @@ function PricingCards({ annual, selected, onSelect, compact, plans }) {
             <div className="px-6 pt-5">
               <div className="flex items-baseline gap-1.5">
                 <span className="queue-no text-5xl text-ink">{peso(price)}</span>
-                <span className="text-slate-400 text-sm font-body">/ month</span>
+                <span className="text-slate-400 text-sm font-body">{t("/ month")}</span>
               </div>
-              <div className="text-xs text-slate-400 font-body mt-1 h-4">{annual ? `Billed yearly at ${peso(price * 12)}` : "Billed monthly"}</div>
+              <div className="text-xs text-slate-400 font-body mt-1 h-4">{annual ? t("Billed yearly at {amount}", { amount: peso(price * 12) }) : t("Billed monthly")}</div>
             </div>
             <ul className="px-6 pt-4 pb-6 flex-1">
               {(compact ? p.features.slice(0, 4) : p.features).map((f) => (
@@ -167,7 +174,7 @@ function PricingCards({ annual, selected, onSelect, compact, plans }) {
             </ul>
             {onSelect && (
               <div className={"px-6 py-3 border-t text-sm font-body font-semibold " + (isSel ? "bg-ink text-white border-ink" : "border-slate-800 text-teal-300")}>
-                {isSel ? <span className="flex items-center gap-1.5"><Check size={16} /> Selected</span> : "Choose " + p.name}
+                {isSel ? <span className="flex items-center gap-1.5"><Check size={16} /> {t("Selected")}</span> : t("Choose {plan}", { plan: p.name })}
               </div>
             )}
           </Tag>
@@ -193,6 +200,7 @@ const VISIT_STEPS = [
 // The hero's sample card stamps itself, one state at a time, so the
 // first thing a visitor sees is the product's mechanism at work.
 function SampleClinicCard() {
+  const t = useT();
   const reduced = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
   const STAMPS = ["Paid", "Signed", "Checked in"];
   const [shown, setShown] = useState(reduced ? STAMPS.length : 0);
@@ -206,16 +214,16 @@ function SampleClinicCard() {
     <div className="relative card-deal" style={{ animationDelay: "120ms" }}>
       {/* the card behind, slightly turned: the next patient's */}
       <div className="absolute inset-0 translate-x-1.5 translate-y-3 rotate-[2deg] sm:translate-x-4 sm:translate-y-4 sm:rotate-[3deg] rounded-xl bg-mint border border-ink/15" aria-hidden="true" />
-      <figure className="relative rounded-xl bg-white border border-ink/20 overflow-hidden" aria-label="Sample clinic card">
+      <figure className="relative rounded-xl bg-white border border-ink/20 overflow-hidden" aria-label={t("Sample clinic card")}>
         <div className="bg-sky px-6 py-4 flex items-center justify-between border-b border-ink/15">
           <div className="flex items-center gap-2.5">
             <LogoMark size={26} />
             <div>
-              <div className="font-display font-bold text-ink leading-none">Clinic card</div>
+              <div className="font-display font-bold text-ink leading-none">{t("Clinic card")}</div>
               <div className="text-xs text-slate-300 font-body mt-1">Rm 512 · Medical Arts Bldg</div>
             </div>
           </div>
-          <span className="text-[11px] font-body font-semibold uppercase tracking-[0.12em] text-slate-300">Sample</span>
+          <span className="text-[11px] font-body font-semibold uppercase tracking-[0.12em] text-slate-300">{t("Sample")}</span>
         </div>
         <div className="grid grid-cols-[1fr_auto_auto]">
           <div className="relative px-6 py-5 space-y-4">
@@ -225,23 +233,23 @@ function SampleClinicCard() {
               ["Schedule", "Sat 18 Oct · 2:45 PM"],
             ].map(([k, v]) => (
               <div key={k}>
-                <FieldLabel>{k}</FieldLabel>
+                <FieldLabel>{t(k)}</FieldLabel>
                 <div className="write-in font-body text-lg text-ink mt-1">{v}</div>
               </div>
             ))}
-            <div className="h-16 flex items-center">{shown === 0 && <span className="pending-mark">Awaiting payment</span>}</div>
+            <div className="h-16 flex items-center">{shown === 0 && <span className="pending-mark">{t("Awaiting payment")}</span>}</div>
             {/* stamps come down across the written lines, as a secretary would ink them */}
             <div aria-live="polite">
               {STAMPS.slice(0, shown).map((s, i) => (
                 <span key={s} className="absolute" style={[{ right: 12, top: 10 }, { right: 14, bottom: 62 }, { left: 22, bottom: 16 }][i]}>
-                  <Stamp press={!reduced} tilt={[-8, 6, -3][i]} size="lg">{s}</Stamp>
+                  <Stamp press={!reduced} tilt={[-8, 6, -3][i]} size="lg">{t(s)}</Stamp>
                 </span>
               ))}
             </div>
           </div>
           <div className="perf-v perf" aria-hidden="true" />
           <div className="w-28 sm:w-32 flex flex-col items-center justify-center px-3 py-5 bg-white">
-            <FieldLabel>Queue no.</FieldLabel>
+            <FieldLabel>{t("Queue no.")}</FieldLabel>
             <div className="queue-no text-[84px] text-ink mt-1">08</div>
           </div>
         </div>
@@ -261,6 +269,7 @@ const PROFESSION_DETAILS = {
 };
 
 function ProfessionRack() {
+  const t = useT();
   const [open, setOpen] = useState("dentist");
   return (
     <div className="flex flex-col lg:flex-row gap-3 lg:h-[380px]">
@@ -283,13 +292,13 @@ function ProfessionRack() {
           >
             <div className="p-5 h-full flex flex-col">
               <div className="flex items-start justify-between gap-3">
-                <div className={"font-display font-bold text-ink leading-tight " + (on ? "text-3xl" : "text-xl lg:[writing-mode:vertical-rl] lg:rotate-180")}>{p.label}</div>
-                {on && <Stamp tone="ink" tilt={4}>{d.module}</Stamp>}
+                <div className={"font-display font-bold text-ink leading-tight " + (on ? "text-3xl" : "text-xl lg:[writing-mode:vertical-rl] lg:rotate-180")}>{t(p.label)}</div>
+                {on && <Stamp tone="ink" tilt={4}>{t(d.module)}</Stamp>}
               </div>
               <div className={on ? "pt-5 flex-1 flex flex-col" : "hidden"}>
                 <ul className="space-y-2">
                   {d.lines.map((l) => (
-                    <li key={l} className="flex items-start gap-2.5 font-body text-ink"><Check size={16} className="mt-1 shrink-0" />{l}</li>
+                    <li key={l} className="flex items-start gap-2.5 font-body text-ink"><Check size={16} className="mt-1 shrink-0" />{t(l)}</li>
                   ))}
                 </ul>
                 <div className="mt-auto pt-4 border-t border-ink/20 text-sm font-body text-slate-300">
@@ -314,6 +323,7 @@ const SAMPLE_QUEUE = [
 ];
 
 function Landing({ go }) {
+  const t = useT();
   const { session, profile } = useAuth();
   const [annual, setAnnual] = useState(true);
   const [livePlans, setLivePlans] = useState([]);
@@ -323,7 +333,7 @@ function Landing({ go }) {
   }, []);
   const isSignedIn = !!(session && profile);
   const homeDestination = profile?.role === "patient" ? "patient" : "app";
-  const homeLabel = profile?.role === "patient" ? "Go to my appointments" : "Open the Clinic App";
+  const homeLabel = profile?.role === "patient" ? t("Go to my appointments") : t("Open the Clinic App");
   return (
     <div className="overflow-x-clip">
       {/* hero: the card itself */}
@@ -331,15 +341,14 @@ function Landing({ go }) {
         <div className="fade-up">
           {isSignedIn && (
             <p className="font-body text-sm text-slate-400 mb-5">
-              Signed in as <span className="text-ink font-semibold">{profile.full_name}</span> <span className="capitalize">({profile.role})</span>
+              {t("Signed in as")} <span className="text-ink font-semibold">{profile.full_name}</span> <span className="capitalize">({t(profile.role)})</span>
             </p>
           )}
           <h1 className="font-display text-[44px] leading-[1.02] sm:text-6xl lg:text-[68px] font-extrabold text-ink">
-            Every visit on one card, from booking to the stamp.
+            {t("Every visit on one card, from booking to the stamp.")}
           </h1>
           <p className="font-body text-lg text-slate-300 mt-6 max-w-[34rem]">
-            4MED is the clinic system for Philippine practices. Patients book from your real clinic hours, pay ahead and sign consent on their phone.
-            Your front desk runs the queue. You consult with a chart made for your profession.
+            {t("4MED is the clinic system for Philippine practices. Patients book from your real clinic hours, pay ahead and sign consent on their phone. Your front desk runs the queue. You consult with a chart made for your profession.")}
           </p>
           <div className="flex flex-wrap gap-3 mt-8">
             {isSignedIn ? (
@@ -348,14 +357,14 @@ function Landing({ go }) {
               </button>
             ) : (
               <button onClick={() => go("doctor")} className={btnLg}>
-                Start a 14-day trial <ArrowRight size={18} />
+                {t("Start a 14-day trial")} <ArrowRight size={18} />
               </button>
             )}
             <button onClick={() => go("patient")} className={btnGhostLg}>
-              Book as a patient
+              {t("Book as a patient")}
             </button>
           </div>
-          <p className="font-body text-sm text-slate-400 mt-5">For doctors, dentists, ophthalmologists, psychiatrists and psychologists.</p>
+          <p className="font-body text-sm text-slate-400 mt-5">{t("For doctors, dentists, ophthalmologists, psychiatrists and psychologists.")}</p>
         </div>
         <SampleClinicCard />
       </section>
@@ -363,14 +372,14 @@ function Landing({ go }) {
       {/* how a visit moves */}
       <section className="border-y border-slate-800 bg-white">
         <div className="max-w-6xl mx-auto px-5 sm:px-6 py-16">
-          <h2 className="font-display text-3xl sm:text-4xl font-bold text-ink max-w-2xl">How a visit moves</h2>
-          <p className="font-body text-slate-300 mt-3 max-w-2xl">Each step is a stamp on the patient's card. The patient sees it on their phone, the front desk sees it on the queue.</p>
+          <h2 className="font-display text-3xl sm:text-4xl font-bold text-ink max-w-2xl">{t("How a visit moves")}</h2>
+          <p className="font-body text-slate-300 mt-3 max-w-2xl">{t("Each step is a stamp on the patient's card. The patient sees it on their phone, the front desk sees it on the queue.")}</p>
           <ol className="mt-10 grid sm:grid-cols-2 lg:grid-cols-6 border-t border-ink">
             {VISIT_STEPS.map((s) => (
               <li key={s.status} className="pt-5 pb-6 pr-5 border-b lg:border-b-0 border-slate-800 lg:border-r last:border-r-0 lg:pl-4 first:lg:pl-0">
-                <div className="h-11 flex items-center"><StatusMark status={s.status} size="md" /></div>
-                <div className="field-label mt-3">{s.who}</div>
-                <p className="font-body text-[15px] text-slate-200 mt-1.5">{s.text}</p>
+                <div className="h-11 flex items-center"><StatusMark status={s.status} size="md" label={STATUS_T(s.status, t)} /></div>
+                <div className="field-label mt-3">{t(s.who)}</div>
+                <p className="font-body text-[15px] text-slate-200 mt-1.5">{t(s.text)}</p>
               </li>
             ))}
           </ol>
@@ -380,9 +389,9 @@ function Landing({ go }) {
       {/* professions */}
       <section className="max-w-6xl mx-auto px-5 sm:px-6 py-20">
         <div className="grid lg:grid-cols-[1fr_2fr] gap-6 items-end mb-10">
-          <h2 className="font-display text-3xl sm:text-4xl font-bold text-ink">Your profession gets its own card.</h2>
+          <h2 className="font-display text-3xl sm:text-4xl font-bold text-ink">{t("Your profession gets its own card.")}</h2>
           <p className="font-body text-slate-300 lg:max-w-xl">
-            The booking, payment, consent and queue are the same for everyone. The consult is not: each profession opens its own chart, on its own colour of card.
+            {t("The booking, payment, consent and queue are the same for everyone. The consult is not: each profession opens its own chart, on its own colour of card.")}
           </p>
         </div>
         <ProfessionRack />
@@ -392,20 +401,20 @@ function Landing({ go }) {
       <section className="bg-sky border-y border-ink/15">
         <div className="max-w-6xl mx-auto px-5 sm:px-6 py-20 grid lg:grid-cols-[1fr_1.5fr] gap-12 items-center">
           <div>
-            <h2 className="font-display text-3xl sm:text-4xl font-bold text-ink">The front desk sees the day as a queue.</h2>
+            <h2 className="font-display text-3xl sm:text-4xl font-bold text-ink">{t("The front desk sees the day as a queue.")}</h2>
             <p className="font-body text-slate-200 mt-4">
-              Today's patients in order, with their number, what's paid, and what's signed. Scan a patient's QR at the counter and their card is stamped Checked in.
+              {t("Today's patients in order, with their number, what's paid, and what's signed. Scan a patient's QR at the counter and their card is stamped Checked in.")}
             </p>
             <ul className="mt-6 space-y-2 font-body text-ink">
-              {["Day and week calendar, walk-ins included", "Payment proofs to check, in one list", "Official receipts at checkout, split payments included"].map((t) => (
-                <li key={t} className="flex gap-2.5"><Check size={18} className="mt-0.5 shrink-0" /> {t}</li>
+              {["Day and week calendar, walk-ins included", "Payment proofs to check, in one list", "Official receipts at checkout, split payments included"].map((line) => (
+                <li key={line} className="flex gap-2.5"><Check size={18} className="mt-0.5 shrink-0" /> {t(line)}</li>
               ))}
             </ul>
           </div>
           <div className="rounded-xl bg-white border border-ink/20 overflow-hidden">
             <div className="flex items-center justify-between px-5 py-3 border-b border-slate-800">
-              <span className="field-label">Today's queue · sample</span>
-              <span className="text-xs font-body text-slate-400">Sat 18 Oct · Clinic hours 1–5 PM</span>
+              <span className="field-label">{t("Today's queue · sample")}</span>
+              <span className="text-xs font-body text-slate-400">{t("Sat 18 Oct · Clinic hours 1–5 PM")}</span>
             </div>
             <table className="w-full text-left font-body">
               <tbody>
@@ -413,8 +422,8 @@ function Landing({ go }) {
                   <tr key={r.no} className={"border-b border-slate-800 last:border-0 " + (r.status === "in_progress" ? "bg-sky/40" : "")}>
                     <td className="pl-5 pr-2 py-3 w-14"><span className="queue-no text-3xl text-ink">{r.no}</span></td>
                     <td className="px-2 py-3 text-sm text-slate-400 tnum hidden sm:table-cell w-20">{r.time}</td>
-                    <td className="px-2 py-3"><div className="text-ink font-semibold">{r.name}</div><div className="text-sm text-slate-400">{r.visit}</div></td>
-                    <td className="pr-5 pl-2 py-3 text-right"><StatusMark status={r.status} /></td>
+                    <td className="px-2 py-3"><div className="text-ink font-semibold">{r.name}</div><div className="text-sm text-slate-400">{t(r.visit)}</div></td>
+                    <td className="pr-5 pl-2 py-3 text-right"><StatusMark status={r.status} label={STATUS_T(r.status, t)} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -427,11 +436,11 @@ function Landing({ go }) {
       <section className="max-w-6xl mx-auto px-5 sm:px-6 py-20">
         <div className="flex flex-wrap items-end justify-between gap-6 mb-10">
           <div>
-            <h2 className="font-display text-3xl sm:text-4xl font-bold text-ink">Plans for a single room or a whole clinic</h2>
-            <p className="text-slate-300 font-body mt-3">Every plan starts with a 14-day free trial.</p>
+            <h2 className="font-display text-3xl sm:text-4xl font-bold text-ink">{t("Plans for a single room or a whole clinic")}</h2>
+            <p className="text-slate-300 font-body mt-3">{t("Every plan starts with a 14-day free trial.")}</p>
           </div>
-          <div className="inline-flex rounded-lg border border-slate-700 bg-white p-1 font-body text-sm" role="group" aria-label="Billing period">
-            {[[false, "Monthly"], [true, "Yearly · save 20%"]].map(([val, label]) => (
+          <div className="inline-flex rounded-lg border border-slate-700 bg-white p-1 font-body text-sm" role="group" aria-label={t("Billing period")}>
+            {[[false, t("Monthly")], [true, t("Yearly · save 20%")]].map(([val, label]) => (
               <button
                 key={label}
                 onClick={() => setAnnual(val)}
@@ -451,15 +460,15 @@ function Landing({ go }) {
         <section className="max-w-6xl mx-auto px-5 sm:px-6 pb-8">
           <div className="rounded-xl bg-ink text-white px-6 sm:px-10 py-12 grid md:grid-cols-[1.4fr_1fr] gap-8 items-center">
             <div>
-              <h2 className="font-display text-3xl sm:text-4xl font-bold">Set up your clinic card this afternoon.</h2>
-              <p className="font-body text-sky mt-3">Add your clinic hours, fee and payment details, then share your booking page with patients.</p>
+              <h2 className="font-display text-3xl sm:text-4xl font-bold">{t("Set up your clinic card this afternoon.")}</h2>
+              <p className="font-body text-sky mt-3">{t("Add your clinic hours, fee and payment details, then share your booking page with patients.")}</p>
             </div>
             <div className="flex flex-wrap md:justify-end gap-3">
               <button onClick={() => go("doctor")} className="inline-flex items-center gap-2 px-6 py-3.5 rounded-lg bg-white text-ink font-body font-semibold hover:bg-sky transition-colors">
-                Start a 14-day trial <ArrowRight size={18} />
+                {t("Start a 14-day trial")} <ArrowRight size={18} />
               </button>
               <button onClick={() => go("staffjoin")} className="inline-flex items-center gap-2 px-6 py-3.5 rounded-lg border border-white/60 text-white font-body font-semibold hover:bg-white hover:text-ink transition-colors">
-                I'm clinic staff
+                {t("I'm clinic staff")}
               </button>
             </div>
           </div>
@@ -781,8 +790,18 @@ const bmLocalHM = (iso) => {
   return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
 };
 
+// "30 minutes" / "2 hours" in the visitor's language.
+const holdTextT = (min, t) => {
+  const m = Number(min) || 0;
+  if (m < 60) return t("{n} minutes", { n: m });
+  if (m < 1440) return m === 60 ? t("1 hour") : t("{n} hours", { n: Math.round(m / 60) });
+  return m === 1440 ? t("24 hours") : t("{n} days", { n: Math.round(m / 1440) });
+};
+
 function BookingModal({ doctor, onClose }) {
-  const { session, profile } = useAuth();
+  const t = useT();
+  const { session } = useAuth();
+  const { people, self, ensureSelf } = useMyPeople();
   // Local date parts, not toISOString() (always UTC) — otherwise
   // "today"/"tomorrow" silently roll back a day during PH early
   // mornings (UTC+8 means local midnight-7:59am is still "yesterday"
@@ -794,43 +813,41 @@ function BookingModal({ doctor, onClose }) {
   const [taken, setTaken] = useState([]);
   const [slot, setSlot] = useState(null);
   const [mode, setMode] = useState("clinic");
+  const [forId, setForId] = useState("self"); // whose visit: "self" or a dependent's record id
   const [locationId, setLocationId] = useState(doctor.locations?.length === 1 ? doctor.locations[0].id : "");
   const [booked, setBooked] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [saveError, setSaveError] = useState(null);
-  const [patientRecordId, setPatientRecordId] = useState(null);
   const [newAppt, setNewAppt] = useState(null);
   const [payOpen, setPayOpen] = useState(false);
   const [paySent, setPaySent] = useState(false);
+  const [credit, setCredit] = useState(0); // unused credit with this doctor
+  const [paidByCredit, setPaidByCredit] = useState(false);
+  const [waitlisted, setWaitlisted] = useState(false);
   const isRealDoctor = typeof doctor.id === "string" && doctor.id.includes("-");
   const chosenLocation = doctor.locations?.find((l) => l.id === locationId);
-
-  // Every booking must link to the patient's clinical master record
-  // (the `patients` table), not just their login account — that's what
-  // Doctor Portal, encounters, and billing actually key off. A record
-  // is created automatically from their name on first booking (via a
-  // security-definer function, so no client-side RLS friction); the
-  // front desk fills in birthdate/sex when they actually check in.
-  useEffect(() => {
-    if (!isRealDoctor || !session?.user?.id) return;
-    supabase.from("patients").select("id").eq("profile_id", session.user.id).maybeSingle()
-      .then(({ data }) => { if (data) setPatientRecordId(data.id); });
-  }, [isRealDoctor, session?.user?.id]);
+  const forPerson = people.find((p) => (forId === "self" ? p.isSelf : p.id === forId)) || people[0];
 
   useEffect(() => {
     if (!isRealDoctor) return;
     supabase.from("schedules").select("*").eq("resource_type", "doctor").eq("resource_id", doctor.id)
       .then(({ data }) => setSchedules(data || []));
-  }, [doctor.id, isRealDoctor]);
+    if (session?.user?.id) {
+      supabase.from("patient_credits").select("amount").eq("patient_profile_id", session.user.id).eq("doctor_id", doctor.id)
+        .is("used_at", null).gt("expires_at", new Date().toISOString())
+        .then(({ data }) => setCredit((data || []).reduce((s, c) => s + Number(c.amount), 0)));
+    }
+  }, [doctor.id, isRealDoctor, session?.user?.id]);
 
   useEffect(() => {
     setSlot(null);
+    setWaitlisted(false);
     if (!isRealDoctor) { setTaken([]); return; }
     setLoadingSlots(true);
-    // Free up anyone's lapsed unpaid hold first, so a slot that ran out
-    // of time shows as open again. Harmless if nothing has lapsed.
-    supabase.rpc("expire_unpaid_holds")
+    // Free up lapsed unpaid holds and waitlist offers first, so a slot that
+    // ran out of time shows as open again. Harmless if nothing has lapsed.
+    Promise.all([supabase.rpc("expire_unpaid_holds"), supabase.rpc("expire_waitlist_offers")])
       .then(() => supabase.rpc("taken_slots", { d: doctor.id, day: dateStr }))
       .then(({ data }) => {
         setTaken((data || []).map((row) => bmLocalHM(typeof row === "string" ? row : row.taken_slots || row)));
@@ -852,6 +869,11 @@ function BookingModal({ doctor, onClose }) {
   const noSlotsConfigured = !closed && slots.length === 0;
   const allRemainingTaken = !closed && slots.length > 0 && slots.every((s) => isPast(s) || taken.includes(s)) && slots.some((s) => !isPast(s));
   const allRemainingPast = !closed && slots.length > 0 && slots.every(isPast);
+  const canWaitlist = isRealDoctor && !!session?.user?.id && allRemainingTaken;
+
+  // The record the visit is for: the patient's own (created on first
+  // booking) or a dependent's.
+  const recordFor = async () => (forPerson?.isSelf ? await ensureSelf() : forPerson.id);
 
   const confirmBooking = async () => {
     if (!slot) return;
@@ -859,14 +881,9 @@ function BookingModal({ doctor, onClose }) {
     setSaving(true);
     setSaveError(null);
 
-    let recordId = patientRecordId;
-    if (!recordId) {
-      const { data: newRecordId, error: patErr } = await supabase.rpc("get_or_create_patient_record", {
-        p_profile_id: session.user.id, p_full_name: profile?.full_name || "Patient",
-      });
-      if (patErr) { setSaveError("Couldn't set up your patient record: " + patErr.message); setSaving(false); return; }
-      recordId = newRecordId;
-      setPatientRecordId(recordId);
+    let recordId;
+    try { recordId = await recordFor(); } catch (e) {
+      setSaveError(t("Couldn't set up the patient record: {msg}", { msg: friendlyError(e) })); setSaving(false); return;
     }
 
     const starts = new Date(`${dateStr}T${slot}:00`);
@@ -889,24 +906,46 @@ function BookingModal({ doctor, onClose }) {
       payment_status: doctor.requirePrepayment ? "awaiting_payment" : "not_required",
       payment_due_at: due ? due.toISOString() : null,
     }).select("id").single();
+    if (error) { setSaving(false); setSaveError(friendlyError(error)); return; }
+    // Credit from a missed visit goes toward the downpayment first.
+    if (doctor.requirePrepayment && credit > 0) {
+      const { data: used } = await supabase.rpc("apply_credit", { p_appointment_id: appt.id });
+      if (Number(used) >= Number(prepayTerms(doctor).now)) setPaidByCredit(true);
+    }
     setSaving(false);
-    if (error) { setSaveError(error.message); return; }
     setNewAppt({ id: appt.id, dueAt: due });
     setBooked(true);
+  };
+
+  const joinWaitlist = async () => {
+    setSaving(true); setSaveError(null);
+    try {
+      const recordId = await recordFor();
+      const { error } = await supabase.rpc("join_waitlist", { p_doctor_id: doctor.id, p_date: dateStr, p_patient_record_id: recordId, p_mode: mode, p_location_id: locationId || null });
+      if (error) throw error;
+      setWaitlisted(true);
+    } catch (e) {
+      setSaveError(friendlyError(e));
+    }
+    setSaving(false);
   };
 
   const prettyDate = new Date(dateStr + "T12:00:00").toLocaleDateString("en-PH", { weekday: "long", month: "long", day: "numeric" });
 
   const tint = tintForSpecialty(doctor.specialty);
   const tomorrowLocal = fmtLocal(new Date(Date.now() + 86400000));
-  const awaitingPay = doctor.requirePrepayment && !paySent;
+  const terms = prepayTerms(doctor);
+  const owed = Math.max(0, terms.now - credit);
+  const awaitingPay = doctor.requirePrepayment && !paySent && !paidByCredit;
+  const confirmedNow = !doctor.requirePrepayment || paidByCredit;
+  const emptyBox = "text-sm text-slate-300 font-body py-6 text-center border border-dashed border-slate-700 rounded-lg";
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-ink/40" onClick={onClose}>
       <div
         role="dialog"
         aria-modal="true"
-        aria-label={`Book ${doctor.name}`}
+        aria-label={t("Book {name}", { name: doctor.name })}
         className="w-full sm:max-w-lg rounded-t-xl sm:rounded-xl bg-white card-deal max-h-[92vh] overflow-y-auto shadow-[0_24px_60px_-20px_rgba(19,48,94,0.5)]"
         onClick={(e) => e.stopPropagation()}
       >
@@ -916,58 +955,64 @@ function BookingModal({ doctor, onClose }) {
             <Avatar name={doctor.name} tint="bg-white" size={44} />
             <div className="min-w-0">
               <div className="font-display font-bold text-lg text-ink truncate">{doctor.name}</div>
-              <div className="text-sm text-slate-200 font-body truncate">{doctor.specialty} · {peso(doctor.fee)} consult</div>
+              <div className="text-sm text-slate-200 font-body truncate">{doctor.specialty} · {t("{fee} consult", { fee: peso(doctor.fee) })}</div>
             </div>
           </div>
-          <button onClick={onClose} className="w-9 h-9 -mr-1 rounded-md flex items-center justify-center text-ink hover:bg-white/60" aria-label="Close"><X size={18} /></button>
+          <button onClick={onClose} className="w-9 h-9 -mr-1 rounded-md flex items-center justify-center text-ink hover:bg-white/60" aria-label={t("Close")}><X size={18} /></button>
         </div>
 
         {booked ? (
           <div className="px-5 sm:px-6 py-6">
             <div className="flex items-start justify-between gap-4">
               <h3 className="font-display text-2xl font-bold text-ink">
-                {!doctor.requirePrepayment ? "You're booked" : paySent ? "Receipt sent" : "Your slot is held"}
+                {confirmedNow ? t("You're booked") : paySent ? t("Receipt sent") : t("Your slot is held")}
               </h3>
-              {!doctor.requirePrepayment
-                ? <Stamp press size="lg" tilt={-6}>Confirmed</Stamp>
-                : paySent ? <span className="pending-mark mt-2">Checking payment</span> : <span className="pending-mark mt-2">Awaiting payment</span>}
+              {confirmedNow
+                ? <Stamp press size="lg" tilt={-6}>{paidByCredit ? t("Paid") : t("Confirmed")}</Stamp>
+                : paySent ? <span className="pending-mark mt-2">{t("Checking payment")}</span> : <span className="pending-mark mt-2">{t("Awaiting payment")}</span>}
             </div>
             <div className="grid grid-cols-2 gap-x-5 gap-y-4 mt-5 font-body">
-              <div><FieldLabel>Date</FieldLabel><div className="write-in text-ink mt-1">{prettyDate}</div></div>
-              <div><FieldLabel>Time</FieldLabel><div className="write-in text-ink mt-1 tnum">{bm12h(slot)}</div></div>
-              <div className="col-span-2"><FieldLabel>Where</FieldLabel><div className="write-in text-ink mt-1">{mode === "video" ? "Video visit" : chosenLocation ? chosenLocation.name : "In clinic"}</div></div>
+              {!forPerson?.isSelf && <div className="col-span-2"><FieldLabel>{t("Patient")}</FieldLabel><div className="write-in text-ink mt-1">{forPerson?.name}</div></div>}
+              <div><FieldLabel>{t("Date")}</FieldLabel><div className="write-in text-ink mt-1">{prettyDate}</div></div>
+              <div><FieldLabel>{t("Time")}</FieldLabel><div className="write-in text-ink mt-1 tnum">{bm12h(slot)}</div></div>
+              <div className="col-span-2"><FieldLabel>{t("Where")}</FieldLabel><div className="write-in text-ink mt-1">{mode === "video" ? t("Video visit") : chosenLocation ? chosenLocation.name : t("In clinic")}</div></div>
             </div>
-            {!doctor.requirePrepayment && <p className="text-sm text-slate-300 font-body mt-5">We'll remind you a day before.</p>}
+            {paidByCredit && <p className="text-sm text-ink font-body mt-5">{t("Your credit from a missed visit covered the downpayment.")}</p>}
+            {confirmedNow && <p className="text-sm text-slate-300 font-body mt-2">{t("We'll remind you a day before.")}</p>}
 
             {awaitingPay && (
               <Notice tone="warn" className="mt-5">
                 {newAppt?.dueAt && <div className="text-base text-ink mb-1.5"><HoldCountdown dueAt={newAppt.dueAt} /></div>}
                 <p>
-                  Send {prepayTerms(doctor).isDown ? `the ${peso(prepayTerms(doctor).now)} downpayment` : peso(prepayTerms(doctor).now)} and upload your receipt
-                  {newAppt?.dueAt ? ` by ${newAppt.dueAt.toLocaleString("en-PH", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}` : ""}, or the slot is released.
-                  {prepayTerms(doctor).isDown ? ` The remaining ${peso(prepayTerms(doctor).balance)} is paid at the clinic.` : ""}
+                  {terms.isDown
+                    ? t("Send the {amount} downpayment and upload your receipt", { amount: peso(owed) })
+                    : t("Send {amount} and upload your receipt", { amount: peso(owed) })}
+                  {newAppt?.dueAt ? " " + t("by {when}", { when: newAppt.dueAt.toLocaleString("en-PH", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) }) : ""}
+                  {", "}{t("or the slot is released.")}
+                  {terms.isDown ? " " + t("The remaining {amount} is paid at the clinic.", { amount: peso(terms.balance) }) : ""}
                 </p>
+                {credit > 0 && owed < terms.now && <p className="mt-1.5">{t("Your {amount} credit was taken off.", { amount: peso(terms.now - owed) })}</p>}
                 {doctor.paymentInstructions && <p className="mt-2 text-ink whitespace-pre-wrap">{doctor.paymentInstructions}</p>}
               </Notice>
             )}
             {paySent && (
               <p className="mt-5 text-sm text-slate-200 font-body">
-                The clinic will check your receipt and stamp the appointment confirmed. Follow it under My appointments.
+                {t("The clinic will check your receipt and stamp the appointment confirmed. Follow it under My appointments.")}
               </p>
             )}
 
             <div className="flex flex-wrap gap-3 mt-6">
               {awaitingPay && newAppt && (
-                <button onClick={() => setPayOpen(true)} className={btn}>Upload proof of payment</button>
+                <button onClick={() => setPayOpen(true)} className={btn}>{t("Upload proof of payment")}</button>
               )}
-              <button onClick={onClose} className={awaitingPay ? btnGhost : btn}>{awaitingPay ? "Later" : "Done"}</button>
+              <button onClick={onClose} className={awaitingPay ? btnGhost : btn}>{awaitingPay ? t("Later") : t("Done")}</button>
             </div>
 
             {payOpen && newAppt && (
               <PaymentProofModal
                 appointment={{ id: newAppt.id }}
                 userId={session.user.id}
-                amount={doctor.prepayAmount}
+                amount={owed}
                 instructions={doctor.paymentInstructions}
                 onClose={() => setPayOpen(false)}
                 onDone={() => { setPayOpen(false); setPaySent(true); }}
@@ -976,19 +1021,28 @@ function BookingModal({ doctor, onClose }) {
           </div>
         ) : (
           <div className="px-5 sm:px-6 py-5 space-y-5">
+            {people.length > 1 && (
+              <label className="block">
+                <FieldLabel>{t("Who is this visit for?")}</FieldLabel>
+                <select className={inputCls + " mt-1.5"} value={forId} onChange={(e) => setForId(e.target.value)}>
+                  {people.map((p) => <option key={p.id} value={p.isSelf ? "self" : p.id}>{p.isSelf ? t("Me ({name})", { name: p.name }) : `${p.name} (${t(p.relationship)})`}</option>)}
+                </select>
+              </label>
+            )}
+
             <div>
-              <FieldLabel as="span" className="block mb-2">Visit</FieldLabel>
+              <FieldLabel as="span" className="block mb-2">{t("Visit")}</FieldLabel>
               <div className="flex gap-2">
-                <Pill active={mode === "clinic"} onClick={() => setMode("clinic")}>In clinic</Pill>
-                {doctor.telehealth && <Pill active={mode === "video"} onClick={() => setMode("video")}>Video visit</Pill>}
+                <Pill active={mode === "clinic"} onClick={() => setMode("clinic")}>{t("In clinic")}</Pill>
+                {doctor.telehealth && <Pill active={mode === "video"} onClick={() => setMode("video")}>{t("Video visit")}</Pill>}
               </div>
             </div>
 
             {mode === "clinic" && doctor.locations?.length > 1 && (
               <label className="block">
-                <FieldLabel>Clinic</FieldLabel>
+                <FieldLabel>{t("Clinic")}</FieldLabel>
                 <select className={inputCls + " mt-1.5"} value={locationId} onChange={(e) => setLocationId(e.target.value)}>
-                  <option value="">Choose where you'll be seen…</option>
+                  <option value="">{t("Choose where you'll be seen…")}</option>
                   {doctor.locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
                 </select>
               </label>
@@ -1001,28 +1055,41 @@ function BookingModal({ doctor, onClose }) {
             )}
 
             <div>
-              <FieldLabel as="span" className="block mb-2">Date</FieldLabel>
+              <FieldLabel as="span" className="block mb-2">{t("Date")}</FieldLabel>
               <div className="flex items-center gap-2">
-                <input type="date" min={todayLocal} value={dateStr} onChange={(e) => setDateStr(e.target.value)} className={inputCls + " flex-1"} aria-label="Appointment date" />
-                <Pill active={dateStr === todayLocal} onClick={() => setDateStr(todayLocal)}>Today</Pill>
-                <Pill active={dateStr === tomorrowLocal} onClick={() => setDateStr(tomorrowLocal)}>Tomorrow</Pill>
+                <input type="date" min={todayLocal} value={dateStr} onChange={(e) => setDateStr(e.target.value)} className={inputCls + " flex-1"} aria-label={t("Appointment date")} />
+                <Pill active={dateStr === todayLocal} onClick={() => setDateStr(todayLocal)}>{t("Today")}</Pill>
+                <Pill active={dateStr === tomorrowLocal} onClick={() => setDateStr(tomorrowLocal)}>{t("Tomorrow")}</Pill>
               </div>
             </div>
 
             <div>
-              <FieldLabel as="span" className="block mb-2">{prettyDate} · open times</FieldLabel>
+              <FieldLabel as="span" className="block mb-2">{prettyDate} · {t("open times")}</FieldLabel>
               {loadingSlots ? (
-                <div className="text-sm text-slate-400 font-body py-6 text-center border border-dashed border-slate-700 rounded-lg">Checking the doctor's schedule…</div>
+                <div className={emptyBox + " text-slate-400"}>{t("Checking the doctor's schedule…")}</div>
               ) : closed ? (
-                <div className="text-sm text-slate-300 font-body py-6 text-center border border-dashed border-slate-700 rounded-lg">No clinic hours on this day. Try another date.</div>
+                <div className={emptyBox}>{t("No clinic hours on this day. Try another date.")}</div>
               ) : noSlotsConfigured ? (
-                <Notice tone="warn">This day's clinic hours aren't set up correctly. Please contact the clinic.</Notice>
+                <Notice tone="warn">{t("This day's clinic hours aren't set up correctly. Please contact the clinic.")}</Notice>
               ) : allRemainingPast ? (
-                <div className="text-sm text-slate-300 font-body py-6 text-center border border-dashed border-slate-700 rounded-lg">Today's clinic hours are over. Try tomorrow.</div>
+                <div className={emptyBox}>{t("Today's clinic hours are over. Try tomorrow.")}</div>
               ) : allRemainingTaken ? (
-                <div className="text-sm text-slate-300 font-body py-6 text-center border border-dashed border-slate-700 rounded-lg">Fully booked on this date. Try another day.</div>
+                <div className={emptyBox + " px-4"}>
+                  {waitlisted ? (
+                    <span className="text-ink">{t("You're on the waitlist. If a slot opens on this day we'll text you, and you'll have 30 minutes to take it.")}</span>
+                  ) : (
+                    <>
+                      {t("Fully booked on this date.")}
+                      {canWaitlist && (
+                        <div className="mt-3">
+                          <button onClick={joinWaitlist} disabled={saving} className={btnGhost}>{saving ? t("Joining…") : t("Join the waitlist for this day")}</button>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
               ) : available.length === 0 ? (
-                <div className="text-sm text-slate-300 font-body py-6 text-center border border-dashed border-slate-700 rounded-lg">No open times on this date. Try another day.</div>
+                <div className={emptyBox}>{t("No open times on this date. Try another day.")}</div>
               ) : (
                 <div className="grid grid-cols-3 gap-2">
                   {available.map((s) => (
@@ -1044,16 +1111,17 @@ function BookingModal({ doctor, onClose }) {
 
             {doctor.requirePrepayment && (
               <div className="rounded-lg border border-dashed border-amber-500/60 bg-butter/50 px-4 py-3 text-sm font-body text-ink">
-                {prepayTerms(doctor).isDown
-                  ? <>This doctor asks for a <b>{peso(prepayTerms(doctor).now)} downpayment</b> to hold your slot; the remaining {peso(prepayTerms(doctor).balance)} is paid at the clinic.</>
-                  : <>This doctor asks for the <b>{peso(prepayTerms(doctor).now)} fee</b> in advance to hold your slot.</>}
-                {" "}After you pick a time you have <b>{holdText(doctor.holdMinutes)}</b> to pay by GCash, Maya or bank and upload the receipt. The clinic confirms your slot once they've checked it.
+                {terms.isDown
+                  ? t("This doctor asks for a {amount} downpayment to hold your slot; the remaining {balance} is paid at the clinic.", { amount: peso(terms.now), balance: peso(terms.balance) })
+                  : t("This doctor asks for the {amount} fee in advance to hold your slot.", { amount: peso(terms.now) })}
+                {" "}{t("After you pick a time you have {hold} to pay by GCash, Maya or bank and upload the receipt. The clinic confirms your slot once they've checked it.", { hold: holdTextT(doctor.holdMinutes, t) })}
+                {credit > 0 && <div className="mt-2 font-semibold">{t("You have {amount} credit with this doctor. It's used first.", { amount: peso(credit) })}</div>}
               </div>
             )}
             {saveError && <Notice tone="error" icon={AlertCircle}>{saveError}</Notice>}
 
             <button disabled={!slot || saving} onClick={confirmBooking} className={btnLg + " w-full"}>
-              {saving ? "Booking…" : slot ? `Book ${bm12h(slot)}` : "Choose a time"}
+              {saving ? t("Booking…") : slot ? t("Book {time}", { time: bm12h(slot) }) : t("Choose a time")}
             </button>
           </div>
         )}
@@ -1063,6 +1131,7 @@ function BookingModal({ doctor, onClose }) {
 }
 
 function PatientAuthGate({ children }) {
+  const t = useT();
   const { session, profile, loading, signUp, signIn } = useAuth();
   const [mode, setMode] = useState("signin");
   const [form, setForm] = useState({ name: "", email: "", password: "" });
@@ -1071,7 +1140,7 @@ function PatientAuthGate({ children }) {
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
   if (loading) {
-    return <div className="max-w-md mx-auto px-6 py-24 text-center text-slate-400 font-body">Loading…</div>;
+    return <div className="max-w-md mx-auto px-6 py-24 text-center text-slate-400 font-body">{t("Loading…")}</div>;
   }
 
   if (session && profile) return children;
@@ -1085,36 +1154,36 @@ function PatientAuthGate({ children }) {
         ? await signUp({ email: form.email, password: form.password, fullName: form.name, role: "patient" })
         : await signIn({ email: form.email, password: form.password });
     setBusy(false);
-    if (result.error) setError(friendlyError(result.error));
+    if (result.error) setError(t(friendlyError(result.error)));
   };
 
   return (
     <div className="max-w-md mx-auto px-5 sm:px-6 py-12 sm:py-16 fade-up">
       <div className="rounded-xl border border-ink/20 bg-white overflow-hidden">
         <div className="bg-sky px-6 py-5 border-b border-ink/15">
-          <FieldLabel>Patient</FieldLabel>
+          <FieldLabel>{t("Patient")}</FieldLabel>
           <h1 className="font-display text-3xl font-bold text-ink mt-1">
-            {mode === "signup" ? "Get your patient card" : "Welcome back"}
+            {mode === "signup" ? t("Get your patient card") : t("Welcome back")}
           </h1>
           <p className="text-slate-200 font-body text-sm mt-1.5">
-            {mode === "signup" ? "One account for every 4MED clinic you visit." : "Log in to book and see your appointments."}
+            {mode === "signup" ? t("One account for every 4MED clinic you visit, and for the family members you book for.") : t("Log in to book and see your appointments.")}
           </p>
         </div>
         <form onSubmit={submit} className="px-6 py-6 space-y-4">
           {mode === "signup" && (
-            <label className="block"><FieldLabel>Full name</FieldLabel><input className={inputCls + " mt-1.5"} autoComplete="name" value={form.name} onChange={(e) => set("name", e.target.value)} required /></label>
+            <label className="block"><FieldLabel>{t("Full name")}</FieldLabel><input className={inputCls + " mt-1.5"} autoComplete="name" value={form.name} onChange={(e) => set("name", e.target.value)} required /></label>
           )}
-          <label className="block"><FieldLabel>Email</FieldLabel><input className={inputCls + " mt-1.5"} type="email" autoComplete="email" value={form.email} onChange={(e) => set("email", e.target.value)} required /></label>
-          <label className="block"><FieldLabel>Password</FieldLabel><input className={inputCls + " mt-1.5"} type="password" autoComplete={mode === "signup" ? "new-password" : "current-password"} placeholder={mode === "signup" ? "At least 6 characters" : ""} value={form.password} onChange={(e) => set("password", e.target.value)} required minLength={6} /></label>
+          <label className="block"><FieldLabel>{t("Email")}</FieldLabel><input className={inputCls + " mt-1.5"} type="email" autoComplete="email" value={form.email} onChange={(e) => set("email", e.target.value)} required /></label>
+          <label className="block"><FieldLabel>{t("Password")}</FieldLabel><input className={inputCls + " mt-1.5"} type="password" autoComplete={mode === "signup" ? "new-password" : "current-password"} placeholder={mode === "signup" ? t("At least 6 characters") : ""} value={form.password} onChange={(e) => set("password", e.target.value)} required minLength={6} /></label>
           {error && <Notice tone="error" icon={AlertCircle}>{error}</Notice>}
           <button disabled={busy} className={btnLg + " w-full"}>
-            {busy ? "Please wait…" : mode === "signup" ? "Create account" : "Log in"}
+            {busy ? t("Please wait…") : mode === "signup" ? t("Create account") : t("Log in")}
           </button>
         </form>
         <div className="px-6 py-4 border-t border-slate-800 text-sm font-body text-slate-300">
-          {mode === "signup" ? "Already have an account? " : "New to 4MED? "}
+          {mode === "signup" ? t("Already have an account?") + " " : t("New to 4MED?") + " "}
           <button onClick={() => setMode(mode === "signup" ? "signin" : "signup")} className={btnQuiet}>
-            {mode === "signup" ? "Log in" : "Create an account"}
+            {mode === "signup" ? t("Log in") : t("Create an account")}
           </button>
         </div>
       </div>
@@ -1123,41 +1192,52 @@ function PatientAuthGate({ children }) {
 }
 
 function MyAppointments() {
+  const t = useT();
   const { session } = useAuth();
   const [rows, setRows] = useState([]);
+  const [reviewed, setReviewed] = useState(new Set());
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState(null);
   const [cancelError, setCancelError] = useState(null);
   const [payFor, setPayFor] = useState(null);
+  const [reviewFor, setReviewFor] = useState(null);
+  const [tick, setTick] = useState(0);
 
   const load = async () => {
     setLoading(true);
     await supabase.rpc("expire_unpaid_holds"); // so a lapsed hold shows as released, not still pending
-    const { data, error } = await supabase
-      .from("appointments")
-      .select("id, starts_at, status, type, mode, fee_charged, patient_record_id, payment_status, payment_due_at, location:location_id(name, address), doctors:doctor_id(specialty, prepayment_amount, payment_instructions, profiles(full_name))")
-      .eq("patient_id", session.user.id)
-      .order("starts_at", { ascending: false });
+    const [{ data, error }, rv] = await Promise.all([
+      supabase
+        .from("appointments")
+        .select("id, starts_at, status, type, mode, fee_charged, credit_applied, patient_record_id, payment_status, payment_due_at, patient_rec:patient_record_id(first_name, last_name, profile_id), location:location_id(name, address), doctors:doctor_id(specialty, slug, prepayment_amount, payment_instructions, profiles(full_name))")
+        .eq("patient_id", session.user.id)
+        .order("starts_at", { ascending: false }),
+      supabase.from("reviews").select("appointment_id").eq("author_id", session.user.id),
+    ]);
     setLoading(false);
     if (error) { setError(error.message); return; }
     setRows(data || []);
+    setReviewed(new Set((rv.data || []).map((r) => r.appointment_id)));
   };
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, []);
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [tick]);
 
   const cancel = async (id) => {
-    if (!window.confirm("Cancel this appointment? The slot goes back to the clinic.")) return;
+    if (!window.confirm(t("Cancel this appointment? The slot goes back to the clinic."))) return;
     setBusyId(id);
     setCancelError(null);
     const { error } = await supabase.from("appointments").update({ status: "canceled" }).eq("id", id);
     setBusyId(null);
-    if (error) { setCancelError("Couldn't cancel this appointment. Check your connection and try again."); return; }
+    if (error) { setCancelError(t("Couldn't cancel this appointment. Check your connection and try again.")); return; }
     load();
   };
 
   const now = new Date();
   const upcoming = rows.filter((a) => new Date(a.starts_at) >= now && a.status !== "canceled").reverse();
   const past = rows.filter((a) => new Date(a.starts_at) < now || a.status === "canceled");
+  // A visit booked for a dependent says who it's for.
+  const forWhom = (a) => (a.patient_rec && a.patient_rec.profile_id !== session.user.id ? `${a.patient_rec.first_name} ${a.patient_rec.last_name}` : null);
+  const owedOn = (a) => Math.max(0, Number(a.doctors?.prepayment_amount ?? a.fee_charged ?? 0) - Number(a.credit_applied || 0));
 
   // An upcoming visit is a clinic card: the doctor's stock on top, the
   // date written in, and the stamps that have landed so far.
@@ -1165,30 +1245,31 @@ function MyAppointments() {
     const lapsed = a.payment_status === "awaiting_payment" && a.payment_due_at && new Date(a.payment_due_at) <= new Date();
     const needsPay = ["awaiting_payment", "rejected"].includes(a.payment_status) && !lapsed;
     const when = new Date(a.starts_at);
+    const who = forWhom(a);
     return (
       <article className="rounded-xl border border-ink/20 bg-white overflow-hidden flex flex-col">
         <div className={"px-5 py-3.5 border-b border-ink/15 " + tintForSpecialty(a.doctors?.specialty)}>
-          <div className="font-display font-bold text-lg text-ink truncate">{a.doctors?.profiles?.full_name || "Doctor"}</div>
-          <div className="text-sm text-slate-200 font-body truncate">{a.doctors?.specialty}</div>
+          <div className="font-display font-bold text-lg text-ink truncate">{a.doctors?.profiles?.full_name || t("Doctor")}</div>
+          <div className="text-sm text-slate-200 font-body truncate">{a.doctors?.specialty}{who ? ` · ${t("for {name}", { name: who })}` : ""}</div>
         </div>
         <div className="grid grid-cols-[1fr_auto_auto] flex-1">
           <div className="px-5 py-4 space-y-3 min-w-0">
             <div>
-              <FieldLabel>Date</FieldLabel>
+              <FieldLabel>{t("Date")}</FieldLabel>
               <div className="write-in text-ink font-body mt-1">{when.toLocaleDateString("en-PH", { weekday: "long", month: "long", day: "numeric" })}</div>
             </div>
             <div>
-              <FieldLabel>Where</FieldLabel>
-              <div className="write-in text-ink font-body mt-1 truncate">{a.mode === "video" ? "Video visit" : a.location?.name || "In clinic"}</div>
+              <FieldLabel>{t("Where")}</FieldLabel>
+              <div className="write-in text-ink font-body mt-1 truncate">{a.mode === "video" ? t("Video visit") : a.location?.name || t("In clinic")}</div>
             </div>
             <div className="flex flex-wrap items-center gap-3 pt-1 min-h-[34px]">
-              <StatusMark status={a.status} />
-              <StatusMark status={a.payment_status} />
+              <StatusMark status={a.status} label={STATUS_T(a.status, t)} />
+              <StatusMark status={a.payment_status} label={STATUS_T(a.payment_status, t)} />
             </div>
           </div>
           <div className="perf-v perf" aria-hidden="true" />
           <div className="w-24 flex flex-col items-center justify-center px-2 py-4 text-center">
-            <FieldLabel>Time</FieldLabel>
+            <FieldLabel>{t("Time")}</FieldLabel>
             <div className="queue-no text-4xl text-ink mt-1">{when.toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" }).replace(/\s?[AP]M/i, "")}</div>
             <div className="text-xs font-semibold text-slate-300 font-body">{when.getHours() >= 12 ? "PM" : "AM"}</div>
           </div>
@@ -1196,26 +1277,27 @@ function MyAppointments() {
         {needsPay && (
           <div className="px-5 py-3 border-t border-amber-500/30 bg-butter/60 text-sm font-body text-amber-200">
             {a.payment_status === "rejected" ? (
-              "The clinic couldn't verify your payment. Please send it again."
+              t("The clinic couldn't verify your payment. Please send it again.")
             ) : (
               <>
                 {a.payment_due_at && <div className="text-base text-ink"><HoldCountdown dueAt={a.payment_due_at} /></div>}
-                Your slot is held until you upload proof of payment
-                {a.payment_due_at ? `, by ${new Date(a.payment_due_at).toLocaleString("en-PH", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}.` : "."}
+                {t("Your slot is held until you upload proof of payment")}
+                {a.payment_due_at ? `, ${t("by {when}", { when: new Date(a.payment_due_at).toLocaleString("en-PH", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) })}.` : "."}
+                {Number(a.credit_applied) > 0 && <div className="mt-1 text-ink">{t("Your {amount} credit was taken off.", { amount: peso(a.credit_applied) })}</div>}
               </>
             )}
           </div>
         )}
         {lapsed && (
           <div className="px-5 py-3 border-t border-rose-500/30 bg-blush/60 text-sm font-body text-rose-200">
-            The time to pay ran out, so this slot is being released. Book again if you still need the visit.
+            {t("The time to pay ran out, so this slot is being released. Book again if you still need the visit.")}
           </div>
         )}
         <div className="px-5 py-3 border-t border-slate-800 flex items-center justify-between gap-3">
-          {needsPay ? <button onClick={() => setPayFor(a)} className={btn}>Upload proof of payment</button> : <span />}
+          {needsPay ? <button onClick={() => setPayFor(a)} className={btn}>{t("Upload proof of payment")}</button> : <span />}
           {["booked", "confirmed"].includes(a.status) && (
             <button onClick={() => cancel(a.id)} disabled={busyId === a.id} className="text-sm font-body text-rose-300 hover:underline underline-offset-4 disabled:opacity-50">
-              {busyId === a.id ? "Cancelling…" : "Cancel visit"}
+              {busyId === a.id ? t("Cancelling…") : t("Cancel visit")}
             </button>
           )}
         </div>
@@ -1225,53 +1307,65 @@ function MyAppointments() {
 
   return (
     <div className="fade-up">
+      <OffersAndCredits onBooked={() => setTick((n) => n + 1)} />
       {payFor && (
         <PaymentProofModal
           appointment={payFor}
           userId={session.user.id}
-          amount={payFor.doctors?.prepayment_amount || payFor.fee_charged}
+          amount={owedOn(payFor)}
           instructions={payFor.doctors?.payment_instructions}
           onClose={() => setPayFor(null)}
           onDone={() => { setPayFor(null); load(); }}
         />
       )}
-      {error && <Notice tone="error" icon={AlertCircle} className="mb-6">We couldn't load your appointments. Check your connection, then reload the page.</Notice>}
+      {reviewFor && <ReviewModal appointment={reviewFor} onClose={() => setReviewFor(null)} onDone={() => { setReviewFor(null); load(); }} />}
+      {error && <Notice tone="error" icon={AlertCircle} className="mb-6">{t("We couldn't load your appointments. Check your connection, then reload the page.")}</Notice>}
       {cancelError && <Notice tone="error" icon={AlertCircle} className="mb-6">{cancelError}</Notice>}
       {loading ? (
-        <div className="py-16 text-center text-slate-400 font-body">Loading your appointments…</div>
+        <div className="py-16 text-center text-slate-400 font-body">{t("Loading your appointments…")}</div>
       ) : rows.length === 0 ? (
         !error && (
           <div className="rounded-xl border border-dashed border-slate-700 px-6 py-14 text-center font-body">
-            <div className="font-display text-2xl font-bold text-ink">No appointments yet</div>
-            <p className="text-slate-300 mt-2">When you book a doctor, your clinic card shows up here with its stamps.</p>
+            <div className="font-display text-2xl font-bold text-ink">{t("No appointments yet")}</div>
+            <p className="text-slate-300 mt-2">{t("When you book a doctor, your clinic card shows up here with its stamps.")}</p>
           </div>
         )
       ) : (
         <div className="space-y-10">
           <section>
-            <h2 className="font-display text-xl font-bold text-ink mb-4">Coming up <span className="text-slate-400 font-body font-normal text-base tnum">· {upcoming.length}</span></h2>
+            <h2 className="font-display text-xl font-bold text-ink mb-4">{t("Coming up")} <span className="text-slate-400 font-body font-normal text-base tnum">· {upcoming.length}</span></h2>
             {upcoming.length === 0 ? (
-              <p className="text-slate-300 font-body">Nothing booked. Find a doctor to book your next visit.</p>
+              <p className="text-slate-300 font-body">{t("Nothing booked. Find a doctor to book your next visit.")}</p>
             ) : (
               <div className="grid md:grid-cols-2 gap-5">{upcoming.map((a) => <Card key={a.id} a={a} />)}</div>
             )}
           </section>
           {past.length > 0 && (
             <section>
-              <h2 className="font-display text-xl font-bold text-ink mb-3">Past visits</h2>
+              <h2 className="font-display text-xl font-bold text-ink mb-3">{t("Past visits")}</h2>
               <div className="rounded-xl border border-slate-700 bg-white">
-                {past.map((a) => (
-                  <div key={a.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-5 py-3.5 border-b border-slate-800 last:border-0 font-body">
-                    <div className="min-w-0">
-                      <div className="text-ink truncate">{a.doctors?.profiles?.full_name || "Doctor"} <span className="text-slate-400">· {a.doctors?.specialty}</span></div>
-                      <div className="text-sm text-slate-400 tnum">
-                        {new Date(a.starts_at).toLocaleString("en-PH", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}
-                        {a.mode === "video" ? " · video" : a.location ? ` · ${a.location.name}` : ""}
+                {past.map((a) => {
+                  const st = a.payment_status === "expired" ? "expired" : a.status;
+                  const who = forWhom(a);
+                  return (
+                    <div key={a.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-5 py-3.5 border-b border-slate-800 last:border-0 font-body">
+                      <div className="min-w-0">
+                        <div className="text-ink truncate">{a.doctors?.profiles?.full_name || t("Doctor")} <span className="text-slate-400">· {a.doctors?.specialty}{who ? ` · ${t("for {name}", { name: who })}` : ""}</span></div>
+                        <div className="text-sm text-slate-400 tnum">
+                          {new Date(a.starts_at).toLocaleString("en-PH", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}
+                          {a.mode === "video" ? ` · ${t("video")}` : a.location ? ` · ${a.location.name}` : ""}
+                        </div>
+                        {a.status === "no_show" && a.payment_status === "verified" && <div className="text-sm text-ink mt-0.5">{t("Your downpayment became credit for your next booking with this doctor.")}</div>}
+                      </div>
+                      <div className="flex items-center gap-4">
+                        {a.status === "completed" && !reviewed.has(a.id) && (
+                          <button onClick={() => setReviewFor(a)} className={btnQuiet}>{t("Rate this visit")}</button>
+                        )}
+                        <StatusMark status={st} label={STATUS_T(st, t)} />
                       </div>
                     </div>
-                    <StatusMark status={a.payment_status === "expired" ? "expired" : a.status} />
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </section>
           )}
@@ -1281,31 +1375,54 @@ function MyAppointments() {
   );
 }
 
-function PatientPortal() {
-  const [tab, setTab] = useState("find");
-  const { session, profile, signOut } = useAuth();
-  const [recordId, setRecordId] = useState(null);
+// Stamp wording on the patient side follows the chosen language.
+const STATUS_T = (status, t) => ({
+  booked: t("Booked"), confirmed: t("Confirmed"), checked_in: t("Checked in"), in_progress: t("With doctor"),
+  completed: t("Done"), canceled: t("Cancelled"), no_show: t("No-show"), awaiting_payment: t("Awaiting payment"),
+  proof_submitted: t("Checking payment"), verified: t("Paid"), rejected: t("Payment rejected"), expired: t("Time ran out"),
+}[status]);
 
-  useEffect(() => {
-    if (!session?.user?.id) return;
-    supabase.from("patients").select("id").eq("profile_id", session.user.id).maybeSingle()
-      .then(({ data }) => setRecordId(data?.id || null));
-  }, [session?.user?.id]);
+function PatientPortal({ initialTab = "find" }) {
+  const t = useT();
+  const [tab, setTab] = useState(initialTab);
+  const { session, profile, signOut } = useAuth();
+  const { people, self } = useMyPeople();
+  const [recordsFor, setRecordsFor] = useState("self");
+  const recordPerson = people.find((p) => (recordsFor === "self" ? p.isSelf : p.id === recordsFor)) || people[0];
+  const recordId = recordPerson?.isSelf ? self?.id || null : recordPerson?.id;
 
   return (
     <PatientAuthGate>
       <div className="max-w-6xl mx-auto px-5 sm:px-6 pt-8 sm:pt-10">
         <div className="flex items-center justify-between gap-4 mb-5">
-          <p className="font-body text-slate-300">Hi, <span className="text-ink font-semibold">{(profile?.full_name || "there").split(" ")[0]}</span></p>
-          <button onClick={signOut} className="text-sm font-body text-slate-300 hover:text-ink flex items-center gap-1.5"><LogOut size={15} /> Log out</button>
+          <p className="font-body text-slate-300">{t("Hi,")} <span className="text-ink font-semibold">{(profile?.full_name || "").split(" ")[0]}</span></p>
+          <button onClick={signOut} className="text-sm font-body text-slate-300 hover:text-ink flex items-center gap-1.5"><LogOut size={15} /> {t("Log out")}</button>
         </div>
-        <Tabs tabs={[["find", "Find a doctor"], ["mine", "My appointments"], ["forms", "Consent forms"]]} value={tab} onChange={setTab} />
+        <Tabs
+          tabs={[["find", t("Find a doctor")], ["mine", t("My appointments")], ["records", t("Records")], ["family", t("Family")], ["forms", t("Consent forms")]]}
+          value={tab}
+          onChange={setTab}
+        />
       </div>
       {tab === "find" ? <PatientDirectory /> : (
         <div className="max-w-6xl mx-auto px-5 sm:px-6 py-8 sm:py-10">
-          {tab === "mine"
-            ? <MyAppointments />
-            : <ConsentFormsPanel patientRecordId={recordId} userId={session?.user?.id} />}
+          {tab === "mine" && <MyAppointments />}
+          {tab === "family" && <FamilyPanel />}
+          {tab === "records" && (
+            <div className="max-w-3xl">
+              {people.length > 1 && (
+                <div className="flex flex-wrap gap-2 mb-6" role="group" aria-label={t("Whose records")}>
+                  {people.map((p) => (
+                    <Pill key={p.id} active={(recordsFor === "self" && p.isSelf) || recordsFor === p.id} onClick={() => setRecordsFor(p.isSelf ? "self" : p.id)}>
+                      {p.isSelf ? t("Me") : p.name}
+                    </Pill>
+                  ))}
+                </div>
+              )}
+              <PatientRecordsPanel key={recordId || "none"} recordId={recordId} personName={recordPerson?.name || ""} t={t} />
+            </div>
+          )}
+          {tab === "forms" && <ConsentFormsPanel patientRecordId={self?.id || null} userId={session?.user?.id} />}
         </div>
       )}
     </PatientAuthGate>
@@ -1313,6 +1430,7 @@ function PatientPortal() {
 }
 
 function PatientDirectory() {
+  const t = useT();
   const [q, setQ] = useState("");
   const [spec, setSpec] = useState("All");
   const [onlineOnly, setOnlineOnly] = useState(false);
@@ -1330,38 +1448,17 @@ function PatientDirectory() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const { data, error } = await supabase
-        .from("doctors")
-        .select("id, specialty, specialties, consult_fee, telehealth_enabled, is_online, hospital, years_experience, require_prepayment, prepayment_amount, payment_instructions, prepayment_hold_minutes, profiles(full_name), locations:clinic_locations(id, name, address)");
+      const [{ data, error }, ratings] = await Promise.all([
+        supabase.from("doctors").select(DOCTOR_SELECT),
+        loadRatings(supabase),
+      ]);
       if (cancelled) return;
       if (error || !data || data.length === 0) {
         setLoadError(error?.message || null);
         return; // keep demo DOCTORS as fallback
       }
       setIsSample(false);
-      setDoctors(
-        data.map((d) => ({
-          id: d.id,
-          name: d.profiles?.full_name || "Unnamed doctor",
-          specialty: d.specialty,
-          specialties: d.specialties?.length ? d.specialties : (d.specialty ? [d.specialty] : []),
-          // No review system yet: live doctors carry no rating rather
-          // than a made-up one.
-          rating: null,
-          reviews: 0,
-          fee: d.consult_fee,
-          online: d.is_online,
-          telehealth: d.telehealth_enabled,
-          nextSlot: null,
-          hospital: d.locations?.[0]?.name || d.hospital || "",
-          locations: d.locations || [],
-          exp: d.years_experience || 0,
-          requirePrepayment: !!d.require_prepayment,
-          prepayAmount: d.prepayment_amount ?? d.consult_fee,
-          paymentInstructions: d.payment_instructions || "",
-          holdMinutes: d.prepayment_hold_minutes || 1440,
-        }))
-      );
+      setDoctors(data.map((d) => toBookableDoctor(d, ratings)));
     })();
     return () => { cancelled = true; };
   }, []);
@@ -1381,43 +1478,43 @@ function PatientDirectory() {
   return (
     <div className="max-w-6xl mx-auto px-5 sm:px-6 py-8 sm:py-10 fade-up">
       <div className="flex flex-wrap items-end justify-between gap-4 mb-6">
-        <h1 className="font-display text-3xl sm:text-4xl font-bold text-ink">Find a doctor</h1>
+        <h1 className="font-display text-3xl sm:text-4xl font-bold text-ink">{t("Find a doctor")}</h1>
         <p className="font-body text-sm text-slate-300 flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-[#2F8A57]" aria-hidden="true" /> {availableNow} available now
+          <span className="w-2.5 h-2.5 rounded-full bg-[#2F8A57]" aria-hidden="true" /> {t("{n} available now", { n: availableNow })}
         </p>
       </div>
       {isSample && (
         <Notice tone={loadError ? "warn" : "info"} className="mb-6">
           {loadError
-            ? "We couldn't reach 4MED, so these are sample doctors. Check your connection and reload to see real ones."
-            : "These are sample doctors. Real listings appear here as practitioners join."}
+            ? t("We couldn't reach 4MED, so these are sample doctors. Check your connection and reload to see real ones.")
+            : t("These are sample doctors. Real listings appear here as practitioners join.")}
         </Notice>
       )}
 
       {/* search + filters */}
       <div className="grid sm:grid-cols-[1fr_16rem_auto] gap-3 mb-8">
         <label className="relative block">
-          <span className="sr-only">Search doctors</span>
+          <span className="sr-only">{t("Search doctors")}</span>
           <Search size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name, specialty or hospital" className={inputCls + " pl-10"} />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("Name, specialty or hospital")} className={inputCls + " pl-10"} />
         </label>
         <label className="block">
-          <span className="sr-only">Specialty</span>
+          <span className="sr-only">{t("Specialty")}</span>
           <select value={spec} onChange={(e) => setSpec(e.target.value)} className={inputCls}>
             {(liveSpecialties.length > 0 ? liveSpecialties : SPECIALTIES).map((s) => (
-              <option key={s} value={s}>{s === "All" ? "All specialties" : s}</option>
+              <option key={s} value={s}>{s === "All" ? t("All specialties") : s}</option>
             ))}
           </select>
         </label>
-        <Pill active={onlineOnly} onClick={() => setOnlineOnly(!onlineOnly)}>Available now</Pill>
+        <Pill active={onlineOnly} onClick={() => setOnlineOnly(!onlineOnly)}>{t("Available now")}</Pill>
       </div>
 
       {/* doctor cards: hovering one quiets the rest */}
       {list.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-700 px-6 py-14 text-center font-body">
-          <div className="font-display text-2xl font-bold text-ink">No doctors match</div>
-          <p className="text-slate-300 mt-2">Try another specialty, or clear the search.</p>
-          <button onClick={() => { setQ(""); setSpec("All"); setOnlineOnly(false); }} className={btnGhost + " mt-5"}>Clear filters</button>
+          <div className="font-display text-2xl font-bold text-ink">{t("No doctors match")}</div>
+          <p className="text-slate-300 mt-2">{t("Try another specialty, or clear the search.")}</p>
+          <button onClick={() => { setQ(""); setSpec("All"); setOnlineOnly(false); }} className={btnGhost + " mt-5"}>{t("Clear filters")}</button>
         </div>
       ) : (
         <div className="group/grid grid md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -1427,9 +1524,13 @@ function PatientDirectory() {
               className="group/card rounded-xl border border-ink/20 bg-white overflow-hidden flex flex-col transition-[opacity,transform] duration-300 group-hover/grid:opacity-70 hover:!opacity-100 focus-within:!opacity-100 hover:-translate-y-1"
             >
               <div className={"px-5 pt-5 pb-4 border-b border-ink/15 flex items-start gap-3.5 " + tintForSpecialty(d.specialty)}>
-                <Avatar name={d.name} tint="bg-white" online={d.online} />
+                {d.photoUrl
+                  ? <img src={d.photoUrl} alt="" className="w-12 h-12 rounded-lg object-cover border border-ink/15 bg-white shrink-0" />
+                  : <Avatar name={d.name} tint="bg-white" online={d.online} />}
                 <div className="min-w-0">
-                  <h3 className="font-display font-bold text-lg text-ink leading-tight">{d.name}</h3>
+                  <h3 className="font-display font-bold text-lg text-ink leading-tight">
+                    {d.slug ? <a href={`/dr/${d.slug}`} className="hover:underline underline-offset-4">{d.name}</a> : d.name}
+                  </h3>
                   <div className="text-sm text-slate-200 font-body mt-0.5">{d.specialties.join(" · ")}</div>
                 </div>
               </div>
@@ -1437,21 +1538,21 @@ function PatientDirectory() {
                 {d.hospital && <div className="flex items-start gap-2"><MapPin size={15} className="mt-0.5 shrink-0 text-slate-400" /> {d.hospital}</div>}
                 <div className="flex flex-wrap gap-x-4 gap-y-1 text-slate-300">
                   {d.rating && d.reviews > 0 && <span className="flex items-center gap-1"><Star size={14} className="text-amber-400 fill-current" /> {d.rating} <span className="text-slate-400">({d.reviews})</span></span>}
-                  {d.exp > 0 && <span>{d.exp} yrs practice</span>}
-                  {d.telehealth && <span className="flex items-center gap-1"><Video size={14} /> Video visits</span>}
+                  {d.exp > 0 && <span>{t("{n} yrs practice", { n: d.exp })}</span>}
+                  {d.telehealth && <span className="flex items-center gap-1"><Video size={14} /> {t("Video visits")}</span>}
                 </div>
                 {/* the card's back: opens on hover or focus, always open on phones */}
                 <div className="grid grid-rows-[1fr] md:grid-rows-[0fr] md:group-hover/card:grid-rows-[1fr] md:group-focus-within/card:grid-rows-[1fr] transition-[grid-template-rows] duration-300 ease-[cubic-bezier(.16,1,.3,1)]">
                   <dl className="overflow-hidden">
                     <div className="pt-3 mt-1 border-t border-dashed border-slate-700 grid grid-cols-[5.5rem_1fr] gap-x-3 gap-y-1.5">
-                      <dt className="field-label pt-0.5">Payment</dt>
-                      <dd>{!d.requirePrepayment ? "Pay at the clinic" : prepayTerms(d).isDown ? `${peso(prepayTerms(d).now)} downpayment within ${holdText(d.holdMinutes)}, rest at the clinic` : `Pay ${peso(prepayTerms(d).now)} within ${holdText(d.holdMinutes)} to confirm`}</dd>
+                      <dt className="field-label pt-0.5">{t("Payment")}</dt>
+                      <dd>{!d.requirePrepayment ? t("Pay at the clinic") : prepayTerms(d).isDown ? t("{amount} downpayment within {hold}, rest at the clinic", { amount: peso(prepayTerms(d).now), hold: holdTextT(d.holdMinutes, t) }) : t("Pay {amount} within {hold} to confirm", { amount: peso(prepayTerms(d).now), hold: holdTextT(d.holdMinutes, t) })}</dd>
                       {d.locations?.length > 1 && (<>
-                        <dt className="field-label pt-0.5">Clinics</dt>
+                        <dt className="field-label pt-0.5">{t("Clinics")}</dt>
                         <dd>{d.locations.map((l) => l.name).join(" · ")}</dd>
                       </>)}
-                      <dt className="field-label pt-0.5">Visits</dt>
-                      <dd>{d.telehealth ? "In clinic or by video" : "In clinic"}</dd>
+                      <dt className="field-label pt-0.5">{t("Visits")}</dt>
+                      <dd>{d.telehealth ? t("In clinic or by video") : t("In clinic")}</dd>
                     </div>
                   </dl>
                 </div>
@@ -1459,9 +1560,12 @@ function PatientDirectory() {
               <div className="flex items-center justify-between gap-3 px-5 py-3.5 border-t border-slate-800">
                 <div className="font-body">
                   <div className="text-ink font-semibold tnum">{peso(d.fee)}</div>
-                  <div className="text-xs text-slate-400">{d.nextSlot ? `Next: ${d.nextSlot}` : "Consultation fee"}</div>
+                  <div className="text-xs text-slate-400">{d.nextSlot ? t("Next: {when}", { when: d.nextSlot }) : t("Consultation fee")}</div>
                 </div>
-                <button onClick={() => setBooking(d)} className={btn}>Book</button>
+                <div className="flex items-center gap-2">
+                  {d.slug && <a href={`/dr/${d.slug}`} className={btnQuiet}>{t("Profile")}</a>}
+                  <button onClick={() => setBooking(d)} className={btn}>{t("Book")}</button>
+                </div>
               </div>
             </article>
           ))}
@@ -1588,8 +1692,9 @@ function AdminDashboard() {
         <button onClick={signOut} className="text-sm font-body text-slate-300 hover:text-ink flex items-center gap-1.5"><LogOut size={15} /> Log out</button>
       </div>
 
-      <Tabs className="mb-8" tabs={[["subscriptions", "Subscriptions"], ["plans", "Plans"], ["invites", "Invites"], ["specialties", "Specialties"]]} value={tab} onChange={setTab} />
+      <Tabs className="mb-8" tabs={[["subscriptions", "Subscriptions"], ["billing", "Billing"], ["plans", "Plans"], ["invites", "Invites"], ["specialties", "Specialties"]]} value={tab} onChange={setTab} />
 
+      {tab === "billing" && <SubscriptionBillingTab />}
       {tab === "plans" && <PlansTab />}
       {tab === "invites" && <InvitesTab />}
       {tab === "specialties" && <SpecialtiesTab />}
@@ -1724,9 +1829,11 @@ function StaffJoin({ go }) {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <AppShell />
-    </AuthProvider>
+    <LangProvider>
+      <AuthProvider>
+        <AppShell />
+      </AuthProvider>
+    </LangProvider>
   );
 }
 
@@ -1737,8 +1844,16 @@ const SITE_NAV = [
   ["app", "Clinic App"],
 ];
 
+// A doctor's shareable page lives at /dr/<slug>.
+const profileSlugFromPath = () => {
+  const m = window.location.pathname.match(/^\/dr\/([a-z0-9-]+)\/?$/i);
+  return m ? m[1].toLowerCase() : null;
+};
+
 function AppShell() {
+  const t = useT();
   const { session, profile, signOut } = useAuth();
+  const [profileSlug, setProfileSlug] = useState(profileSlugFromPath);
   // Dev-only: `?view=patient|doctor|app` opens a view directly, alongside
   // the `?demo=` sign-in in AuthContext, for previews and screenshots.
   const [view, setView] = useState(() =>
@@ -1751,8 +1866,15 @@ function AppShell() {
     setView(v);
     setNavOpen(false);
     setAccountOpen(false);
+    // Leaving a profile page returns the address bar to the site root.
+    if (profileSlug) { setProfileSlug(null); window.history.pushState(null, "", "/"); }
     window.scrollTo({ top: 0 });
   };
+  useEffect(() => {
+    const onPop = () => setProfileSlug(profileSlugFromPath());
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
 
   if (view === "app") {
     return (
@@ -1786,9 +1908,10 @@ function AppShell() {
                   (view === id ? "border-ink text-ink font-semibold" : "border-transparent text-slate-300 hover:text-ink")
                 }
               >
-                {label}
+                {t(label)}
               </button>
             ))}
+            <LangSwitch />
             {session && profile && (
               <div className="relative">
                 <button
@@ -1818,14 +1941,17 @@ function AppShell() {
           </div>
 
           {/* mobile menu */}
-          <button
-            onClick={() => setNavOpen((o) => !o)}
-            className="md:hidden w-11 h-11 -mr-2 rounded-md flex items-center justify-center text-ink"
-            aria-label={navOpen ? "Close menu" : "Open menu"}
-            aria-expanded={navOpen}
-          >
-            {navOpen ? <X size={22} /> : <Menu size={22} />}
-          </button>
+          <div className="md:hidden flex items-center gap-2">
+            <LangSwitch />
+            <button
+              onClick={() => setNavOpen((o) => !o)}
+              className="w-11 h-11 -mr-2 rounded-md flex items-center justify-center text-ink"
+              aria-label={navOpen ? t("Close menu") : t("Open menu")}
+              aria-expanded={navOpen}
+            >
+              {navOpen ? <X size={22} /> : <Menu size={22} />}
+            </button>
+          </div>
 
           {navOpen && (
             <div className="md:hidden absolute top-full left-0 right-0 bg-white border-b border-slate-700 shadow-[0_14px_30px_-12px_rgba(19,48,94,0.35)] fade-up">
@@ -1835,7 +1961,7 @@ function AppShell() {
                     <div className="text-sm text-ink font-semibold">{profile.full_name}</div>
                     <div className="text-xs text-slate-400 capitalize">{profile.role}</div>
                   </div>
-                  <button onClick={() => { setNavOpen(false); signOut(); }} className="text-sm text-rose-300">Log out</button>
+                  <button onClick={() => { setNavOpen(false); signOut(); }} className="text-sm text-rose-300">{t("Log out")}</button>
                 </div>
               )}
               {SITE_NAV.map(([id, label]) => (
@@ -1844,7 +1970,7 @@ function AppShell() {
                   onClick={() => go(id)}
                   className={"w-full text-left px-5 py-4 text-base font-body border-b border-slate-800 last:border-0 " + (view === id ? "text-ink font-semibold bg-sky/50" : "text-slate-200")}
                 >
-                  {label}
+                  {t(label)}
                 </button>
               ))}
             </div>
@@ -1853,16 +1979,20 @@ function AppShell() {
       </nav>
 
       <main id="main" className="flex-1">
+        {profileSlug ? (
+          <DoctorProfile slug={profileSlug} BookingModal={BookingModal} AuthGate={PatientAuthGate} go={go} />
+        ) : (<>
         {view === "landing" && <Landing go={go} />}
         {view === "doctor" && <DoctorSignup go={go} />}
         {view === "staffjoin" && <StaffJoin go={go} />}
         {view === "patient" && <PatientPortal />}
+        </>)}
       </main>
 
       <footer className="border-t border-slate-800 mt-16">
         <div className="max-w-6xl mx-auto px-5 sm:px-6 py-8 flex flex-wrap items-center justify-between gap-4 text-sm font-body text-slate-400">
-          <span className="flex items-center gap-2"><LogoMark size={20} /> 4MED · clinic management for Philippine practices</span>
-          <span>Health data handled under the Data Privacy Act of 2012</span>
+          <span className="flex items-center gap-2"><LogoMark size={20} /> {t("4MED · clinic management for Philippine practices")}</span>
+          <span>{t("Health data handled under the Data Privacy Act of 2012")}</span>
         </div>
       </footer>
     </div>

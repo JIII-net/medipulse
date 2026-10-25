@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { PatientConsentTab } from "./ConsentForms";
+import { StaffFilesPanel } from "./PatientFiles";
 import { useAuth } from "./lib/AuthContext";
 import { StaffGate } from "./lib/StaffGate";
 import { supabase } from "./lib/supabaseClient";
@@ -647,7 +648,8 @@ function DetailView({ patientId, onBack, onOpen }) {
       )}
 
       {tab === "documents" && (
-        <div className="max-w-2xl">
+        <div className="max-w-2xl space-y-5">
+          <StaffFilesPanel patient={p} />
           <PatientConsentTab patient={p} me={session?.user?.id} />
         </div>
       )}

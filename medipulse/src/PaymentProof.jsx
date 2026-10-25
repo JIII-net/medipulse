@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { X, Upload, Check, AlertCircle, Image as ImageIcon } from "lucide-react";
 import { supabase } from "./lib/supabaseClient";
+import { useT } from "./lib/i18n";
 import { BUCKET_PAYMENT_PROOFS, validateUpload, uploadPrivate, signedUrl } from "./lib/uploads";
 import { inputSm as inputCls, btnSm as btnPrimary, btnGhostSm as btnGhost, StatusMark } from "./ui";
 
@@ -35,6 +36,7 @@ export const paymentStyle = {
 /* -------------------------- upload (patient) ----------------------- */
 
 export function PaymentProofModal({ appointment, userId, amount, instructions, onClose, onDone }) {
+  const t = useT();
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [f, setF] = useState({ amount: amount || "", method: "gcash", reference_no: "", note: "" });
@@ -59,11 +61,11 @@ export function PaymentProofModal({ appointment, userId, amount, instructions, o
   const submit = async () => {
     const err = validateUpload(file);
     if (err) { setError(err); return; }
-    if (!Number(f.amount)) { setError("Enter the amount you sent."); return; }
+    if (!Number(f.amount)) { setError(t("Enter the amount you sent.")); return; }
     setBusy(true); setError(null);
 
     const { path, error: upErr } = await uploadPrivate(BUCKET_PAYMENT_PROOFS, userId, appointment.id, file);
-    if (upErr) { setError("Upload failed: " + upErr); setBusy(false); return; }
+    if (upErr) { setError(t("Upload failed: {msg}", { msg: upErr })); setBusy(false); return; }
 
     const { error: rpcErr } = await supabase.rpc("submit_payment_proof", {
       p_appointment_id: appointment.id,
@@ -82,15 +84,15 @@ export function PaymentProofModal({ appointment, userId, amount, instructions, o
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40" onClick={onClose}>
       <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-xl bg-white p-6 card-deal shadow-[0_24px_60px_-20px_rgba(19,48,94,0.5)]" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-display text-lg font-bold text-slate-50">Send proof of payment</h3>
+          <h3 className="font-display text-lg font-bold text-slate-50">{t("Send proof of payment")}</h3>
           <button onClick={onClose} className="text-slate-500 hover:text-slate-300"><X size={18} /></button>
         </div>
 
         {instructions && (
           <div className="mb-4 rounded-2xl border border-teal-400/30 bg-teal-400/5 px-4 py-3">
-            <div className="text-xs font-mono2 text-teal-300 mb-1">HOW TO PAY</div>
+            <div className="text-xs font-mono2 text-teal-300 mb-1">{t("HOW TO PAY")}</div>
             <p className="text-sm text-slate-200 font-body whitespace-pre-wrap">{instructions}</p>
-            {amount ? <p className="text-sm text-slate-300 font-body mt-2">Amount due: <strong>{peso(amount)}</strong></p> : null}
+            {amount ? <p className="text-sm text-slate-300 font-body mt-2">{t("Amount due:")} <strong>{peso(amount)}</strong></p> : null}
           </div>
         )}
 
@@ -103,14 +105,14 @@ export function PaymentProofModal({ appointment, userId, amount, instructions, o
         <label className="block mb-3 cursor-pointer">
           <div className="rounded-2xl border border-dashed border-slate-600 hover:border-teal-400 transition-colors px-4 py-6 text-center">
             {preview ? (
-              <img src={preview} alt="Your payment screenshot" className="max-h-48 mx-auto rounded-xl" />
+              <img src={preview} alt={t("Your payment screenshot")} className="max-h-48 mx-auto rounded-xl" />
             ) : file ? (
               <div className="text-sm text-slate-200 font-body flex items-center justify-center gap-2"><ImageIcon size={16} /> {file.name}</div>
             ) : (
               <div className="text-sm text-slate-400 font-body flex flex-col items-center gap-1.5">
                 <Upload size={20} className="text-slate-500" />
                 Tap to attach your screenshot or receipt
-                <span className="text-xs text-slate-600">JPG, PNG or PDF · up to 5 MB</span>
+                <span className="text-xs text-slate-600">{t("JPG, PNG or PDF · up to 5 MB")}</span>
               </div>
             )}
           </div>
@@ -118,17 +120,17 @@ export function PaymentProofModal({ appointment, userId, amount, instructions, o
         </label>
 
         <div className="grid grid-cols-2 gap-3 mb-3">
-          <input className={inputCls} type="number" step="0.01" placeholder="Amount sent" value={f.amount} onChange={(e) => setF((x) => ({ ...x, amount: e.target.value }))} />
+          <input className={inputCls} type="number" step="0.01" placeholder={t("Amount sent")} value={f.amount} onChange={(e) => setF((x) => ({ ...x, amount: e.target.value }))} />
           <select className={inputCls} value={f.method} onChange={(e) => setF((x) => ({ ...x, method: e.target.value }))}>
-            {METHODS.map((m) => <option key={m} value={m}>{m === "bank" ? "Bank transfer" : m[0].toUpperCase() + m.slice(1)}</option>)}
+            {METHODS.map((m) => <option key={m} value={m}>{m === "bank" ? t("Bank transfer") : m === "cash" ? t("Cash") : m === "card" ? t("Card") : m[0].toUpperCase() + m.slice(1)}</option>)}
           </select>
         </div>
-        <input className={inputCls + " mb-3"} placeholder="Reference number (from your receipt)" value={f.reference_no} onChange={(e) => setF((x) => ({ ...x, reference_no: e.target.value }))} />
-        <input className={inputCls + " mb-4"} placeholder="Note for the clinic (optional)" value={f.note} onChange={(e) => setF((x) => ({ ...x, note: e.target.value }))} />
+        <input className={inputCls + " mb-3"} placeholder={t("Reference number (from your receipt)")} value={f.reference_no} onChange={(e) => setF((x) => ({ ...x, reference_no: e.target.value }))} />
+        <input className={inputCls + " mb-4"} placeholder={t("Note for the clinic (optional)")} value={f.note} onChange={(e) => setF((x) => ({ ...x, note: e.target.value }))} />
 
         <div className="flex gap-2">
           <button onClick={onClose} className={btnGhost + " flex-1"}>Cancel</button>
-          <button onClick={submit} disabled={busy} className={btnPrimary + " flex-1"}>{busy ? "Sending…" : "Send proof"}</button>
+          <button onClick={submit} disabled={busy} className={btnPrimary + " flex-1"}>{busy ? t("Sending…") : t("Send proof")}</button>
         </div>
         <p className="text-xs text-slate-500 font-body mt-3">
           The clinic checks your payment and confirms your slot. You'll see the status here.

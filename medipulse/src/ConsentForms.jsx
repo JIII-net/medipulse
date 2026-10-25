@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { X, Check, FileText, AlertCircle, PenLine } from "lucide-react";
 import { supabase } from "./lib/supabaseClient";
+import { useT } from "./lib/i18n";
 import SignaturePad from "./SignaturePad";
 import { BUCKET_SIGNATURES, uploadDataUrl, signedUrl } from "./lib/uploads";
 import { printDocument, esc, letterhead } from "./lib/print";
@@ -32,6 +33,7 @@ export async function fetchConsentState(patientRecordId) {
 /* --------------------------- sign one doc -------------------------- */
 
 export function SignConsentModal({ doc, patientRecordId, userId, appointmentId, encounterId, onClose, onSigned }) {
+  const t = useT();
   const [name, setName] = useState("");
   const [agreed, setAgreed] = useState(false);
   const [sig, setSig] = useState(null);
@@ -58,7 +60,7 @@ export function SignConsentModal({ doc, patientRecordId, userId, appointmentId, 
     if (!canSign) return;
     setBusy(true); setError(null);
     const { path, error: upErr } = await uploadDataUrl(BUCKET_SIGNATURES, userId, doc.id, sig, "signature.png");
-    if (upErr) { setError("Couldn't save the signature: " + upErr); setBusy(false); return; }
+    if (upErr) { setError(t("Couldn't save the signature: {msg}", { msg: upErr })); setBusy(false); return; }
 
     const { error: rpcErr } = await supabase.rpc("sign_consent_document", {
       p_document_id: doc.id,
@@ -99,28 +101,28 @@ export function SignConsentModal({ doc, patientRecordId, userId, appointmentId, 
           {doc.body}
         </div>
         {!readToEnd && (
-          <p className="text-xs text-amber-300 font-body mt-2">Scroll to the end to continue.</p>
+          <p className="text-xs text-amber-300 font-body mt-2">{t("Scroll to the end to continue.")}</p>
         )}
 
         <div className="mt-4 grid sm:grid-cols-2 gap-4">
           <div>
-            <label className="text-xs font-mono2 text-slate-500 mb-1 block">FULL NAME</label>
-            <input className={inputCls} placeholder="Type your full name" value={name} onChange={(e) => setName(e.target.value)} />
+            <label className="text-xs font-mono2 text-slate-500 mb-1 block">{t("FULL NAME")}</label>
+            <input className={inputCls} placeholder={t("Type your full name")} value={name} onChange={(e) => setName(e.target.value)} />
             <label className="flex items-start gap-2 mt-3 cursor-pointer">
               <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} className="mt-0.5 accent-teal-400" />
-              <span className="text-sm text-slate-300 font-body">I have read and understood this document, and I agree to it.</span>
+              <span className="text-sm text-slate-300 font-body">{t("I have read and understood this document, and I agree to it.")}</span>
             </label>
           </div>
           <div>
-            <label className="text-xs font-mono2 text-slate-500 mb-1 block">SIGNATURE</label>
+            <label className="text-xs font-mono2 text-slate-500 mb-1 block">{t("SIGNATURE")}</label>
             <SignaturePad onChange={setSig} />
           </div>
         </div>
 
         <div className="flex gap-2 mt-4">
-          <button onClick={onClose} className={btnGhost + " flex-1"}>Cancel</button>
+          <button onClick={onClose} className={btnGhost + " flex-1"}>{t("Cancel")}</button>
           <button onClick={sign} disabled={!canSign || busy} className={btnPrimary + " flex-1 flex items-center justify-center gap-1.5"}>
-            <PenLine size={14} /> {busy ? "Signing…" : "Sign document"}
+            <PenLine size={14} /> {busy ? t("Signing…") : t("Sign document")}
           </button>
         </div>
       </div>
@@ -131,6 +133,7 @@ export function SignConsentModal({ doc, patientRecordId, userId, appointmentId, 
 /* ---------------------- patient portal: my forms ------------------- */
 
 export function ConsentFormsPanel({ patientRecordId, userId, appointmentId }) {
+  const t = useT();
   const [state, setState] = useState({ documents: [], signatures: [], outstanding: [] });
   const [openDoc, setOpenDoc] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -143,7 +146,7 @@ export function ConsentFormsPanel({ patientRecordId, userId, appointmentId }) {
   };
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [patientRecordId]);
 
-  if (loading) return <div className="text-center py-10 text-slate-500 font-body text-sm">Loading your forms…</div>;
+  if (loading) return <div className="text-center py-10 text-slate-500 font-body text-sm">{t("Loading your forms…")}</div>;
   if (!patientRecordId) {
     return (
       <div className="rounded-3xl border border-slate-800 bg-slate-900 p-10 text-center font-body text-sm text-slate-400">
@@ -169,13 +172,13 @@ export function ConsentFormsPanel({ patientRecordId, userId, appointmentId }) {
 
       {state.outstanding.length > 0 && (
         <div className="mb-5 rounded-lg border border-amber-500/50 bg-butter px-4 py-3 text-sm text-amber-200 font-body font-medium">
-          You have {state.outstanding.length} form{state.outstanding.length > 1 ? "s" : ""} to read and sign before your consultation.
+          {t("Forms to read and sign before your consultation: {n}", { n: state.outstanding.length })}
         </div>
       )}
 
       <div className="rounded-xl border border-slate-700 bg-white px-5">
         {state.documents.length === 0 ? (
-          <div className="py-8 text-sm text-slate-500 font-body text-center">No forms to sign right now.</div>
+          <div className="py-8 text-sm text-slate-500 font-body text-center">{t("No forms to sign right now.")}</div>
         ) : state.documents.map((d) => {
           const sig = signedFor(d);
           return (
@@ -186,14 +189,14 @@ export function ConsentFormsPanel({ patientRecordId, userId, appointmentId }) {
                 </div>
                 <div className="font-mono2 text-sm text-slate-400 mt-0.5">
                   {sig
-                    ? `Signed ${new Date(sig.signed_at).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })}`
-                    : d.required_before_consult ? "Required before your visit" : "Optional"}
+                    ? t("Signed {date}", { date: new Date(sig.signed_at).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" }) })
+                    : d.required_before_consult ? t("Required before your visit") : t("Optional")}
                 </div>
               </div>
               {sig ? (
                 <StatusMark status="signed" />
               ) : (
-                <button onClick={() => setOpenDoc(d)} className={btnPrimary + " shrink-0"}>Read and sign</button>
+                <button onClick={() => setOpenDoc(d)} className={btnPrimary + " shrink-0"}>{t("Read and sign")}</button>
               )}
             </div>
           );
