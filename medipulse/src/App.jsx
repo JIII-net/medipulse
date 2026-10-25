@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { AuthProvider, useAuth } from "./lib/AuthContext";
 import { supabase } from "./lib/supabaseClient";
+import { friendlyError, prcLicenseAvailable } from "./lib/errors";
 import StaffApp from "./StaffApp";
 import { PlansTab, InvitesTab, SpecialtiesTab } from "./AdminSetup";
 import { PROFESSIONS, ALL_SPECIALTIES, professionById } from "./lib/professions";
@@ -526,9 +527,27 @@ function DoctorSignup({ go }) {
     });
   };
 
+  // Leaving the credentials step checks the PRC license is free, so a
+  // duplicate is caught before an account is created rather than after.
+  const next = async () => {
+    setError(null);
+    if (step === 1) {
+      setSubmitting(true);
+      const free = await prcLicenseAvailable(supabase, form.license);
+      setSubmitting(false);
+      if (!free) { setError(friendlyError({ message: "doctors_prc_license_key" })); return; }
+    }
+    setStep(step + 1);
+  };
+
   const submit = async () => {
     setSubmitting(true);
     setError(null);
+    if (!(await prcLicenseAvailable(supabase, form.license))) {
+      setSubmitting(false);
+      setError(friendlyError({ message: "doctors_prc_license_key" }));
+      return;
+    }
     const { error } = await signUp({
       email: form.email,
       password: form.password,
@@ -546,7 +565,7 @@ function DoctorSignup({ go }) {
     });
     setSubmitting(false);
     if (error) {
-      setError(error.message);
+      setError(friendlyError(error));
       return;
     }
     if (inviteStatus === "valid" && inviteCode.trim()) {
@@ -712,12 +731,14 @@ function DoctorSignup({ go }) {
         </div>
       )}
 
+      {error && step !== 3 && <Notice tone="error" icon={AlertCircle} className="mt-6">{error}</Notice>}
+
       <div className="flex justify-between items-center mt-10 pt-6 border-t border-slate-800">
         <button onClick={() => (step === 0 ? go("landing") : setStep(step - 1))} className={btnGhost}>
           <ChevronLeft size={16} /> Back
         </button>
-        <button disabled={submitting || !stepValid} onClick={() => (step === 3 ? submit() : setStep(step + 1))} className={btn}>
-          {step === 3 ? (submitting ? "Creating your account…" : "Start free trial") : "Continue"} <ChevronRight size={16} />
+        <button disabled={submitting || !stepValid} onClick={() => (step === 3 ? submit() : next())} className={btn}>
+          {step === 3 ? (submitting ? "Creating your account…" : "Start free trial") : submitting ? "Checking…" : "Continue"} <ChevronRight size={16} />
         </button>
       </div>
       {!stepValid && step === 0 && <p className="text-right text-sm text-slate-400 font-body mt-2">Fill in your name, email and a password of 6+ characters to continue.</p>}
@@ -1064,7 +1085,7 @@ function PatientAuthGate({ children }) {
         ? await signUp({ email: form.email, password: form.password, fullName: form.name, role: "patient" })
         : await signIn({ email: form.email, password: form.password });
     setBusy(false);
-    if (result.error) setError(result.error.message);
+    if (result.error) setError(friendlyError(result.error));
   };
 
   return (
@@ -1658,7 +1679,7 @@ function StaffJoin({ go }) {
     e.preventDefault();
     setBusy(true); setError(null);
     const { error } = await signUp({ email: f.email, password: f.password, fullName: f.name, role: "secretary" });
-    if (error) { setError(error.message); setBusy(false); return; }
+    if (error) { setError(friendlyError(error)); setBusy(false); return; }
     const { error: rpcErr } = await supabase.rpc("redeem_invite", { invite_code: f.code.trim().toUpperCase() });
     setBusy(false);
     if (rpcErr) {
