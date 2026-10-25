@@ -8,7 +8,7 @@ import { useAuth } from "./lib/AuthContext";
 import { supabase } from "./lib/supabaseClient";
 import { StaffGate } from "./lib/StaffGate";
 import { PaymentProofReview, paymentLabel, paymentStyle } from "./PaymentProof";
-import { inputSm as inputCls, btnSm as btnPrimary, btnGhostSm as btnGhost, panel as card, Tabs, StatusMark, Stamp } from "./ui";
+import { inputSm as inputCls, btnSm as btnPrimary, btnGhostSm as btnGhost, panel as card, Tabs, StatusMark, Stamp, HoldCountdown } from "./ui";
 
 /* ------------------------------------------------------------------ */
 /*  Appointment Management — staff module                              */
@@ -268,6 +268,16 @@ function DetailModal({ appt, doctors, schedules, onClose, onChanged }) {
     await supabase.from("appointments").update({ status: "checked_in" }).eq("id", appt.id);
   });
 
+  // A missed visit: if the patient paid a downpayment, the database turns
+  // it into credit with this doctor for 90 days.
+  const noShow = () => {
+    if (!window.confirm("Mark this patient as a no-show? A paid downpayment becomes 90-day credit for their next booking.")) return;
+    return act(async () => {
+    const { error } = await supabase.from("appointments").update({ status: "no_show" }).eq("id", appt.id);
+    if (error) return error.message;
+    });
+  };
+
   const followUp = (weeks) => act(async () => {
     const starts = new Date(appt.starts_at); starts.setDate(starts.getDate() + weeks * 7);
     const ends = new Date(starts.getTime() + 30 * 60000);
@@ -333,6 +343,11 @@ function DetailModal({ appt, doctors, schedules, onClose, onChanged }) {
               ))}
             </div>
             <p className="text-center text-xs text-slate-500 font-body">Schedule a follow-up 1, 2, or 4 weeks out at the same time</p>
+            {["booked", "confirmed", "checked_in"].includes(appt.status) && new Date(appt.starts_at) <= new Date() && (
+              <button onClick={noShow} disabled={busy} className={btnGhost + " w-full"}>
+                Mark as no-show
+              </button>
+            )}
             {appt.status !== "canceled" && (
               <button onClick={cancel} disabled={busy} className="w-full py-2 rounded-md border border-rose-500/40 text-rose-300 text-sm font-body font-semibold hover:bg-blush transition-colors">
                 Cancel appointment
@@ -776,6 +791,61 @@ function QRCheckinModal({ station: initialStation, myDoctorIds, onClose, onDone 
   );
 }
 
+/* ----------------------------- waitlist tab ----------------------- */
+
+// Patients waiting for a fully booked day. When a booking on that day is
+// cancelled the database offers the slot to the first in line, by text,
+// for 30 minutes; this list shows where each entry stands.
+function WaitlistTab() {
+  const [rows, setRows] = useState([]);
+  const [error, setError] = useState(null);
+  const load = async () => {
+    await supabase.rpc("expire_waitlist_offers");
+    const { data, error } = await supabase.from("waitlist")
+      .select("id, status, preferred_date, created_at, offered_starts_at, offer_expires_at, patient:patient_record_id(first_name, last_name, phone), doctor:doctor_id(profiles(full_name))")
+      .in("status", ["waiting", "offered"]).order("preferred_date").order("created_at");
+    if (error) { setError(error.message); return; }
+    setRows(data || []);
+  };
+  useEffect(() => { load(); }, []);
+  const remove = async (id) => {
+    await supabase.from("waitlist").update({ status: "canceled" }).eq("id", id);
+    load();
+  };
+
+  return (
+    <div className="max-w-4xl">
+      <p className="text-sm text-slate-300 font-body mb-4">Patients join from the booking screen when a day is fully booked. A cancelled slot is offered to the first person waiting for that day; they get a text and 30 minutes to take it, then it moves to the next person.</p>
+      <ErrorBanner msg={error} />
+      <div className="rounded-xl border border-slate-700 bg-white overflow-x-auto">
+        <table className="w-full min-w-[640px] text-left font-body text-sm">
+          <thead>
+            <tr className="border-b border-slate-800">
+              {["Day wanted", "Patient", "Doctor", "Status", ""].map((h) => <th key={h} className="field-label font-semibold px-4 py-2.5">{h}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 && <tr><td colSpan={5} className="px-4 py-10 text-center text-slate-300">Nobody is on the waitlist.</td></tr>}
+            {rows.map((w) => (
+              <tr key={w.id} className="border-b border-slate-800 last:border-0">
+                <td className="px-4 py-3 tnum text-ink">{fmtDay(w.preferred_date)}</td>
+                <td className="px-4 py-3"><div className="text-ink font-semibold">{w.patient ? `${w.patient.first_name} ${w.patient.last_name}` : "—"}</div><div className="text-xs text-slate-400">{w.patient?.phone || "no phone"}</div></td>
+                <td className="px-4 py-3 text-slate-200">{w.doctor?.profiles?.full_name || "—"}</td>
+                <td className="px-4 py-3">
+                  {w.status === "offered"
+                    ? <span className="text-ink">Offered {fmt12h(localTime(w.offered_starts_at))} · <HoldCountdown dueAt={w.offer_expires_at} className="text-slate-300" /></span>
+                    : <span className="pending-mark">Waiting</span>}
+                </td>
+                <td className="px-4 py-3 text-right"><button onClick={() => remove(w.id)} className="text-sm text-rose-300 hover:underline underline-offset-4">Remove</button></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function OutboxTab() {
   const [rows, setRows] = useState([]);
   const [busy, setBusy] = useState(false);
@@ -885,10 +955,11 @@ export default function AppointmentsModule() {
         <div className="mb-6">
           <h1 className="font-display text-3xl sm:text-4xl font-bold text-ink">Appointments</h1>
         </div>
-        <Tabs className="mb-6" tabs={[["calendar", "Calendar"], ["schedules", "Schedules"], ["queue", "Queue"], ["outbox", "Outbox"]]} value={tab} onChange={setTab} />
+        <Tabs className="mb-6" tabs={[["calendar", "Calendar"], ["schedules", "Schedules"], ["queue", "Queue"], ["waitlist", "Waitlist"], ["outbox", "Outbox"]]} value={tab} onChange={setTab} />
         {tab === "calendar" && <CalendarTab doctors={doctors} schedules={schedules} locations={locations} />}
         {tab === "schedules" && <SchedulesTab doctors={doctors} schedules={schedules} locations={locations} reload={loadBase} />}
         {tab === "queue" && <QueueTab />}
+        {tab === "waitlist" && <WaitlistTab />}
         {tab === "outbox" && <OutboxTab />}
       </div>
     </StaffGate>
