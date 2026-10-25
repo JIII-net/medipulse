@@ -34,7 +34,8 @@ export default function DoctorProfile({ slug, BookingModal, AuthGate, go }) {
       const { data } = await supabase.from("doctors").select(DOCTOR_SELECT).eq("slug", slug).maybeSingle();
       if (!data) { setDoctor(null); return; }
       const ratings = await loadRatings(supabase);
-      setDoctor(toBookableDoctor(data, ratings));
+      // No public name (a 4MED admin's own practitioner row): not a public page.
+      setDoctor({ ...toBookableDoctor(data, ratings), hidden: !data.profiles?.full_name });
       document.title = `${data.profiles?.full_name || "Doctor"} · 4MED`;
       const [sc, rv] = await Promise.all([
         supabase.from("schedules").select("weekday, start_time, end_time, location_id").eq("resource_type", "doctor").eq("resource_id", data.id).order("weekday"),
@@ -46,7 +47,7 @@ export default function DoctorProfile({ slug, BookingModal, AuthGate, go }) {
   }, [slug]);
 
   if (doctor === undefined) return <div className="max-w-4xl mx-auto px-6 py-24 text-center text-slate-400 font-body">{t("Loading…")}</div>;
-  if (doctor && !doctor.verified) {
+  if (doctor && (!doctor.verified || doctor.hidden)) {
     return (
       <div className="max-w-xl mx-auto px-6 py-20 text-center font-body">
         <h1 className="font-display text-3xl font-bold text-ink">{t("This doctor isn't taking bookings on 4MED yet")}</h1>

@@ -152,6 +152,8 @@ export const FIL = {
   "All specialties": "Lahat ng specialty",
   "Available now": "Available ngayon",
   "No doctors match": "Walang tumugmang doktor",
+  "No doctors are taking bookings yet": "Wala pang doktor na tumatanggap ng booking",
+  "Doctors appear here once 4MED has checked their PRC license. Please check back soon.": "Lalabas dito ang mga doktor kapag na-check na ng 4MED ang kanilang PRC license. Bumalik po ulit mamaya.",
   "Try another specialty, or clear the search.": "Subukan ang ibang specialty, o burahin ang hinanap.",
   "Clear filters": "I-clear ang filter",
   "{n} yrs practice": "{n} taon nang nagpa-practice",

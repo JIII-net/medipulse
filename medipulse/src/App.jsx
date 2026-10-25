@@ -1536,12 +1536,14 @@ function PatientDirectory() {
         loadRatings(supabase),
       ]);
       if (cancelled) return;
-      if (error || !data || data.length === 0) {
+      if (error || !data) {
         setLoadError(error?.message || null);
-        return; // keep demo DOCTORS as fallback
+        return; // can't reach 4MED: keep the labelled sample DOCTORS
       }
+      // Only approved practitioners with a public name. (A 4MED admin's own
+      // practitioner row has no public name, and a sample doctor can't be booked.)
       setIsSample(false);
-      setDoctors(data.map((d) => toBookableDoctor(d, ratings)));
+      setDoctors(data.filter((d) => d.profiles?.full_name).map((d) => toBookableDoctor(d, ratings)));
     })();
     return () => { cancelled = true; };
   }, []);
@@ -1593,7 +1595,12 @@ function PatientDirectory() {
       </div>
 
       {/* doctor cards: hovering one quiets the rest */}
-      {list.length === 0 ? (
+      {doctors.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-slate-700 px-6 py-14 text-center font-body">
+          <div className="font-display text-2xl font-bold text-ink">{t("No doctors are taking bookings yet")}</div>
+          <p className="text-slate-300 mt-2">{t("Doctors appear here once 4MED has checked their PRC license. Please check back soon.")}</p>
+        </div>
+      ) : list.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-700 px-6 py-14 text-center font-body">
           <div className="font-display text-2xl font-bold text-ink">{t("No doctors match")}</div>
           <p className="text-slate-300 mt-2">{t("Try another specialty, or clear the search.")}</p>
