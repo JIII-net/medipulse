@@ -13,6 +13,17 @@ export function friendlyError(err) {
   if (/user already registered/i.test(msg)) {
     return "An account with this email already exists. Log in instead, or use a different email.";
   }
+  if (/email not confirmed/i.test(msg)) {
+    return "Confirm your email first: open the link we sent you, then log in.";
+  }
+  // The database builds the account at sign-up; the only common failure
+  // there is a PRC license someone already registered.
+  if (/database error saving new user/i.test(msg)) {
+    return "We couldn't create the account. If this PRC license is already registered on 4MED, log in to that account instead.";
+  }
+  if (/rate limit|only request this after/i.test(msg)) {
+    return "Too many emails were sent just now. Wait a minute, then try again.";
+  }
   if (details.includes("patient_access_doctor_id_fkey")) {
     return "Your practitioner profile isn't finished yet, so patients can't be saved to it. Open Today in the Clinic App and finish setting up your practice first.";
   }

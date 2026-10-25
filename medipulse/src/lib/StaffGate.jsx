@@ -2,12 +2,15 @@ import React, { useState } from "react";
 import { Lock, AlertCircle } from "lucide-react";
 import { useAuth } from "./AuthContext";
 import { inputSm as inputCls } from "../ui";
+import { friendlyError } from "./errors";
+import { ResendLink, isUnconfirmedEmail } from "../ConfirmEmail";
 
 
 export function StaffGate({ children }) {
   const { session, profile, loading, signIn, signOut } = useAuth();
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState(null);
+  const [unconfirmed, setUnconfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
 
   if (loading) return <div className="max-w-md mx-auto px-6 py-24 text-center text-slate-500 font-body">Loading…</div>;
@@ -18,7 +21,7 @@ export function StaffGate({ children }) {
       setBusy(true); setError(null);
       const { error } = await signIn(form);
       setBusy(false);
-      if (error) setError(error.message);
+      if (error) { setError(friendlyError(error)); setUnconfirmed(isUnconfirmedEmail(error)); }
     };
     return (
       <div className="max-w-md mx-auto px-6 py-20 fade-up">
@@ -32,6 +35,7 @@ export function StaffGate({ children }) {
               <AlertCircle size={16} className="mt-0.5 shrink-0" /> {error}
             </div>
           )}
+          {unconfirmed && <ResendLink email={form.email} />}
           <button disabled={busy} className="w-full py-3 rounded-2xl bg-teal-400 text-slate-950 font-body font-semibold hover:bg-teal-300 transition-colors disabled:opacity-60">
             {busy ? "Please wait…" : "Log in"}
           </button>

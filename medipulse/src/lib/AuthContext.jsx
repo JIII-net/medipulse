@@ -50,43 +50,44 @@ export function AuthProvider({ children }) {
     return () => listener.subscription.unsubscribe();
   }, [loadProfile]);
 
-  // Sign up a new user and create their profile row (+ doctor row if role === 'doctor')
-  const signUp = async ({ email, password, fullName, role, doctorDetails }) => {
-    const { data, error } = await supabase.auth.signUp({ email, password });
-    if (error) return { error };
+  // Where the confirmation email's link lands (must be an allowed redirect
+  // URL in Supabase Auth → URL Configuration).
+  const confirmRedirect = () => `${window.location.origin}/?confirmed=1`;
 
-    const userId = data.user?.id;
-    if (!userId) return { error: { message: "Sign up succeeded but no user id was returned. Check if email confirmation is required." } };
-
-    const { error: profileError } = await supabase
-      .from("profiles")
-      .insert({ id: userId, full_name: fullName, role });
-    if (profileError) return { error: profileError };
-
+  // Sign up a new user. The database builds the account from these details
+  // when the login is created (handle_new_user, medipulse-email-confirmation.sql):
+  // profile, practitioner record and trial, invite and referral codes.
+  // With "Confirm email" on there's no session yet: { needsConfirmation: true }.
+  const signUp = async ({ email, password, fullName, role, doctorDetails, adminInviteCode, referralCode, practiceInviteCode }) => {
+    const meta = { role, full_name: fullName };
     if (role === "doctor" && doctorDetails) {
-      const { error: doctorError } = await supabase.from("doctors").insert({
-        id: userId,
-        specialty: doctorDetails.specialties?.[0] || doctorDetails.specialty,
+      meta.doctor = {
         specialties: doctorDetails.specialties || (doctorDetails.specialty ? [doctorDetails.specialty] : []),
         profession_type: doctorDetails.professionType || "doctor",
         prc_license: doctorDetails.license,
-        consult_fee: doctorDetails.fee ?? 0,
-        telehealth_enabled: doctorDetails.telehealth ?? false,
-      });
-      if (doctorError) return { error: doctorError };
-
-      const { error: subError } = await supabase.from("subscriptions").insert({
-        doctor_id: userId,
         plan_id: doctorDetails.planId,
         billing_cycle: doctorDetails.billingCycle,
-        status: "trialing",
-      });
-      if (subError) return { error: subError };
+        telehealth: doctorDetails.telehealth ?? true,
+      };
     }
+    if (adminInviteCode) meta.admin_invite_code = adminInviteCode;
+    if (referralCode) meta.referral_code = referralCode;
+    if (practiceInviteCode) meta.practice_invite_code = practiceInviteCode;
 
-    await loadProfile(userId);
+    const { data, error } = await supabase.auth.signUp({ email, password, options: { data: meta, emailRedirectTo: confirmRedirect() } });
+    if (error) return { error };
+    // With confirmation on, Supabase answers an already-registered email
+    // with a user that has no identities (and sends nothing).
+    if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+      return { error: { message: "User already registered" } };
+    }
+    if (!data.session) return { data, needsConfirmation: true };
+    await loadProfile(data.user.id);
     return { data };
   };
+
+  const resendConfirmation = (email) =>
+    supabase.auth.resend({ type: "signup", email, options: { emailRedirectTo: confirmRedirect() } });
 
   const signIn = async ({ email, password }) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
@@ -99,7 +100,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ session, profile, loading, signUp, signIn, signOut }}>
+    <AuthContext.Provider value={{ session, profile, loading, signUp, signIn, signOut, resendConfirmation }}>
       {children}
     </AuthContext.Provider>
   );
