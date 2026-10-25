@@ -4,6 +4,7 @@ import { supabase } from "./lib/supabaseClient";
 import { useAuth } from "./lib/AuthContext";
 import { friendlyError } from "./lib/errors";
 import { panel, btnSm, btnGhostSm, inputSm, FieldLabel, Notice, StatusMark, Stamp } from "./ui";
+import { reportPartnerReferral, partnerReportNote } from "./Referrals";
 
 /* ------------------------------------------------------------------ */
 /*  4MED subscription billing, paid manually for now.                  */
@@ -103,7 +104,14 @@ export function DoctorInvoices({ doctorId }) {
       <ul>
         {rows.map((r) => (
           <li key={r.id} className="flex items-center justify-between gap-3 py-2 border-b border-slate-800 last:border-0 text-sm font-body">
-            <span className="text-ink"><b className="tnum">{r.invoice_no}</b> · {fmtDate(r.period_start)} – {fmtDate(r.period_end)}</span>
+            <span className="text-ink">
+              <b className="tnum">{r.invoice_no}</b> · {fmtDate(r.period_start)} – {fmtDate(r.period_end)}
+              {(Number(r.discount) > 0 || Number(r.credit_used) > 0) && (
+                <span className="block text-xs text-slate-400 tnum">
+                  {peso(r.gross)}{Number(r.discount) > 0 ? ` − ${peso(r.discount)} welcome discount` : ""}{Number(r.credit_used) > 0 ? ` − ${peso(r.credit_used)} referral credit` : ""}
+                </span>
+              )}
+            </span>
             <span className="flex items-center gap-3"><span className="tnum">{peso(r.amount)}</span>
               {r.status === "paid" ? <Stamp>Paid</Stamp> : r.status === "void" ? <Stamp tone="void">Void</Stamp> : <span className="pending-mark">Due {fmtDate(r.due_at)}</span>}
             </span>
@@ -131,6 +139,7 @@ export function SubscriptionBillingTab() {
   const [busy, setBusy] = useState(null);
   const [error, setError] = useState(null);
   const [savedSettings, setSavedSettings] = useState(false);
+  const [note, setNote] = useState(null);
 
   const load = async () => {
     let q = supabase.from("subscription_invoices")
@@ -150,10 +159,13 @@ export function SubscriptionBillingTab() {
   }, []);
 
   const markPaid = async (inv) => {
-    setBusy(inv.id); setError(null);
+    setBusy(inv.id); setError(null); setNote(null);
     const { error } = await supabase.rpc("mark_subscription_invoice_paid", { p_id: inv.id, p_reference: refs[inv.id] || null });
+    if (error) { setBusy(null); setError(friendlyError(error)); return; }
+    // A practice that came through a 4PP partner: report its first paid invoice.
+    const { data: partner } = await supabase.from("partner_referrals").select("code, status").eq("doctor_id", inv.doctor_id).maybeSingle();
+    if (partner && partner.status !== "recorded") setNote(partnerReportNote(partner.code, await reportPartnerReferral(inv.doctor_id)) || null);
     setBusy(null);
-    if (error) { setError(friendlyError(error)); return; }
     load();
   };
 
@@ -172,6 +184,7 @@ export function SubscriptionBillingTab() {
   return (
     <div className="space-y-6">
       {error && <Notice tone="error">{error}</Notice>}
+      {note && <Notice tone="info">{note}</Notice>}
       <div className={panel}>
         <div className="font-display text-lg font-bold text-ink mb-1">Subscription invoices</div>
         <p className="text-sm text-slate-300 font-body mb-4">4MED issues an invoice 3 days before each trial or paid period ends and emails the doctor. Record the payment here once it arrives; an unpaid invoice past its due date pauses that practice's Clinic App.</p>

@@ -10,6 +10,7 @@ import StaffApp from "./StaffApp";
 import { PlansTab, InvitesTab, SpecialtiesTab } from "./AdminSetup";
 import { SubscriptionBillingTab } from "./SubscriptionBilling";
 import { DoctorApprovalsTab } from "./DoctorApproval";
+import { ReferralsAdminTab, useReferralSettings, checkReferralCode, normalizeCode, PARTNER_CODE } from "./Referrals";
 import { PROFESSIONS, ALL_SPECIALTIES, professionById } from "./lib/professions";
 import { LogoMark } from "./Logo";
 import { PaymentProofModal } from "./PaymentProof";
@@ -494,6 +495,12 @@ function DoctorSignup({ go }) {
   const [inviteCode, setInviteCode] = useState("");
   const [inviteStatus, setInviteStatus] = useState(null); // null | "checking" | "valid" | "invalid"
   const [invitePreassignedPlan, setInvitePreassignedPlan] = useState(null);
+  // A referral code: a 4PP partner's or another doctor's 4MED code, typed in
+  // or carried in from a shared ?ref= link.
+  const [refCode, setRefCode] = useState(() => { try { return sessionStorage.getItem("4med-ref") || ""; } catch { return ""; } });
+  const [refCheck, setRefCheck] = useState(null); // null | { status: "checking" } | checkReferralCode() result
+  const [refClaim, setRefClaim] = useState(null); // after sign-up: { ok, text }
+  const refSettings = useReferralSettings();
   const steps = ["Profile", "Credentials", "Choose plan", "Review"];
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const planList = livePlans.length > 0 ? livePlans : PLANS;
@@ -538,10 +545,25 @@ function DoctorSignup({ go }) {
     });
   };
 
+  const runRefCheck = async (raw = refCode) => {
+    const code = normalizeCode(raw);
+    if (!code) { setRefCheck(null); return null; }
+    setRefCheck({ status: "checking" });
+    const r = await checkReferralCode(code);
+    setRefCheck(r);
+    return r;
+  };
+  const refDiscount = refCheck?.kind === "partner" || PARTNER_CODE.test(normalizeCode(refCode)) ? refSettings.partnerDiscount : refSettings.doctorDiscount;
+  useEffect(() => { if (refCode) runRefCheck(refCode); /* a code from a shared link */ /* eslint-disable-next-line */ }, []);
+
   // Leaving the credentials step checks the PRC license is free, so a
   // duplicate is caught before an account is created rather than after.
   const next = async () => {
     setError(null);
+    if (step === 0 && normalizeCode(refCode)) {
+      const r = refCheck && refCheck.status !== "checking" && refCheck.code === normalizeCode(refCode) ? refCheck : await runRefCheck();
+      if (r?.status === "invalid") { setError("That referral code isn't valid. Check it, or clear the field to continue without one."); return; }
+    }
     if (step === 1) {
       setSubmitting(true);
       const free = await prcLicenseAvailable(supabase, form.license);
@@ -582,6 +604,13 @@ function DoctorSignup({ go }) {
     if (inviteStatus === "valid" && inviteCode.trim()) {
       await supabase.rpc("redeem_admin_invite", { p_code: inviteCode.trim() }); // best-effort; account already created either way
     }
+    if (normalizeCode(refCode)) {
+      const { error: refErr } = await supabase.rpc("claim_referral_code", { p_code: normalizeCode(refCode) });
+      setRefClaim(refErr
+        ? { ok: false, text: `Your referral code couldn't be added (${friendlyError(refErr)}). Contact 4MED and we'll add it before your first invoice.` }
+        : { ok: true, text: `Referral code ${normalizeCode(refCode)}: ${Math.round(refDiscount * 100)}% off your first invoice.` });
+      try { sessionStorage.removeItem("4med-ref"); } catch { /* private mode */ }
+    }
     setDone(true);
   };
 
@@ -600,6 +629,7 @@ function DoctorSignup({ go }) {
             <p className="text-slate-200">
               A 4MED administrator will check your PRC license against the PRC register. Your Clinic App opens as soon as it's approved, and your 14-day {plan.name} trial starts that day. Until then patients can't see or book you, and nothing is charged.
             </p>
+            {refClaim && <Notice tone={refClaim.ok ? "info" : "error"}>{refClaim.text}</Notice>}
             <div className="grid grid-cols-2 gap-4 pt-1">
               <div><FieldLabel>Plan</FieldLabel><div className="write-in text-ink mt-1">{plan.name} · {peso(price)}/mo</div></div>
               <div><FieldLabel>Billing</FieldLabel><div className="write-in text-ink mt-1">{form.annual ? "Yearly" : "Monthly"}, after the trial</div></div>
@@ -645,6 +675,21 @@ function DoctorSignup({ go }) {
             )}
             {inviteStatus === "invalid" && <p className="text-sm text-rose-300 font-body mt-1.5">We couldn't find that code, or it has expired.</p>}
           </label>
+          {refSettings.enabled && (
+            <label className="block">
+              <FieldLabel>Referral code (optional)</FieldLabel>
+              <input className={inputCls + " mt-1.5 tnum uppercase"} placeholder="4MED… from a colleague, or 4PP… from a 4Keys partner" value={refCode}
+                onChange={(e) => { setRefCode(e.target.value); setRefCheck(null); }} onBlur={() => runRefCheck()} />
+              {refCheck?.status === "checking" && <p className="text-sm text-slate-400 font-body mt-1.5">Checking…</p>}
+              {refCheck?.status === "valid" && (
+                <p className="text-sm text-ink font-body mt-1.5 flex items-center gap-1.5">
+                  <Check size={14} /> {refCheck.kind === "partner" ? `4Keys partner${refCheck.name ? ` ${refCheck.name}` : ""}` : `Referred by ${refCheck.name}`}: {Math.round(refDiscount * 100)}% off your first invoice.
+                </p>
+              )}
+              {refCheck?.status === "invalid" && <p className="text-sm text-rose-300 font-body mt-1.5">We couldn't find that code.</p>}
+              {refCheck?.status === "unavailable" && <p className="text-sm text-slate-300 font-body mt-1.5">We couldn't check this code right now. You can continue; 4MED will confirm it before your first invoice.</p>}
+            </label>
+          )}
           <p className="text-sm text-slate-400 font-body pt-2">Clinic secretary? <button type="button" onClick={() => go("staffjoin")} className={btnQuiet}>Join your doctor's practice with an invite code</button></p>
         </div>
       )}
@@ -730,6 +775,7 @@ function DoctorSignup({ go }) {
               ["PRC license", form.license || "—"],
               ["Plan", `${plan.name} · ${peso(price)}/mo, billed ${form.annual ? "yearly" : "monthly"}`],
               ["Trial", "14 days free, no charge until it ends"],
+              ...(normalizeCode(refCode) ? [["Referral", `${normalizeCode(refCode)} · ${Math.round(refDiscount * 100)}% off your first invoice`]] : []),
             ].map(([k, v]) => (
               <div key={k} className="grid grid-cols-[9rem_1fr] gap-4 px-5 py-3 text-sm font-body border-b border-slate-800 last:border-0">
                 <dt className="text-slate-400">{k}</dt>
@@ -1717,10 +1763,11 @@ function AdminDashboard() {
         <button onClick={signOut} className="text-sm font-body text-slate-300 hover:text-ink flex items-center gap-1.5"><LogOut size={15} /> Log out</button>
       </div>
 
-      <Tabs className="mb-8" tabs={[["approvals", stats.pendingLicenses ? `Approvals · ${stats.pendingLicenses}` : "Approvals"], ["subscriptions", "Subscriptions"], ["billing", "Billing"], ["plans", "Plans"], ["invites", "Invites"], ["specialties", "Specialties"]]} value={tab} onChange={setTab} />
+      <Tabs className="mb-8" tabs={[["approvals", stats.pendingLicenses ? `Approvals · ${stats.pendingLicenses}` : "Approvals"], ["subscriptions", "Subscriptions"], ["billing", "Billing"], ["referrals", "Referrals"], ["plans", "Plans"], ["invites", "Invites"], ["specialties", "Specialties"]]} value={tab} onChange={setTab} />
 
       {tab === "approvals" && <DoctorApprovalsTab onChanged={load} />}
       {tab === "billing" && <SubscriptionBillingTab />}
+      {tab === "referrals" && <ReferralsAdminTab />}
       {tab === "plans" && <PlansTab />}
       {tab === "invites" && <InvitesTab />}
       {tab === "specialties" && <SpecialtiesTab />}
@@ -1882,9 +1929,19 @@ function AppShell() {
   const [profileSlug, setProfileSlug] = useState(profileSlugFromPath);
   // Dev-only: `?view=patient|doctor|app` opens a view directly, alongside
   // the `?demo=` sign-in in AuthContext, for previews and screenshots.
-  const [view, setView] = useState(() =>
-    (import.meta.env.DEV && new URLSearchParams(window.location.search).get("view")) || "landing"
-  );
+  const [view, setView] = useState(() => {
+    // A shared referral link (/?ref=4MEDJD) opens doctor sign-up with the code in.
+    // (Saving it is idempotent; the address bar is tidied in an effect below.)
+    const ref = new URLSearchParams(window.location.search).get("ref");
+    if (ref) {
+      try { sessionStorage.setItem("4med-ref", ref.toUpperCase().replace(/\s+/g, "").slice(0, 40)); } catch { /* private mode */ }
+      return "doctor";
+    }
+    return (import.meta.env.DEV && new URLSearchParams(window.location.search).get("view")) || "landing";
+  });
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).has("ref")) window.history.replaceState(null, "", window.location.pathname);
+  }, []);
   const [navOpen, setNavOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
 

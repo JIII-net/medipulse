@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { CreditCard, MapPin, Users, Plus, Trash2, Copy, Check, AlertCircle, FileText, Pencil, X, Share2, Upload, ExternalLink } from "lucide-react";
 import { profileUrl, slugify } from "./lib/doctors";
 import { DoctorInvoices } from "./SubscriptionBilling";
+import { DoctorReferralCard } from "./Referrals";
 import { validateUpload } from "./lib/uploads";
 import { useAuth } from "./lib/AuthContext";
 import { supabase } from "./lib/supabaseClient";
@@ -127,6 +128,7 @@ export default function PracticeSettings() {
           )}
           <DoctorInvoices doctorId={me} />
           <p className="text-xs text-slate-500 font-body mt-3">To change plans or billing, contact 4MED support.</p>
+          <DoctorReferralCard doctorId={me} />
         </div>
 
         {/* locations */}
