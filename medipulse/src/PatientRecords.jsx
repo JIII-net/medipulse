@@ -8,6 +8,7 @@ import { PatientConsentTab } from "./ConsentForms";
 import { useAuth } from "./lib/AuthContext";
 import { StaffGate } from "./lib/StaffGate";
 import { supabase } from "./lib/supabaseClient";
+import { friendlyError } from "./lib/errors";
 import { inputSm as inputCls, btnSm as btnPrimary, btnGhostSm as btnGhost, panel as card, labelCls, Tabs, Avatar } from "./ui";
 
 /* ------------------------------------------------------------------ */
@@ -279,7 +280,7 @@ function RegisterView({ onDone, onBack }) {
       },
     });
     setBusy(false);
-    if (error) { setError(error.message); return; }
+    if (error) { setError(friendlyError(error)); return; }
     onDone(newId);
   };
 
@@ -732,7 +733,7 @@ function EditDemographicsModal({ patient, onClose, onSaved }) {
   const save = async () => {
     if (!f.first_name.trim() || !f.last_name.trim()) { setError("First and last name are required."); return; }
     setBusy(true); setError(null);
-    const { error } = await supabase.from("patients").update({
+    const { data: savedRows, error } = await supabase.from("patients").update({
       first_name: f.first_name.trim(), middle_name: f.middle_name.trim() || null,
       last_name: f.last_name.trim(), suffix: f.suffix.trim() || null,
       birthdate: f.birthdate || null, sex: f.sex,
@@ -741,9 +742,13 @@ function EditDemographicsModal({ patient, onClose, onSaved }) {
       address: { line1: f.line1, barangay: f.barangay, city: f.city, province: f.province },
       blood_type: f.blood_type || null, philhealth_no: f.philhealth_no.trim() || null,
       senior_citizen_id: f.senior_citizen_id.trim() || null, pwd_id: f.pwd_id.trim() || null,
-    }).eq("id", patient.id);
+    }).eq("id", patient.id).select("id");
     setBusy(false);
-    if (error) { setError(error.message); return; }
+    if (error) { setError(friendlyError(error)); return; }
+    if (!savedRows || savedRows.length === 0) {
+      setError("Nothing was saved: this patient isn't linked to your practice, so you can't edit their record. Ask the doctor who registered them.");
+      return;
+    }
     onSaved();
   };
 

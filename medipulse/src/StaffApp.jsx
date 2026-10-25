@@ -13,7 +13,9 @@ import PracticeSettings from "./PracticeSettings";
 import { PaymentProofReview } from "./PaymentProof";
 import BillingModule from "./BillingModule";
 import { LogoMark } from "./Logo";
-import { StatusMark, FieldLabel, HoldCountdown, btnSm, btnGhostSm, btnQuiet, tintForProfession } from "./ui";
+import { StatusMark, FieldLabel, HoldCountdown, Notice, btnSm, btnGhostSm, btnQuiet, inputSm, tintForProfession } from "./ui";
+import { PROFESSIONS, professionById } from "./lib/professions";
+import { friendlyError, prcLicenseAvailable } from "./lib/errors";
 
 /* ------------------------------------------------------------------ */
 /*  StaffApp — the unified clinic application shell                    */
@@ -332,12 +334,121 @@ function DashboardHome({ go, clinic }) {
   );
 }
 
+/* -------------------- finish a half-done doctor signup ------------------- */
+
+// Signup creates the login first and the practitioner record second. If
+// the second step fails (most often a PRC license that's already taken),
+// the doctor is left with an account that can't save patients. This card
+// lets them finish the missing part instead of starting over.
+function FinishPracticeSetup({ onDone }) {
+  const { profile } = useAuth();
+  const [f, setF] = useState({ professionType: "doctor", specialties: [PROFESSIONS[0].defaultSpecialty], license: "", plan: "" });
+  const [plans, setPlans] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    supabase.from("plans").select("id, name, monthly_price").order("monthly_price")
+      .then(({ data }) => {
+        const list = data && data.length ? data : [{ id: "starter", name: "Starter" }, { id: "pro", name: "Pro" }, { id: "clinic", name: "Clinic" }];
+        setPlans(list);
+        setF((x) => ({ ...x, plan: x.plan || list[0].id }));
+      });
+  }, []);
+
+  const save = async () => {
+    if (!f.license.trim()) { setError("Enter your PRC license number."); return; }
+    if (f.specialties.length === 0) { setError("Pick at least one specialty."); return; }
+    setBusy(true); setError(null);
+    if (!(await prcLicenseAvailable(supabase, f.license))) {
+      setBusy(false);
+      setError(friendlyError({ message: "doctors_prc_license_key" }));
+      return;
+    }
+    const { error: dErr } = await supabase.from("doctors").insert({
+      id: profile.id,
+      specialty: f.specialties[0],
+      specialties: f.specialties,
+      profession_type: f.professionType,
+      prc_license: f.license.trim(),
+      consult_fee: 0,
+      telehealth_enabled: true,
+    });
+    if (dErr) { setBusy(false); setError(friendlyError(dErr)); return; }
+    const { data: sub } = await supabase.from("subscriptions").select("id").eq("doctor_id", profile.id).maybeSingle();
+    if (!sub) {
+      const { error: sErr } = await supabase.from("subscriptions").insert({ doctor_id: profile.id, plan_id: f.plan, billing_cycle: "monthly", status: "trialing" });
+      if (sErr) { setBusy(false); setError(friendlyError(sErr)); return; }
+    }
+    setBusy(false);
+    onDone();
+  };
+
+  const prof = professionById(f.professionType);
+  return (
+    <div className="rounded-xl border border-ink/20 bg-white overflow-hidden">
+      <div className={"px-6 py-5 border-b border-ink/15 " + tintForProfession(f.professionType)}>
+        <FieldLabel>Practitioner card</FieldLabel>
+        <h1 className="font-display text-3xl font-bold text-ink mt-1">Finish setting up your practice</h1>
+        <p className="font-body text-slate-200 mt-1.5">Your account was created, but your practitioner details didn't save. Add them here so you can register patients and take bookings.</p>
+      </div>
+      <div className="px-6 py-6 space-y-5 font-body">
+        <div>
+          <span className="field-label block mb-2">I am a</span>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {PROFESSIONS.map((p) => (
+              <button key={p.id} type="button" aria-pressed={f.professionType === p.id}
+                onClick={() => setF((x) => ({ ...x, professionType: p.id, specialties: [p.defaultSpecialty] }))}
+                className={"px-3 py-2.5 rounded-md border text-left text-sm text-ink " + tintForProfession(p.id) + " " + (f.professionType === p.id ? "border-ink ring-2 ring-ink font-semibold" : "border-ink/15 hover:border-ink/50")}>
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <span className="field-label block mb-2">Specialties</span>
+          <div className="flex flex-wrap gap-2">
+            {prof.specialties.map((sp) => {
+              const on = f.specialties.includes(sp);
+              return (
+                <button key={sp} type="button" aria-pressed={on}
+                  onClick={() => setF((x) => ({ ...x, specialties: on ? x.specialties.filter((y) => y !== sp) : [...x.specialties, sp] }))}
+                  className={"px-3 py-1.5 rounded-md text-sm border " + (on ? "bg-ink text-white border-ink font-medium" : "bg-white text-slate-300 border-slate-700 hover:border-ink")}>
+                  {sp}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <div className="grid sm:grid-cols-2 gap-4">
+          <label className="block">
+            <span className="field-label block mb-1.5">PRC license number</span>
+            <input className={inputSm + " tnum"} value={f.license} onChange={(e) => setF((x) => ({ ...x, license: e.target.value }))} placeholder="7 digits" />
+          </label>
+          <label className="block">
+            <span className="field-label block mb-1.5">Plan</span>
+            <select className={inputSm} value={f.plan} onChange={(e) => setF((x) => ({ ...x, plan: e.target.value }))}>
+              {plans.map((pl) => <option key={pl.id} value={pl.id}>{pl.name}</option>)}
+            </select>
+          </label>
+        </div>
+        {error && <Notice tone="error">{error}</Notice>}
+        <button onClick={save} disabled={busy} className={btnSm}>{busy ? "Saving…" : "Save and open the Clinic App"}</button>
+      </div>
+    </div>
+  );
+}
+
 function StaffAppInner({ AdminPortal, onExitToSite }) {
   const { profile, signOut } = useAuth();
   const [mod, setMod] = useState("home");
   const [openPatientId, setOpenPatientId] = useState(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [professionType, setProfessionType] = useState(null);
+  // For a doctor: undefined while checking, false when the account has no
+  // practitioner record (a signup that failed half-way), true otherwise.
+  const [hasDoctorRow, setHasDoctorRow] = useState(undefined);
+  const [setupDone, setSetupDone] = useState(0);
 
   // The rail is the practitioner's card stock: a dentist's clinic app is
   // mint, an ophthalmologist's butter. Secretaries and admins take the
@@ -345,8 +456,11 @@ function StaffAppInner({ AdminPortal, onExitToSite }) {
   useEffect(() => {
     if (profile?.role !== "doctor") return;
     supabase.from("doctors").select("profession_type").eq("id", profile.id).maybeSingle()
-      .then(({ data }) => setProfessionType(data?.profession_type || null));
-  }, [profile?.id, profile?.role]);
+      .then(({ data, error }) => {
+        setProfessionType(data?.profession_type || null);
+        if (!error) setHasDoctorRow(!!data);
+      });
+  }, [profile?.id, profile?.role, setupDone]);
   const railTint = tintForProfession(professionType);
 
   const [clinic, setClinic] = useState(null); // { name, hours }
@@ -464,6 +578,11 @@ function StaffAppInner({ AdminPortal, onExitToSite }) {
           <GlobalSearch onOpenPatient={openPatient} />
         </header>
         <main className="flex-1">
+          {profile?.role === "doctor" && hasDoctorRow === false ? (
+            <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10">
+              <FinishPracticeSetup onDone={() => setSetupDone((n) => n + 1)} />
+            </div>
+          ) : (<>
           {mod === "home" && <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8"><DashboardHome go={goMod} clinic={clinic} /></div>}
           {mod === "patients" && <PatientRecords openPatientId={openPatientId} />}
           {mod === "appointments" && <AppointmentsModule />}
@@ -471,6 +590,7 @@ function StaffAppInner({ AdminPortal, onExitToSite }) {
           {mod === "practice" && <PracticeSettings />}
           {mod === "billing" && <BillingModule />}
           {mod === "admin" && AdminPortal && <AdminPortal />}
+          </>)}
         </main>
       </div>
     </div>
