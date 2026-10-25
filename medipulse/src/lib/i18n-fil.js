@@ -327,6 +327,8 @@ export const FIL = {
 
   // --- doctor profile page
   "We couldn't find that doctor": "Hindi namin mahanap ang doktor na iyan",
+  "This doctor isn't taking bookings on 4MED yet": "Hindi pa tumatanggap ng booking sa 4MED ang doktor na ito",
+  "Their page opens once 4MED has checked their PRC license.": "Bubukas ang page nila kapag na-check na ng 4MED ang kanilang PRC license.",
   "The link may be old. Search the directory instead.": "Baka luma na ang link. Hanapin na lang sa listahan ng doktor.",
   "Book {name} on 4MED": "I-book si {name} sa 4MED",
   "PRC license verified": "Verified ang PRC license",
