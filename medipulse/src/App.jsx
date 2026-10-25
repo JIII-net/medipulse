@@ -9,6 +9,7 @@ import { friendlyError, prcLicenseAvailable } from "./lib/errors";
 import StaffApp from "./StaffApp";
 import { PlansTab, InvitesTab, SpecialtiesTab } from "./AdminSetup";
 import { SubscriptionBillingTab } from "./SubscriptionBilling";
+import { DoctorApprovalsTab } from "./DoctorApproval";
 import { PROFESSIONS, ALL_SPECIALTIES, professionById } from "./lib/professions";
 import { LogoMark } from "./Logo";
 import { PaymentProofModal } from "./PaymentProof";
@@ -592,11 +593,11 @@ function DoctorSignup({ go }) {
               <FieldLabel>Practitioner card</FieldLabel>
               <h2 className="font-display text-3xl font-bold text-ink mt-1">Welcome, {form.name || "Doctor"}.</h2>
             </div>
-            <Stamp press size="lg" tilt={-6}>Trial active</Stamp>
+            <span className="pending-mark shrink-0">In review</span>
           </div>
           <div className="px-6 py-5 space-y-4 font-body">
             <p className="text-slate-200">
-              Your {plan.name} trial runs for 14 days. Your Clinic App is ready now; patients can book you once an administrator has checked your PRC license.
+              A 4MED administrator will check your PRC license against the PRC register. Your Clinic App opens as soon as it's approved, and your 14-day {plan.name} trial starts that day. Until then patients can't see or book you, and nothing is charged.
             </p>
             <div className="grid grid-cols-2 gap-4 pt-1">
               <div><FieldLabel>Plan</FieldLabel><div className="write-in text-ink mt-1">{plan.name} · {peso(price)}/mo</div></div>
@@ -604,7 +605,7 @@ function DoctorSignup({ go }) {
             </div>
           </div>
           <div className="px-6 py-4 border-t border-slate-800 flex flex-wrap gap-3">
-            <button onClick={() => go("app")} className={btn}>Open the Clinic App <ArrowRight size={16} /></button>
+            <button onClick={() => go("app")} className={btn}>See your application <ArrowRight size={16} /></button>
             <button onClick={() => go("patient")} className={btnGhost}>See what patients see</button>
           </div>
         </div>
@@ -1449,7 +1450,7 @@ function PatientDirectory() {
     let cancelled = false;
     (async () => {
       const [{ data, error }, ratings] = await Promise.all([
-        supabase.from("doctors").select(DOCTOR_SELECT),
+        supabase.from("doctors").select(DOCTOR_SELECT).eq("license_verified", true),
         loadRatings(supabase),
       ]);
       if (cancelled) return;
@@ -1628,11 +1629,10 @@ function AdminPortal() {
 
 function AdminDashboard() {
   const { signOut } = useAuth();
-  const [tab, setTab] = useState("subscriptions");
+  const [tab, setTab] = useState("approvals");
   const [rows, setRows] = useState([]);
   const [loadError, setLoadError] = useState(null);
   const [loadingData, setLoadingData] = useState(true);
-  const [verifying, setVerifying] = useState(null);
 
   const load = async () => {
     setLoadingData(true);
@@ -1669,17 +1669,6 @@ function AdminDashboard() {
     };
   }, [rows]);
 
-  const verify = async (doctorId) => {
-    setVerifying(doctorId);
-    const { error } = await supabase.from("doctors").update({ license_verified: true }).eq("id", doctorId);
-    setVerifying(null);
-    if (error) {
-      setLoadError("Verify failed: " + error.message + " — did you run medipulse-admin-patch.sql?");
-      return;
-    }
-    load();
-  };
-
   const daysLeft = (d) => {
     if (!d) return null;
     return Math.ceil((new Date(d) - new Date()) / 86400000);
@@ -1692,8 +1681,9 @@ function AdminDashboard() {
         <button onClick={signOut} className="text-sm font-body text-slate-300 hover:text-ink flex items-center gap-1.5"><LogOut size={15} /> Log out</button>
       </div>
 
-      <Tabs className="mb-8" tabs={[["subscriptions", "Subscriptions"], ["billing", "Billing"], ["plans", "Plans"], ["invites", "Invites"], ["specialties", "Specialties"]]} value={tab} onChange={setTab} />
+      <Tabs className="mb-8" tabs={[["approvals", stats.pendingLicenses ? `Approvals · ${stats.pendingLicenses}` : "Approvals"], ["subscriptions", "Subscriptions"], ["billing", "Billing"], ["plans", "Plans"], ["invites", "Invites"], ["specialties", "Specialties"]]} value={tab} onChange={setTab} />
 
+      {tab === "approvals" && <DoctorApprovalsTab onChanged={load} />}
       {tab === "billing" && <SubscriptionBillingTab />}
       {tab === "plans" && <PlansTab />}
       {tab === "invites" && <InvitesTab />}
@@ -1749,8 +1739,8 @@ function AdminDashboard() {
                           {r.doctors?.license_verified ? (
                             <span className="inline-flex items-center gap-3"><span className="text-slate-300 tnum">{r.doctors.prc_license}</span><Stamp>Verified</Stamp></span>
                           ) : (
-                            <button onClick={() => verify(r.doctors?.id)} disabled={verifying === r.doctors?.id} className={btnGhost}>
-                              {verifying === r.doctors?.id ? "Verifying…" : `Verify ${r.doctors?.prc_license || "license"}`}
+                            <button onClick={() => setTab("approvals")} className={btnGhost}>
+                              Review {r.doctors?.prc_license || "license"}
                             </button>
                           )}
                         </td>
@@ -1763,7 +1753,7 @@ function AdminDashboard() {
           </div>
 
           <p className="mt-4 text-sm text-slate-400 font-body">
-            Recurring revenue counts active subscriptions only; trials are shown separately. A verified license marks the doctor as trusted in the patient directory.
+            Recurring revenue counts active subscriptions only; trials are shown separately. A practitioner can use 4MED and take bookings only after you approve their license in Approvals.
           </p>
         </>
       )}

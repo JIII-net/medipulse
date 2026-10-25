@@ -46,6 +46,15 @@ export default function DoctorProfile({ slug, BookingModal, AuthGate, go }) {
   }, [slug]);
 
   if (doctor === undefined) return <div className="max-w-4xl mx-auto px-6 py-24 text-center text-slate-400 font-body">{t("Loading…")}</div>;
+  if (doctor && !doctor.verified) {
+    return (
+      <div className="max-w-xl mx-auto px-6 py-20 text-center font-body">
+        <h1 className="font-display text-3xl font-bold text-ink">{t("This doctor isn't taking bookings on 4MED yet")}</h1>
+        <p className="text-slate-300 mt-2">{t("Their page opens once 4MED has checked their PRC license.")}</p>
+        <button onClick={() => go("patient")} className={btnGhost + " mt-6"}>{t("Find a doctor")}</button>
+      </div>
+    );
+  }
   if (doctor === null) {
     return (
       <div className="max-w-xl mx-auto px-6 py-20 text-center font-body">

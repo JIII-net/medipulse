@@ -12,6 +12,7 @@ import DoctorPortal from "./DoctorPortal";
 import PracticeSettings from "./PracticeSettings";
 import { PaymentProofReview } from "./PaymentProof";
 import { useBillingStatus, BillingBanner, BillingLock } from "./SubscriptionBilling";
+import { usePracticeApproval, PendingApproval } from "./DoctorApproval";
 import BillingModule from "./BillingModule";
 import { LogoMark } from "./Logo";
 import { StatusMark, FieldLabel, HoldCountdown, Notice, btnSm, btnGhostSm, btnQuiet, inputSm, tintForProfession } from "./ui";
@@ -391,7 +392,7 @@ function FinishPracticeSetup({ onDone }) {
       <div className={"px-6 py-5 border-b border-ink/15 " + tintForProfession(f.professionType)}>
         <FieldLabel>Practitioner card</FieldLabel>
         <h1 className="font-display text-3xl font-bold text-ink mt-1">Finish setting up your practice</h1>
-        <p className="font-body text-slate-200 mt-1.5">Your account was created, but your practitioner details didn't save. Add them here so you can register patients and take bookings.</p>
+        <p className="font-body text-slate-200 mt-1.5">Your account was created, but your practitioner details didn't save. Add them here and 4MED will check your PRC license so you can register patients and take bookings.</p>
       </div>
       <div className="px-6 py-6 space-y-5 font-body">
         <div>
@@ -434,7 +435,7 @@ function FinishPracticeSetup({ onDone }) {
           </label>
         </div>
         {error && <Notice tone="error">{error}</Notice>}
-        <button onClick={save} disabled={busy} className={btnSm}>{busy ? "Saving…" : "Save and open the Clinic App"}</button>
+        <button onClick={save} disabled={busy} className={btnSm}>{busy ? "Saving…" : "Save and send for review"}</button>
       </div>
     </div>
   );
@@ -445,25 +446,15 @@ function StaffAppInner({ AdminPortal, onExitToSite }) {
   const [mod, setMod] = useState("home");
   const [openPatientId, setOpenPatientId] = useState(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [professionType, setProfessionType] = useState(null);
-  // For a doctor: undefined while checking, false when the account has no
-  // practitioner record (a signup that failed half-way), true otherwise.
-  const [hasDoctorRow, setHasDoctorRow] = useState(undefined);
-  const [setupDone, setSetupDone] = useState(0);
+  // Bumped after the doctor finishes setup or resubmits their license.
+  const [recheck, setRecheck] = useState(0);
+  const approval = usePracticeApproval(recheck);
+  const approved = approval.status === "approved";
   const billing = useBillingStatus();
 
   // The rail is the practitioner's card stock: a dentist's clinic app is
-  // mint, an ophthalmologist's butter. Secretaries and admins take the
-  // default sky until we know whose practice they're in.
-  useEffect(() => {
-    if (profile?.role !== "doctor") return;
-    supabase.from("doctors").select("profession_type").eq("id", profile.id).maybeSingle()
-      .then(({ data, error }) => {
-        setProfessionType(data?.profession_type || null);
-        if (!error) setHasDoctorRow(!!data);
-      });
-  }, [profile?.id, profile?.role, setupDone]);
-  const railTint = tintForProfession(professionType);
+  // mint, an ophthalmologist's butter. Admins take the default sky.
+  const railTint = tintForProfession(approval.doctor?.profession_type || null);
 
   const [clinic, setClinic] = useState(null); // { name, hours }
   // The clinic this app belongs to: a doctor's own, a secretary's
@@ -496,7 +487,7 @@ function StaffAppInner({ AdminPortal, onExitToSite }) {
     setDrawerOpen(false);
   };
 
-  const items = [
+  const items = !approved ? [] : [
     { id: "home", label: "Today", icon: LayoutDashboard },
     { id: "patients", label: "Patients", icon: Users },
     { id: "appointments", label: "Appointments", icon: Calendar },
@@ -577,16 +568,20 @@ function StaffAppInner({ AdminPortal, onExitToSite }) {
           >
             <MenuIcon size={22} />
           </button>
-          <GlobalSearch onOpenPatient={openPatient} />
+          {approved && <GlobalSearch onOpenPatient={openPatient} />}
         </header>
-        {!billing.pastDue && <BillingBanner open={billing.open} />}
+        {approved && !billing.pastDue && <BillingBanner open={billing.open} />}
         <main className="flex-1">
-          {billing.pastDue ? (
-            <BillingLock pastDue={billing.pastDue} />
-          ) : profile?.role === "doctor" && hasDoctorRow === false ? (
+          {approval.status === "loading" ? (
+            <div className="py-24 text-center text-slate-400 font-body">Loading…</div>
+          ) : approval.status === "missing" ? (
             <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10">
-              <FinishPracticeSetup onDone={() => setSetupDone((n) => n + 1)} />
+              <FinishPracticeSetup onDone={() => setRecheck((n) => n + 1)} />
             </div>
+          ) : !approved ? (
+            <PendingApproval approval={approval} onChanged={() => setRecheck((n) => n + 1)} />
+          ) : billing.pastDue ? (
+            <BillingLock pastDue={billing.pastDue} />
           ) : (<>
           {mod === "home" && <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8"><DashboardHome go={goMod} clinic={clinic} /></div>}
           {mod === "patients" && <PatientRecords openPatientId={openPatientId} />}
