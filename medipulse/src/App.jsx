@@ -11,6 +11,7 @@ import { PlansTab, InvitesTab, SpecialtiesTab } from "./AdminSetup";
 import { SubscriptionBillingTab } from "./SubscriptionBilling";
 import { DoctorApprovalsTab } from "./DoctorApproval";
 import { ReferralsAdminTab, useReferralSettings, checkReferralCode, normalizeCode, PARTNER_CODE } from "./Referrals";
+import { CheckYourEmail, ResendLink, isUnconfirmedEmail } from "./ConfirmEmail";
 import { PROFESSIONS, ALL_SPECIALTIES, professionById } from "./lib/professions";
 import { LogoMark } from "./Logo";
 import { PaymentProofModal } from "./PaymentProof";
@@ -500,6 +501,7 @@ function DoctorSignup({ go }) {
   const [refCode, setRefCode] = useState(() => { try { return sessionStorage.getItem("4med-ref") || ""; } catch { return ""; } });
   const [refCheck, setRefCheck] = useState(null); // null | { status: "checking" } | checkReferralCode() result
   const [refClaim, setRefClaim] = useState(null); // after sign-up: { ok, text }
+  const [awaitingEmail, setAwaitingEmail] = useState(false); // signed up; confirmation link sent
   const refSettings = useReferralSettings();
   const steps = ["Profile", "Credentials", "Choose plan", "Review"];
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
@@ -581,7 +583,10 @@ function DoctorSignup({ go }) {
       setError(friendlyError({ message: "doctors_prc_license_key" }));
       return;
     }
-    const { error } = await signUp({
+    // The invite and referral codes ride along with the sign-up; the
+    // database applies them when it builds the account.
+    const code = normalizeCode(refCode);
+    const { error, needsConfirmation } = await signUp({
       email: form.email,
       password: form.password,
       fullName: form.name,
@@ -590,27 +595,23 @@ function DoctorSignup({ go }) {
         specialties: form.specialties,
         professionType: form.professionType,
         license: form.license,
-        fee: 0,
         telehealth: true,
         planId: form.plan,
         billingCycle: form.annual ? "annual" : "monthly",
       },
+      adminInviteCode: inviteStatus === "valid" ? inviteCode.trim() : undefined,
+      referralCode: code && refCheck?.status !== "invalid" ? code : undefined,
     });
     setSubmitting(false);
     if (error) {
       setError(friendlyError(error));
       return;
     }
-    if (inviteStatus === "valid" && inviteCode.trim()) {
-      await supabase.rpc("redeem_admin_invite", { p_code: inviteCode.trim() }); // best-effort; account already created either way
-    }
-    if (normalizeCode(refCode)) {
-      const { error: refErr } = await supabase.rpc("claim_referral_code", { p_code: normalizeCode(refCode) });
-      setRefClaim(refErr
-        ? { ok: false, text: `Your referral code couldn't be added (${friendlyError(refErr)}). Contact 4MED and we'll add it before your first invoice.` }
-        : { ok: true, text: `Referral code ${normalizeCode(refCode)}: ${Math.round(refDiscount * 100)}% off your first invoice.` });
+    if (code && refCheck?.status !== "invalid") {
+      setRefClaim({ ok: true, text: `Referral code ${code}: ${Math.round(refDiscount * 100)}% off your first invoice.` });
       try { sessionStorage.removeItem("4med-ref"); } catch { /* private mode */ }
     }
+    setAwaitingEmail(!!needsConfirmation);
     setDone(true);
   };
 
@@ -626,6 +627,11 @@ function DoctorSignup({ go }) {
             <span className="pending-mark shrink-0">In review</span>
           </div>
           <div className="px-6 py-5 space-y-4 font-body">
+            {awaitingEmail && (
+              <div className="rounded-lg border border-ink/20 bg-ground px-4 py-4">
+                <CheckYourEmail email={form.email} after="Then a 4MED administrator checks your PRC license." />
+              </div>
+            )}
             <p className="text-slate-200">
               A 4MED administrator will check your PRC license against the PRC register. Your Clinic App opens as soon as it's approved, and your 14-day {plan.name} trial starts that day. Until then patients can't see or book you, and nothing is charged.
             </p>
@@ -635,10 +641,12 @@ function DoctorSignup({ go }) {
               <div><FieldLabel>Billing</FieldLabel><div className="write-in text-ink mt-1">{form.annual ? "Yearly" : "Monthly"}, after the trial</div></div>
             </div>
           </div>
-          <div className="px-6 py-4 border-t border-slate-800 flex flex-wrap gap-3">
-            <button onClick={() => go("app")} className={btn}>See your application <ArrowRight size={16} /></button>
-            <button onClick={() => go("patient")} className={btnGhost}>See what patients see</button>
-          </div>
+          {!awaitingEmail && (
+            <div className="px-6 py-4 border-t border-slate-800 flex flex-wrap gap-3">
+              <button onClick={() => go("app")} className={btn}>See your application <ArrowRight size={16} /></button>
+              <button onClick={() => go("patient")} className={btnGhost}>See what patients see</button>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -1184,6 +1192,8 @@ function PatientAuthGate({ children }) {
   const [mode, setMode] = useState("signin");
   const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [error, setError] = useState(null);
+  const [unconfirmed, setUnconfirmed] = useState(false); // tried to log in before confirming
+  const [sentTo, setSentTo] = useState(null); // signed up; waiting for the email link
   const [busy, setBusy] = useState(false);
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -1197,12 +1207,18 @@ function PatientAuthGate({ children }) {
     e.preventDefault();
     setBusy(true);
     setError(null);
+    setUnconfirmed(false);
     const result =
       mode === "signup"
         ? await signUp({ email: form.email, password: form.password, fullName: form.name, role: "patient" })
         : await signIn({ email: form.email, password: form.password });
     setBusy(false);
-    if (result.error) setError(t(friendlyError(result.error)));
+    if (result.error) {
+      setError(t(friendlyError(result.error)));
+      setUnconfirmed(isUnconfirmedEmail(result.error));
+      return;
+    }
+    if (result.needsConfirmation) setSentTo(form.email);
   };
 
   return (
@@ -1217,6 +1233,11 @@ function PatientAuthGate({ children }) {
             {mode === "signup" ? t("One account for every 4MED clinic you visit, and for the family members you book for.") : t("Log in to book and see your appointments.")}
           </p>
         </div>
+        {sentTo ? (
+          <div className="px-6 py-6">
+            <CheckYourEmail email={sentTo} t={t} after={t("Then log in to book your visits.")} onBack={() => { setSentTo(null); setMode("signin"); }} />
+          </div>
+        ) : (
         <form onSubmit={submit} className="px-6 py-6 space-y-4">
           {mode === "signup" && (
             <label className="block"><FieldLabel>{t("Full name")}</FieldLabel><input className={inputCls + " mt-1.5"} autoComplete="name" value={form.name} onChange={(e) => set("name", e.target.value)} required /></label>
@@ -1224,10 +1245,12 @@ function PatientAuthGate({ children }) {
           <label className="block"><FieldLabel>{t("Email")}</FieldLabel><input className={inputCls + " mt-1.5"} type="email" autoComplete="email" value={form.email} onChange={(e) => set("email", e.target.value)} required /></label>
           <label className="block"><FieldLabel>{t("Password")}</FieldLabel><input className={inputCls + " mt-1.5"} type="password" autoComplete={mode === "signup" ? "new-password" : "current-password"} placeholder={mode === "signup" ? t("At least 6 characters") : ""} value={form.password} onChange={(e) => set("password", e.target.value)} required minLength={6} /></label>
           {error && <Notice tone="error" icon={AlertCircle}>{error}</Notice>}
+          {unconfirmed && <ResendLink email={form.email} t={t} />}
           <button disabled={busy} className={btnLg + " w-full"}>
             {busy ? t("Please wait…") : mode === "signup" ? t("Create account") : t("Log in")}
           </button>
         </form>
+        )}
         <div className="px-6 py-4 border-t border-slate-800 text-sm font-body text-slate-300">
           {mode === "signup" ? t("Already have an account?") + " " : t("New to 4MED?") + " "}
           <button onClick={() => setMode(mode === "signup" ? "signin" : "signup")} className={btnQuiet}>
@@ -1684,7 +1707,7 @@ function AdminPortal() {
       setError(null);
       const { error } = await signIn({ email: form.email, password: form.password });
       setBusy(false);
-      if (error) setError(error.message);
+      if (error) setError(friendlyError(error));
     };
     return (
       <div className="max-w-md mx-auto px-5 sm:px-6 py-16 fade-up">
@@ -1859,18 +1882,20 @@ function StaffJoin({ go }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [done, setDone] = useState(false);
+  const [awaitingEmail, setAwaitingEmail] = useState(false);
 
   const submit = async (e) => {
     e.preventDefault();
     setBusy(true); setError(null);
-    const { error } = await signUp({ email: f.email, password: f.password, fullName: f.name, role: "secretary" });
-    if (error) { setError(friendlyError(error)); setBusy(false); return; }
-    const { error: rpcErr } = await supabase.rpc("redeem_invite", { invite_code: f.code.trim().toUpperCase() });
+    // Check the code before making the account; the database links the
+    // practice when it builds the account.
+    const code = f.code.trim().toUpperCase();
+    const { data: valid } = await supabase.rpc("check_practice_invite", { p_code: code });
+    if (!valid) { setBusy(false); setError("That invite code is invalid or expired. Ask your doctor for a new one from their Practice settings."); return; }
+    const { error, needsConfirmation } = await signUp({ email: f.email, password: f.password, fullName: f.name, role: "secretary", practiceInviteCode: code });
     setBusy(false);
-    if (rpcErr) {
-      setError(rpcErr.message.includes("Invalid") ? "That invite code is invalid or expired — ask your doctor for a new one. Your account was created; once you have a valid code, log in to the Clinic App and contact support to link it." : rpcErr.message);
-      return;
-    }
+    if (error) { setError(friendlyError(error)); return; }
+    setAwaitingEmail(!!needsConfirmation);
     setDone(true);
   };
 
@@ -1886,8 +1911,14 @@ function StaffJoin({ go }) {
         </div>
         {done ? (
           <div className="px-6 py-6 font-body">
-            <p className="text-slate-200">Your secretary account is linked to the practice. You can register patients, run appointments and the queue, and take payments.</p>
-            <button onClick={() => go("app")} className={btn + " mt-6"}>Open the Clinic App <ArrowRight size={16} /></button>
+            {awaitingEmail ? (
+              <CheckYourEmail email={f.email} after="Then log in to the Clinic App." />
+            ) : (
+              <>
+                <p className="text-slate-200">Your secretary account is linked to the practice. You can register patients, run appointments and the queue, and take payments.</p>
+                <button onClick={() => go("app")} className={btn + " mt-6"}>Open the Clinic App <ArrowRight size={16} /></button>
+              </>
+            )}
           </div>
         ) : (
           <form onSubmit={submit} className="px-6 py-6 space-y-4">
@@ -1949,6 +1980,22 @@ function AppShell() {
   useEffect(() => {
     if (new URLSearchParams(window.location.search).has("ref")) window.history.replaceState(null, "", window.location.pathname);
   }, []);
+
+  // Back from the confirmation email (emailRedirectTo /?confirmed=1): open
+  // the right home once the session is in, or explain a dead link.
+  const [authNote, setAuthNote] = useState(() => {
+    if (new URLSearchParams(window.location.hash.slice(1)).get("error_description")) {
+      return { tone: "error", text: "This confirmation link has expired or was already used. Log in, or sign up again to get a new link." };
+    }
+    return new URLSearchParams(window.location.search).has("confirmed") ? { tone: "info", text: "Your email is confirmed. Welcome to 4MED.", route: true } : null;
+  });
+  useEffect(() => {
+    if (authNote && (!authNote.route || profile)) {
+      if (authNote.route) setView(["doctor", "secretary", "admin"].includes(profile.role) ? "app" : "patient");
+      if (window.location.search || window.location.hash) window.history.replaceState(null, "", window.location.pathname);
+      if (authNote.route) setAuthNote((n) => n && { ...n, route: false });
+    }
+  }, [authNote, profile]);
   const [navOpen, setNavOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
 
@@ -2069,6 +2116,16 @@ function AppShell() {
       </nav>
 
       <main id="main" className="flex-1">
+        {authNote && (
+          <div className="max-w-6xl mx-auto px-5 sm:px-6 pt-6">
+            <Notice tone={authNote.tone} icon={authNote.tone === "error" ? AlertCircle : Check}>
+              <span className="flex flex-wrap items-center justify-between gap-3">
+                {t(authNote.text)}
+                <button onClick={() => setAuthNote(null)} className={btnQuiet}>{t("Dismiss")}</button>
+              </span>
+            </Notice>
+          </div>
+        )}
         {profileSlug ? (
           <DoctorProfile slug={profileSlug} BookingModal={BookingModal} AuthGate={PatientAuthGate} go={go} />
         ) : (<>
