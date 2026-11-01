@@ -7,6 +7,7 @@ import { useAuth } from "./lib/AuthContext";
 import { supabase } from "./lib/supabaseClient";
 import { StaffGate } from "./lib/StaffGate";
 import { printDocument, esc, letterhead } from "./lib/print";
+import { printMedicalCertificate, loadCertContext, certRecommendations, manilaToday } from "./lib/medcert";
 import DentalChart from "./DentalChart";
 import EyeExamChart from "./EyeExamChart";
 import MentalHealthChart from "./MentalHealthChart";
@@ -290,6 +291,9 @@ function Consult({ encounterId, me, myName, onExit }) {
   const [procedures, setProcedures] = useState([]);
   const [dentalProcs, setDentalProcs] = useState([]);
   const [certs, setCerts] = useState([]);
+  // Doctor, clinic and patient details for printed certificates, loaded up
+  // front: a print window opened after an await is blocked as a pop-up.
+  const [certCtx, setCertCtx] = useState(null);
   const [chief, setChief] = useState("");
   const [followUp, setFollowUp] = useState("");
   const [error, setError] = useState(null);
@@ -311,6 +315,7 @@ function Consult({ encounterId, me, myName, onExit }) {
       .select("*, patient:patient_record_id(*)").eq("id", encounterId).single();
     if (err) { setError(err.message); return; }
     setEnc(e); setPatient(e.patient); setChief(e.chief_complaint || ""); setFollowUp(e.follow_up_note || "");
+    loadCertContext({ doctorId: e.doctor_id, patientRecordId: e.patient_record_id, appointmentId: e.appointment_id }).then(setCertCtx).catch(() => setCertCtx(null));
     const [al, tpl, hx, nt, rx, pr, mc] = await Promise.all([
       supabase.from("allergies").select("substance, severity").eq("patient_id", e.patient_record_id),
       supabase.from("note_templates").select("*"),
@@ -433,21 +438,13 @@ function Consult({ encounterId, me, myName, onExit }) {
       <tr><td class="label">MRN</td><td>${esc(patient.mrn)}</td></tr>
       <tr><td class="label">Date</td><td>${esc(new Date().toLocaleDateString("en-PH", { dateStyle: "long" }))}</td></tr></table>
       <div class="rule"></div><div style="font-size:30px">℞</div>${items}
-      <div class="sig"><div class="line">${esc(myName)}<br/>Lic. No. _______________</div></div>
+      <div class="sig"><div class="line">${esc(myName)}<br/>PRC License No. ${esc(certCtx?.doctor.prc || "_______________")}${certCtx?.doctor.ptr ? `<br/>PTR No. ${esc(certCtx.doctor.ptr)}` : ""}</div></div>
       <div class="muted">Electronically generated via 4MED. Valid with prescriber's signature.</div>`);
   };
 
   const printCert = (c) => {
-    printDocument("Medical Certificate", `
-      ${letterhead("Medical Certificate")}
-      <p>This is to certify that <strong>${esc(patient.first_name)} ${esc(patient.last_name)}</strong>${calcAge(patient.birthdate) != null ? `, ${calcAge(patient.birthdate)} years old,` : ","} was seen and examined on
-      ${esc(new Date(c.issued_at).toLocaleDateString("en-PH", { dateStyle: "long" }))} with the following findings:</p>
-      <p><strong>Diagnosis:</strong> ${esc(c.diagnosis)}</p>
-      ${c.remarks ? `<p><strong>Remarks:</strong> ${esc(c.remarks)}</p>` : ""}
-      ${c.rest_days > 0 ? `<p>The patient is advised to rest for <strong>${esc(c.rest_days)} day(s)</strong>.</p>` : ""}
-      <p>This certificate is issued upon the patient's request for whatever legal purpose it may serve.</p>
-      <div class="sig"><div class="line">${esc(myName)}<br/>Lic. No. _______________</div></div>
-      <div class="muted">Electronically generated via 4MED.</div>`);
+    if (!certCtx) return;
+    printMedicalCertificate({ cert: c, visitAt: enc.started_at || enc.created_at, ...certCtx });
   };
 
   if (!enc || !patient) return <div className="py-20 text-center text-slate-500 font-body">{error || "Loading consultation…"}</div>;
@@ -636,12 +633,12 @@ function Consult({ encounterId, me, myName, onExit }) {
                 <div key={c.id} className="flex justify-between items-center py-2.5 border-b border-slate-800/60 last:border-0 text-sm font-body">
                   <div>
                     <span className="text-slate-100">{c.diagnosis}</span>
-                    <div className="text-xs text-slate-500">{c.rest_days > 0 ? `${c.rest_days} rest day(s) · ` : ""}{fmtDT(c.issued_at)}</div>
+                    <div className="text-xs text-slate-500">{c.rest_days > 0 ? `${c.rest_days} rest day(s) · ` : ""}{c.wfh_days > 0 ? `${c.wfh_days} work-from-home day(s) · ` : ""}{c.fit_to_work ? "fit to work · " : ""}{fmtDT(c.issued_at)}</div>
                   </div>
-                  <button onClick={() => printCert(c)} className={btnGhost + " py-1.5 flex items-center gap-1.5"}><Printer size={13} /> Print</button>
+                  <button onClick={() => printCert(c)} disabled={!certCtx} className={btnGhost + " py-1.5 flex items-center gap-1.5"}><Printer size={13} /> Print</button>
                 </div>
               ))}
-              {!signed && <CertForm encounterId={encounterId} me={me} onSaved={load} />}
+              {!signed && <CertForm encounterId={encounterId} me={me} onSaved={load} ptr={certCtx?.doctor.ptr || ""} canEditPtr={enc.doctor_id === me} visitAt={enc.started_at || enc.created_at} />}
             </div>
           )}
 
@@ -932,27 +929,60 @@ function ProcForm({ encounterId, me, onSaved }) {
   );
 }
 
-function CertForm({ encounterId, me, onSaved }) {
-  const [f, setF] = useState({ diagnosis: "", remarks: "", rest_days: "0" });
+function CertForm({ encounterId, me, onSaved, ptr, canEditPtr, visitAt }) {
+  const blank = () => ({ diagnosis: "", remarks: "", rest_days: "0", wfh_days: "0", starts_on: manilaToday(), fit_to_work: false, purpose: "" });
+  const [f, setF] = useState(blank);
+  const [ptrNo, setPtrNo] = useState(ptr || "");
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  useEffect(() => { setPtrNo(ptr || ""); }, [ptr]);
+  const set = (k) => (e) => setF((p) => ({ ...p, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value }));
+  const rest = Math.max(0, Math.floor(Number(f.rest_days) || 0));
+  const wfh = Math.max(0, Math.floor(Number(f.wfh_days) || 0));
+  const days = rest + wfh;
+  // What the certificate will say, as plain text.
+  const preview = certRecommendations({ rest_days: rest, wfh_days: wfh, starts_on: f.starts_on, fit_to_work: f.fit_to_work }, visitAt || new Date())
+    .map((r) => r.replace(/<[^>]+>/g, "")).join(" ");
+
   const add = async () => {
-    if (!f.diagnosis.trim()) return;
-    setBusy(true);
-    await supabase.from("med_certificates").insert({
-      encounter_id: encounterId, issued_by: me, diagnosis: f.diagnosis.trim(),
-      remarks: f.remarks || null, rest_days: Number(f.rest_days) || 0,
+    if (!f.diagnosis.trim()) { setError("Enter the diagnosis as it should appear on the certificate."); return; }
+    setBusy(true); setError(null);
+    if (canEditPtr && ptrNo.trim() !== (ptr || "")) {
+      const { error: pErr } = await supabase.from("doctors").update({ ptr_no: ptrNo.trim() || null }).eq("id", me);
+      if (pErr) { setBusy(false); setError(pErr.message); return; }
+    }
+    const { error: iErr } = await supabase.from("med_certificates").insert({
+      encounter_id: encounterId, issued_by: me, diagnosis: f.diagnosis.trim(), remarks: f.remarks.trim() || null,
+      rest_days: rest, wfh_days: wfh, starts_on: days > 0 ? f.starts_on || null : null,
+      fit_to_work: days === 0 && f.fit_to_work, purpose: f.purpose.trim() || null,
     });
-    setBusy(false); setF({ diagnosis: "", remarks: "", rest_days: "0" }); onSaved();
+    setBusy(false);
+    if (iErr) { setError(iErr.message); return; }
+    setF(blank()); onSaved();
   };
+
+  const label = "text-xs font-mono2 text-slate-500 block mb-1";
   return (
-    <div className="mt-3 rounded-2xl border border-slate-700 p-3 space-y-2">
-      <input className={inputCls} placeholder="Diagnosis (as it should appear on the certificate)" value={f.diagnosis} onChange={(e) => setF((p) => ({ ...p, diagnosis: e.target.value }))} />
-      <input className={inputCls} placeholder="Remarks (optional)" value={f.remarks} onChange={(e) => setF((p) => ({ ...p, remarks: e.target.value }))} />
-      <div className="flex items-center gap-2">
-        <label className="text-xs font-mono2 text-slate-500">REST DAYS</label>
-        <input className={inputCls + " w-24"} type="number" min="0" value={f.rest_days} onChange={(e) => setF((p) => ({ ...p, rest_days: e.target.value }))} />
+    <div className="mt-3 rounded-2xl border border-slate-700 p-3 space-y-3">
+      <input className={inputCls} placeholder="Diagnosis (as it should appear on the certificate)" value={f.diagnosis} onChange={set("diagnosis")} />
+      <input className={inputCls} placeholder="Remarks (optional)" value={f.remarks} onChange={set("remarks")} />
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <label className="block"><span className={label}>REST DAYS</span><input className={inputCls} type="number" min="0" value={f.rest_days} onChange={set("rest_days")} /></label>
+        <label className="block"><span className={label}>WORK FROM HOME DAYS</span><input className={inputCls} type="number" min="0" value={f.wfh_days} onChange={set("wfh_days")} /></label>
+        {days > 0 && <label className="block"><span className={label}>STARTING</span><input className={inputCls} type="date" value={f.starts_on} onChange={set("starts_on")} /></label>}
       </div>
-      <button onClick={add} disabled={busy} className={btnPrimary + " flex items-center gap-1.5"}><Plus size={14} /> Issue certificate</button>
+      {days === 0 && (
+        <label className="flex items-center gap-2 text-sm font-body text-slate-200">
+          <input type="checkbox" checked={f.fit_to_work} onChange={set("fit_to_work")} /> Fit to return to work or school
+        </label>
+      )}
+      {preview && <p className="text-xs font-body text-slate-400">{preview}</p>}
+      <input className={inputCls} placeholder="Purpose (optional), e.g. work, school, travel" value={f.purpose} onChange={set("purpose")} />
+      {canEditPtr && (
+        <label className="block"><span className={label}>YOUR PTR NO. (PRINTED UNDER YOUR PRC LICENSE)</span><input className={inputCls} value={ptrNo} onChange={(e) => setPtrNo(e.target.value)} placeholder="Optional" /></label>
+      )}
+      {error && <p className="text-sm text-rose-300 font-body">{error}</p>}
+      <button onClick={add} disabled={busy} className={btnPrimary + " flex items-center gap-1.5"}><Plus size={14} /> {busy ? "Issuing…" : "Issue certificate"}</button>
     </div>
   );
 }
