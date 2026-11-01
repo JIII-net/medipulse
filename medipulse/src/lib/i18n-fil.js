@@ -329,6 +329,7 @@ export const FIL = {
   "Medical certificates": "Mga medical certificate",
   "No certificates yet.": "Wala pang certificate.",
   "days rest": "araw na pahinga",
+  "days work from home": "araw na work from home",
   "Ask the clinic for a signed copy if you need one for work or school.": "Humingi sa klinika ng kopyang may pirma kung kailangan mo para sa trabaho o eskuwela.",
 
   // --- reviews

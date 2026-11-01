@@ -4,6 +4,7 @@ import { supabase } from "./lib/supabaseClient";
 import { useAuth } from "./lib/AuthContext";
 import { validateUpload, signedUrl } from "./lib/uploads";
 import { printDocument, letterhead, esc } from "./lib/print";
+import { printMedicalCertificate, loadCertContext } from "./lib/medcert";
 import { friendlyError } from "./lib/errors";
 import { inputSm, btnSm, btnGhostSm, panel, FieldLabel, Notice } from "./ui";
 
@@ -138,6 +139,7 @@ export function PatientRecordsPanel({ recordId, personName, t = (s) => s }) {
   const [files, setFiles] = useState([]);
   const [rx, setRx] = useState([]);
   const [certs, setCerts] = useState([]);
+  const [certCtx, setCertCtx] = useState({}); // letterhead and patient details per visit, loaded before Print
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -148,7 +150,7 @@ export function PatientRecordsPanel({ recordId, personName, t = (s) => s }) {
       const [fl, en] = await Promise.all([
         supabase.from("patient_files").select("*").eq("patient_record_id", recordId).order("created_at", { ascending: false }),
         supabase.from("encounters")
-          .select("id, started_at, doctor_id, doctor:doctor_id(profiles(full_name), prc_license), prescriptions(id, created_at, items:prescription_items(*)), med_certificates(*)")
+          .select("id, started_at, doctor_id, appointment_id, doctor:doctor_id(profiles(full_name), prc_license), prescriptions(id, created_at, items:prescription_items(*)), med_certificates(*)")
           .eq("patient_record_id", recordId).order("started_at", { ascending: false }),
       ]);
       setLoading(false);
@@ -157,6 +159,10 @@ export function PatientRecordsPanel({ recordId, personName, t = (s) => s }) {
       const visits = en.data || [];
       setRx(visits.flatMap((v) => (v.prescriptions || []).filter((p) => p.items?.length).map((p) => ({ ...p, visit: v }))));
       setCerts(visits.flatMap((v) => (v.med_certificates || []).map((c) => ({ ...c, visit: v }))));
+      const withCerts = visits.filter((v) => v.med_certificates?.length);
+      Promise.all(withCerts.map((v) =>
+        loadCertContext({ doctorId: v.doctor_id, patientRecordId: recordId, appointmentId: v.appointment_id }).then((ctx) => [v.id, ctx]).catch(() => null)
+      )).then((pairs) => setCertCtx(Object.fromEntries(pairs.filter(Boolean))));
     })();
   }, [recordId]);
 
@@ -172,20 +178,14 @@ export function PatientRecordsPanel({ recordId, personName, t = (s) => s }) {
       <div class="muted">Copy from the 4MED patient portal.</div>`);
   };
 
+  // The same certificate the clinic prints, from the doctor's letterhead.
   const printCert = (c) => {
-    const doctor = c.visit.doctor?.profiles?.full_name || "Doctor";
-    printDocument("Medical certificate", `
-      ${letterhead("MEDICAL CERTIFICATE")}
-      <table><tr><td class="label">Patient</td><td>${esc(personName)}</td></tr>
-      <tr><td class="label">Date issued</td><td>${esc(fmtDate(c.issued_at))}</td></tr>
-      <tr><td class="label">Seen on</td><td>${esc(fmtDate(c.visit.started_at || c.issued_at))}</td></tr></table>
-      <div class="rule"></div>
-      <p>This is to certify that <b>${esc(personName)}</b> was seen and examined on ${esc(fmtDate(c.visit.started_at || c.issued_at))}.</p>
-      <table><tr><td class="label">Diagnosis</td><td>${esc(c.diagnosis || "")}</td></tr>
-      ${c.rest_days ? `<tr><td class="label">Rest</td><td>${esc(c.rest_days)} day${Number(c.rest_days) === 1 ? "" : "s"}</td></tr>` : ""}
-      ${c.remarks ? `<tr><td class="label">Remarks</td><td>${esc(c.remarks)}</td></tr>` : ""}</table>
-      <div class="sig"><div class="line">${esc(doctor)}${c.visit.doctor?.prc_license ? `<br/>PRC ${esc(c.visit.doctor.prc_license)}` : ""}</div></div>
-      <div class="muted">Copy from the 4MED patient portal. For work, school or travel, ask the clinic for a copy with the doctor's signature.</div>`);
+    const ctx = certCtx[c.visit.id] || {
+      doctor: { name: c.visit.doctor?.profiles?.full_name || "", prc: c.visit.doctor?.prc_license || "" },
+      clinic: null,
+      patient: { name: personName },
+    };
+    printMedicalCertificate({ cert: c, visitAt: c.visit.started_at || c.issued_at, ...ctx });
   };
 
   if (!recordId) return <p className="font-body text-slate-300">{t("Records appear here after the first visit.")}</p>;
@@ -234,7 +234,7 @@ export function PatientRecordsPanel({ recordId, personName, t = (s) => s }) {
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="text-sm text-slate-400">{fmtDate(c.issued_at)} · {c.visit.doctor?.profiles?.full_name || "Doctor"}</div>
-                <div className="text-ink">{c.diagnosis}{c.rest_days ? ` · ${c.rest_days} ${t("days rest")}` : ""}</div>
+                <div className="text-ink">{c.diagnosis}{c.rest_days ? ` · ${c.rest_days} ${t("days rest")}` : ""}{c.wfh_days ? ` · ${c.wfh_days} ${t("days work from home")}` : ""}</div>
                 {c.remarks && <div className="text-sm text-slate-300">{c.remarks}</div>}
               </div>
               <button onClick={() => printCert(c)} className={btnGhostSm + " shrink-0"}><Printer size={15} /> {t("Print")}</button>
